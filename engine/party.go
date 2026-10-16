@@ -23,11 +23,6 @@ func (e *Engine) drawPartyList() {
 	e.DisplayString(0x21, y, 0xF, "AC  HP")
 	y += 2
 	hi := e.partySel
-	if e.rosterNone {
-		hi = -1
-	} else if e.rosterHi != nil {
-		hi = e.partyIndex(e.rosterHi)
-	}
 	for i, c := range e.party {
 		e.ClearCells(x, y, 0x26, y)
 		if i == hi && e.ext.choosing {
@@ -249,91 +244,6 @@ func (e *Engine) initMouseJoystick() {
 			e.Cfg.Input = 'N'
 		}
 		e.writeConfig()
-	}
-}
-
-// SelectCharacter = O0ED:2E23 (prompt, exit, var who): pick a party member
-// with Next/Prev (keypad) and Select; Exit (offered when exit is set)
-// gives nil. The roster highlights the current choice.
-func (e *Engine) SelectCharacter(prompt string, exit bool, who *Character) *Character {
-	prompt = cut(prompt, 0x28)
-	menu := "Select"
-	if exit {
-		menu += " Exit"
-	}
-	index := func(c *Character) int {
-		for i, p := range e.party {
-			if p == c {
-				return i
-			}
-		}
-		return -1
-	}
-	if who == nil && len(e.party) > 0 {
-		who = e.party[0]
-	}
-	e.ext.choosing = true
-	defer func() {
-		e.ext.choosing = false
-		e.DisplayPartyList() // (the original leaves the roster as drawn)
-	}()
-	for {
-		// who stays highlighted while the menu waits (the view animation
-		// redraws the roster).
-		e.rosterHi, e.rosterNone = who, who == nil
-		e.DisplayPartyList() // O0ED:07A2 (who)
-		mark := e.regionMark()
-		{ // extra (nav.go): click a member to select it
-			e.addRegion(region{x0: 0, y0: 0, x1: 0x27, y1: 0x17, click: func(cx, cy int) uint16 {
-				if i := e.rosterRow(cx, cy); i >= 0 {
-					who = e.party[i]
-					return 'S'
-				}
-				return 0
-			}})
-		}
-		key, extra := e.DisplayInput(prompt+" ", menu, 0xD, 0xA, 0xF, true, e.gameState == 2 || e.gameState == 6) // O0ED:2E23 at 3844
-		e.regionCut(mark)
-		e.rosterHi, e.rosterNone = nil, false
-		// The exit set (DS O0ED:2DFA) is checked before the extra flag.
-		switch key {
-		case 13, 'S', 0x1B:
-			return who
-		case 'E':
-			if !extra {
-				return nil
-			}
-			return who
-		}
-		if extra {
-			i := index(who)
-			switch key {
-			case 'O', 'P': // next, wrapping to the first (P = cursor down, an extra)
-				if who == nil {
-					// nil^.next reads 0000:0104 (the INT 41h vector, garbage in
-					// the original); the harness pins it to nil, and nil wraps to
-					// the first member (O0ED:2F1B)
-					who = e.party[0]
-				} else if i+1 < len(e.party) {
-					who = e.party[i+1]
-				} else {
-					who = e.party[0]
-				}
-			case 'G', 'H': // previous, wrapping to the last (H = cursor up, an extra)
-				if i > 0 {
-					who = e.party[i-1]
-				} else {
-					who = e.party[len(e.party)-1]
-				}
-			}
-			if e.whoVar && who != nil { // opWho's var is DS:5D92 itself
-				e.selectChar(who)
-			}
-			continue
-		}
-		if key == 0 { // (Esc) the original stores nil and keeps asking
-			who = nil
-		}
 	}
 }
 

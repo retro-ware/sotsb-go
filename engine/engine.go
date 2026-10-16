@@ -110,8 +110,6 @@ type Engine struct {
 
 	party      []*Character // DS:5D96 list head ...
 	partySel   int          // DS:5D92 selected character
-	rosterHi   *Character   // SelectCharacter: O0ED:07A2 highlights this one (nil: partySel)
-	rosterNone bool         // ... or no one (who = nil)
 	loadedGame bool         // DS:49F8
 	saved      bool         // b7523 nothing has happened since the game was saved
 	debug      bool         // DS:470C
@@ -185,7 +183,6 @@ type Engine struct {
 	curSpell               byte                    // DS:681B spell being cast
 	tgtX, tgtY             int                     // DS:6DB9/6DBA target square
 	combatTargets          bool                    // DS:72BA points at O0C9:1FA1 (set by Combat), else O0C2:114D
-	whoVar                 bool                    // SelectCharacter's who is DS:5D92 itself (opWho)
 	spellFx                [len(spellNames)]func() // DS:6B84 spell effect table (slot 0 unused)
 	v4844, v4845           byte                    // DS:4844/4845 spell scratch
 	v681D                  byte                    // DS:681D the speed affects are working out the moves

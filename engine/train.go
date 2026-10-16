@@ -456,11 +456,11 @@ func (e *Engine) iconPane(x, y int) {
 	e.Flip() // R2BC:1104
 }
 
-// iconCopy = O0A7:3C5B (src, dst, recolour) nested in the icon editor:
+// iconCopy = O0EF:3B91 (src, dst, recolour) nested in the icon editor:
 // copy both poses of icon slot src into slot dst (the original also
 // copies the mask planes, which the port keeps in the image); with
 // recolour the selected character's six colour pairs (+0xC1..) replace
-// the DS:3CF5 colours in the copy.
+// the DS:4CAF colours in the copy.
 func (e *Engine) iconCopy(src, dst byte, recolour bool) {
 	for p := 0; p < 2; p++ {
 		if im := e.icons[src][p]; im != nil {

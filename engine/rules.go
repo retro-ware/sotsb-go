@@ -606,26 +606,6 @@ func (e *Engine) Heal(c *Character, amount int, magical bool) bool {
 	return true
 }
 
-// Revive = O0E3:24C7 (char, hp): back on its feet if its square is free.
-func (e *Engine) Revive(c *Character, hp byte) bool {
-	if !e.combatSquareFree(c, e.combatX(c), e.combatY(c), true) {
-		return false
-	}
-	c.Status = 0
-	c.Okay = 1
-	c.HP = hp
-	if e.gameState == stateCombat {
-		e.combatRedrawChar(c, 3, 0)
-	}
-	msg := "gets back up"
-	if c.Side == 1 {
-		msg = "stands up and grins"
-	}
-	e.combatName(c, msg, combatMsgRow, true)
-	e.countSides()
-	return true
-}
-
 // hitMessage = O151:270F (char, magical, message): in combat the target
 // flashes (once per message delay step for magic) with a sound.
 func (e *Engine) hitMessage(c *Character, magical bool, msg string) {

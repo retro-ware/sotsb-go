@@ -140,31 +140,41 @@ func (e *Engine) cmdWho() {
 	e.selectMember(e.selectMemberMenu(e.sc.text[1], false, e.selected()))
 }
 
-// selectMemberMenu = O0ED:2E2E selectAPlayer (prompt, allowExit, start):
-// Select (and Exit) with Home / End stepping through the party from start;
-// nil on Exit.
+// selectMemberMenu = O151:36A2 (prompt, allowExit, start): Select (and
+// Exit), Up / Down stepping through the party from start with wrap; nil on
+// Exit. (The original's mouse pick is the click region, an extra.)
 func (e *Engine) selectMemberMenu(prompt string, allowExit bool, start *Character) *Character {
 	menu := "Select"
 	if allowExit {
 		menu += " Exit"
 	}
 	cur := start
-	k := byte(' ')
-	for k != keyEnter && k != keyEsc && k != 'E' && k != 'S' {
+	e.ext.choosing = true
+	defer func() { e.ext.choosing = false }()
+	for k := byte(' '); k != keyEnter && k != keyEsc && k != 'E' && k != 'S'; {
 		e.playerSummary(cur)
+		mark := e.regionMark()
+		e.addRegion(region{x0: 0, y0: 0, x1: 0x27, y1: 0x17, click: func(cx, cy int) uint16 {
+			if i := e.rosterRow(cx, cy); i >= 0 {
+				cur = e.party[i]
+				return 'S'
+			}
+			return 0
+		}})
 		animate := e.gameState == stateCamp || e.gameState == stateAfterCombat
 		var extra bool
 		k, extra = e.DisplayInput(prompt+" ", menu, colourLightMagenta, colourGreen, colourWhite, true, animate)
+		e.regionCut(mark)
 		if extra {
 			i := e.partyIndex(cur)
 			switch k {
-			case scanEnd:
-				if i+1 < len(e.party) {
+			case scanDown:
+				if i >= 0 && i+1 < len(e.party) {
 					cur = e.party[i+1]
 				} else {
 					cur = e.party[0]
 				}
-			case scanHome:
+			case scanUp:
 				if i > 0 {
 					cur = e.party[i-1]
 				} else {

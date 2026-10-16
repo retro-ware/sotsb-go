@@ -264,9 +264,9 @@ func (e *Engine) paladinCure(p *Character) {
 	e.CharacterSheet()
 }
 
-// healPlayer = O0E3:2432 heal_player (c, points, onlyWounded): hit points
-// up to the maximum for the living, the dying and the unconscious; one who
-// was down wakes up (out of combat).
+// healPlayer = O145:21BF (c, points, onlyWounded): hit points up to the
+// maximum for the living, the dying and the unconscious; one who was down
+// is okay again (out of combat).
 func (e *Engine) healPlayer(c *Character, points byte, onlyWounded bool) bool {
 	switch c.Status {
 	case statusOkay, statusAnimated, statusUnconscious, statusDying:
@@ -285,10 +285,10 @@ func (e *Engine) healPlayer(c *Character, points byte, onlyWounded bool) bool {
 			c.Status = statusUnconscious
 		}
 		if c.Status == statusUnconscious && e.gameState != stateCombat {
-			e.callAffect(affectWakeUp, c, nil, 1)
+			c.Status = statusOkay
+			c.Okay = 1
 		}
 	}
 	return true
 }
 
-const affectWakeUp = 78

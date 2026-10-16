@@ -308,7 +308,7 @@ func (e *Engine) itemReadyEffect(it *Item, ready bool) {
 func (e *Engine) tradeItem(it *Item) {
 	to := e.view.start
 	e.DrawMainScreen()
-	to = e.SelectCharacter("Trade with Whom?", true, to)
+	to = e.selectMemberMenu("Trade with Whom?", true, to)
 	if to == nil {
 		return
 	}
