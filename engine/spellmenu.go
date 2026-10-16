@@ -12,6 +12,7 @@ const (
 	listToChoose  = 4 // spells the character may learn
 	listMemorise  = 5 // spells still to memorise
 	listToScribe  = 6
+	listBundle    = 7 // the scrolls in the bag in scrollItem
 	maxListSpells = 84
 	maxScrolls    = 49
 )
@@ -169,6 +170,19 @@ func (e *Engine) addScrollSpells(unknownOnly bool) {
 	}
 }
 
+// addBundleScrolls = O113:09F5: the spells of each scroll in the bag.
+func (e *Engine) addBundleScrolls() {
+	l := &e.spells
+	l.scrolls = [maxScrolls]*Item{}
+	l.nScrolls = 0
+	bag := l.scrollItem
+	for _, it := range bag.Contents {
+		l.scrollItem = it
+		e.addScrollSpells(false)
+	}
+	l.scrollItem = bag
+}
+
 // addAllScrolls = O0C2:09F4 (unknownOnly): the spells of every scroll carried.
 func (e *Engine) addAllScrolls(unknownOnly bool) {
 	l := &e.spells
@@ -213,6 +227,9 @@ func (e *Engine) buildSpellList(kind int) bool {
 		sorted = false
 	case listScrolls:
 		e.addAllScrolls(false)
+		sorted = false
+	case listBundle:
+		e.addBundleScrolls()
 		sorted = false
 	case listToScribe:
 		e.addAllScrolls(true)

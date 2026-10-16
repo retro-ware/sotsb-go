@@ -10,11 +10,15 @@ const carryBase = 1500
 // carryLimit = O13C:0000 (c): the weight the character can carry.
 func carryLimit(c *Character) uint16 { return uint16(int(strCarry(c)) + carryBase) }
 
-// willOverload = O0BA:006D (c, weight): whether adding the weight
+// willOverload = O13C:0062 (c, weight): whether adding the weight
 // overloads the character, and how much still fits then.
 func willOverload(c *Character, weight uint16) (bool, uint16) {
-	if c.Weight+weight > carryLimit(c) {
-		return true, carryLimit(c) - c.Weight
+	limit := carryLimit(c)
+	if int(c.Weight)+int(weight) > int(limit) {
+		if c.Weight > limit {
+			return true, 0
+		}
+		return true, limit - c.Weight
 	}
 	return false, 0
 }

@@ -511,9 +511,13 @@ func (e *Engine) useItem(it *Item) bool {
 	var spell byte
 	done := false
 	if e.isScroll(it) {
-		e.usedScroll = it
+		e.spells.scrollItem = it
+		kind := listScroll
+		if it.Type == itemTypeBag {
+			kind = listBundle
+		}
 		var flag bool
-		spell = e.SpellList(2, 1, &idx, &flag)
+		spell = e.SpellList(kind, 1, &idx, &flag)
 	} else if it.Spells[1] > 0 && it.Spells[2] < itemPowerFlag {
 		e.usingItem = true
 		spell = it.Spells[1] & (itemPowerFlag - 1)
@@ -569,55 +573,90 @@ func (e *Engine) spellRec(spell byte, k int) byte {
 	return spellTable[spell][k]
 }
 
-// Selling and identifying (O0AF:27C2, 2A29).
+// Selling and identifying (O100:2BD9, 303A).
 const (
-	stackSaleDivisor = 20  // a stack sells for count × half price / 20
-	identifyCost     = 200 // gold pieces
+	stackSaleDivisor = 20  // arrows and bolts sell for count × half price / 20
+	identifyCost     = 100 // gold pieces
+	hiddenWordBits   = 7   // Hidden: the name words not known yet
 )
 
-// sellItem = O0AF:27C2 (item): half the price (a twentieth of that per
-// piece of a stack), paid in platinum and gold; what the seller cannot
-// carry goes into the treasure pool.
+// sellItem = O100:2BD9 (item): half the price (times the count of a
+// stack, a twentieth of that for arrows and bolts), paid in platinum and
+// gold; what the seller cannot carry goes into the treasure pool. A
+// worthless item may be thrown away.
 func (e *Engine) sellItem(it *Item) {
 	var v uint16
 	if it.Price > 0 {
-		v = it.Price >> 1
+		v = it.Price / 2
 	}
-	if it.Count > 1 {
-		// (the arrows/quarrels branch of the original can never be taken)
-		v = uint16(uint32(it.Count)*uint32(v)) / stackSaleDivisor
+	if it.Count > 1 && it.Type != itemTypeBag {
+		if it.Type == itemTypeArrows || it.Type == itemTypeBolts {
+			v = uint16(uint32(it.Count) * uint32(v) / stackSaleDivisor)
+		} else {
+			v = uint16(it.Count) * v
+		}
 	}
 	e.ItemName(e.viewChar(), it, 0, 0, false, false)
-	e.DisplayTextBlock(1, 0x15, 0x26, 0x16, 0xE, true,
-		"I'll give you "+itoa(int(v))+" gold pieces for your "+it.Name())
-	if e.YesNo(0xD, 0xA, 0xF, "Is It a Deal? ") == 'Y' {
-		e.printMessage("Sold!")
+	single := it.Count < 2
+	prompt := ""
+	switch {
+	case v > 0:
+		e.DisplayTextBlock(1, 21, 38, 22, colourYellow, true,
+			"I'll give you "+itoa(int(v))+" gold pieces for your "+it.Name())
+		if single || it.Type == itemTypeBag {
+			prompt = "Will you sell it? "
+		} else {
+			prompt = "Will you sell them? "
+		}
+	case single:
+		e.DisplayTextBlock(1, 21, 38, 22, colourYellow, true, "Your "+it.Name()+" is worthless to me.")
+		prompt = "Shall I dispose of it for you? "
+	default:
+		e.DisplayTextBlock(1, 21, 38, 22, colourYellow, true, "Your "+it.Name()+" are worthless.")
+		prompt = "Would you like to discard them? "
+	}
+	if e.YesNo(colourLightMagenta, colourGreen, colourWhite, prompt) == 'Y' {
+		switch {
+		case v > 0:
+			e.printMessage("Sold!")
+		case single:
+			e.printMessage("I will give it to one of my sons.")
+		default:
+			e.printMessage("Very well.  I'll take them.")
+		}
 		c := e.selected()
 		e.loseItem(c, it)
 		platinum, gold := v/platinumGold, v%platinumGold
-		if over, room := willOverload(c, gold+platinum); over {
+		if over, room := willOverload(c, v); over {
 			e.printMessage("Overloaded.  Money will be put in pool.")
-			if room > platinum {
-				c.Coins[coinPlatinum] += platinum
-			} else {
-				c.Coins[coinPlatinum] += room
-				e.treasureCoins[coinPlatinum] += int32(platinum - room)
-			}
+			p := min(room, platinum)
+			c.Coins[coinPlatinum] += p
+			platinum -= p
+			room -= p
+			g := min(room, gold)
+			c.Coins[coinGold] += g
+			gold -= g
+			e.treasureCoins[coinPlatinum] += int32(platinum)
+			e.treasureCoins[coinGold] += int32(gold)
 		} else {
 			c.Coins[coinPlatinum] += platinum
+			c.Coins[coinGold] += gold
 		}
-		c.Coins[coinGold] += gold
 	}
-	e.ClearCells(1, 0x15, 0x26, 0x16)
+	e.ClearCells(1, 21, 38, 22)
 }
 
-// identifyItem = O0AF:2A29 (item, redraw): 200 gp, from the character or
-// else the treasure pool, shows the hidden words.
+// identifyItem = O100:303A (item, redraw): 100 gp, from the character or
+// else the treasure pool, shows the hidden words. A bag is refused.
 func (e *Engine) identifyItem(it *Item) (redraw bool) {
+	if it.Type == itemTypeBag {
+		e.DisplayTextBlock(1, 21, 38, 22, colourYellow, true, "Fool! You must remove them from the bundle first!")
+		return
+	}
 	paid := false
 	e.ItemName(e.viewChar(), it, 0, 0, false, false)
-	e.DisplayTextBlock(1, 0x15, 0x26, 0x16, 0xE, true, "For 200 gold pieces I'll identify your "+it.Name())
-	if e.YesNo(0xD, 0xA, 0xF, "Is It a Deal? ") == 'Y' {
+	e.DisplayTextBlock(1, 21, 38, 22, colourYellow, true, "For "+itoa(identifyCost)+" gold pieces I'll identify your "+it.Name())
+	if e.YesNo(colourLightMagenta, colourGreen, colourWhite, "Is It a Deal? ") == 'Y' {
 		if g := goldWorth(e.selected()); g >= identifyCost {
 			paid = true
 			e.setGold(uint16(g - identifyCost))
@@ -629,25 +668,26 @@ func (e *Engine) identifyItem(it *Item) (redraw bool) {
 		}
 	}
 	if paid {
-		if it.Hidden == 0 {
-			e.DisplayTextBlock(1, 0x15, 0x26, 0x16, 0xE, true, "I can't tell anything new about your "+it.Name())
+		if it.Hidden&hiddenWordBits == 0 {
+			e.DisplayTextBlock(1, 21, 38, 22, colourYellow, true, "I can't tell anything new about your "+it.Name())
 		} else {
-			it.Hidden = 0
+			it.Hidden &^= hiddenWordBits
 			e.ItemName(e.viewChar(), it, 0, 0, false, false)
-			e.DisplayTextBlock(1, 0x15, 0x26, 0x16, 0xE, true, "It looks like some sort of "+it.Name())
+			e.DisplayTextBlock(1, 21, 38, 22, colourYellow, true, "It looks like some sort of "+it.Name())
 			redraw = true
 		}
 		e.gameDelay()
 	}
-	e.ClearCells(1, 0x15, 0x26, 0x16)
+	e.ClearCells(1, 21, 38, 22)
 	return
 }
 
-// SpellList = O0AF:347C spell_menu2 (kind, mode, index, any): the list of spells of
-// one kind (0 memory, 1 book, 2 scroll, 3 scrolls, 4 choose, 5 to be
-// memorised, 6 to be scribed); returns the chosen spell or 0.
+// SpellList = O100:3B5A spell_menu2 (kind, mode, index, any): the list of
+// spells of one kind (0 memory, 1 book, 2 scroll, 3 scrolls, 4 choose, 5
+// to be memorised, 6 to be scribed, 7 bundle); returns the chosen spell or
+// 0.
 func (e *Engine) SpellList(kind, mode int, index *int, any *bool) byte {
-	titles := []string{"in Memory", "in Spell Book", "on Scroll", "on Scrolls", "to choose from", "to be memorized", "to be scribed"}
+	titles := []string{"in Memory", "in Spell Book", "on Scroll", "on Scrolls", "to choose from", "to be memorized", "to be scribed", "in Bundle"}
 	title := ""
 	if kind >= 0 && kind < len(titles) {
 		title = titles[kind]
@@ -656,11 +696,15 @@ func (e *Engine) SpellList(kind, mode int, index *int, any *bool) byte {
 	if !*any {
 		return 0
 	}
-	if *index < 0 {
-		e.DrawBoxTitled(1, 1, 0x26, 1, 0, 0, "")
-		c := e.selected()
-		e.displayName(c, 1, 1, true)
-		e.DisplayString(len(c.Name())+4, 1, 0xA, "Spells "+title)
+	if *index < 0 || mode == menuCast {
+		if mode == menuMemorize {
+			e.drawMemoriseFrame()
+		} else {
+			e.drawListFrame()
+		}
 	}
+	c := e.selected()
+	e.displayName(c, 1, 1, true)
+	e.displayStringBg(int(c.PName[0])+4, 1, colourGreen, colourBlack, "Spells "+title)
 	return e.spellMenu(mode, index)
 }

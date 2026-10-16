@@ -149,7 +149,6 @@ type Engine struct {
 	view           viewState           // ovr20 View screen
 	itemsRedraw    bool                // DS:6821
 	usingItem      bool                // DS:6DBF
-	usedScroll     *Item               // DS:6B80
 	spellMenuKey   byte                // (extra) the key that closed the last spell menu
 	rv             ruleVars            // DS:6814..682A rule globals
 	near           nearState           // DS:6716 combatants near a square
