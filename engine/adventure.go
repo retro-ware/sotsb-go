@@ -740,7 +740,7 @@ const (
 	groundRows  = 42
 )
 
-// displayAndWait = R4CE:094D displayAndDebug (fg, bg, text): the text on
+// displayAndWait = R540:0A1D displayAndDebug (fg, bg, text): the text on
 // the bottom row, then a key (debug_txt; in the demo only a waiting key
 // is taken).
 func (e *Engine) displayAndWait(fg, bg int, text string) {

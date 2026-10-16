@@ -165,12 +165,12 @@ func (e *Engine) DisplayTextBlock(x1, y1, x2, y2, colour int, clear bool, s stri
 	}
 	at := func(k int) byte { return s[k-1] } // Pascal 1-based
 	i := 1
-	// printSeg = R4CE:03CE: s[i..j] at the cursor, i = j+1.
+	// printSeg = R540:03EC: s[i..j] at the cursor, i = j+1.
 	printSeg := func(j int) {
 		for ; i <= j; i++ {
 			e.DisplayChar(e.msgCol, e.msgRow, colour, at(i), true)
 			if e.slowText {
-				e.Delay(int(e.gameSpeed) * textDelayPerSpeed) // R4CE:03CE
+				e.Delay(int(e.gameSpeed) * textDelayPerSpeed) // R540:03EC
 			}
 			e.msgCol++
 		}
@@ -193,7 +193,7 @@ func (e *Engine) DisplayTextBlock(x1, y1, x2, y2, colour int, clear bool, s stri
 			// at x2, but that test can never hold after the > above.)
 			e.msgCol = x1
 			e.msgRow++
-			for i < n && at(i) == ' ' { // R4CE:0444
+			for i < n && at(i) == ' ' { // R540:0463
 				i++
 			}
 			if e.msgRow > y2 && i < n {
