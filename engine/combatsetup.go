@@ -8,7 +8,7 @@ func (e *Engine) combatSetup() {
 	e.FreeAnimPic()
 	e.port = portrait{headID: 0xFF, bodyID: 0xFF}
 	e.ClearRow24()
-	e.gameDelay()
+	e.pauseForMessage()
 	e.DisplayString(0, 0x18, 0xA, "A battle begins...")
 	e.computerMagic, e.combatRound, e.rv.hitRoll = false, 0, 0
 	e.roundLimit = combatRoundsWithoutAttack

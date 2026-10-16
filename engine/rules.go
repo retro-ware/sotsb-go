@@ -343,7 +343,7 @@ func (e *Engine) inPoisonCloud(c *Character, checkStinking bool) {
 		return
 	}
 	e.combatName(c, "is Poisoned", combatMsgRow, false)
-	e.gameDelay()
+	e.pauseForMessage()
 	e.AddAffect(c, affectPoisoned, 0, 255, 0)
 	e.killWithMessage(c, statusDead, "is killed")
 }
@@ -409,7 +409,7 @@ func (e *Engine) killWithMessage(c *Character, status byte, msg string) {
 	if c.Okay == 0 {
 		e.combatRemoveFromMap(c)
 	}
-	e.gameDelay()
+	e.pauseForMessage()
 	e.clearCombatText()
 	if e.gameState != stateCombat {
 		e.summaryRow(c, c == e.selected())
@@ -540,14 +540,14 @@ func (e *Engine) damagePerson(c *Character, dmg int, mode byte, saved bool) {
 		}
 		e.combatName(c, msg, int(e.msgRow)+1, false)
 		if e.gameState != stateCombat {
-			e.gameDelay()
+			e.pauseForMessage()
 		} else {
 			e.downAffects(c)
 			e.affectGroup(c, grpDown)
 			if c.Okay == 0 {
 				e.combatRemoveFromMap(c)
 			} else {
-				e.gameDelay()
+				e.pauseForMessage()
 			}
 		}
 	}
@@ -664,7 +664,7 @@ func (e *Engine) hitMessage(c *Character, magical bool, msg string) {
 	}
 	e.Flip()
 	if n == 0 {
-		e.gameDelay()
+		e.pauseForMessage()
 	}
 }
 

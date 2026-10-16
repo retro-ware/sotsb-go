@@ -613,7 +613,7 @@ func (e *Engine) castMessage(c *Character, msg string, spell int) {
 	e.displayName(c, 1, 0x13, false)
 	e.DisplayString(len(c.Name())+2, 0x13, colourGreen, msg)
 	e.DisplayString(1, 0x14, colourGreen, spellNames[spell])
-	e.gameDelay()
+	e.pauseForMessage()
 	e.clearCombatText()
 }
 

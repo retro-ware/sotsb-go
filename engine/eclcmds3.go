@@ -287,6 +287,6 @@ func (e *Engine) cmdCall() {
 		if a.cur > len(a.frames) {
 			a.cur = 1
 		}
-		e.gameDelay()
+		e.pauseForMessage()
 	}
 }

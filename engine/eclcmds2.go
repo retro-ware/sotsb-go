@@ -170,7 +170,7 @@ func (e *Engine) cmdFindItem() {
 // cmdDelay = O050:2D56.
 func (e *Engine) cmdDelay() {
 	e.sc.pc++
-	e.gameDelay()
+	e.pauseForMessage()
 }
 
 // cmdPrintReturn = O050:3161: the text cursor to the next line.
@@ -235,7 +235,7 @@ func (e *Engine) cmdGainExperience() {
 		members = []*Character{e.selected()}
 	}
 	e.DisplayTextBlock(textLeft, textTop, textRight, textBottom, colourGreen, true, text)
-	e.gameDelay()
+	e.pauseForMessage()
 	for _, c := range members {
 		classes := 0
 		for _, l := range c.Levels {

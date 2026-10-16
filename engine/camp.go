@@ -1320,7 +1320,7 @@ func (e *Engine) healTick(showing bool) {
 	if healed {
 		e.playerSummary(e.selected())
 	}
-	e.gameDelay()
+	e.pauseForMessage()
 	e.clearCombatText()
 	e.camp.healSteps = 0
 }
@@ -1386,7 +1386,7 @@ func (e *Engine) spellMessage(c *Character, text string, sp byte) {
 	e.displayName(c, 1, 19, false)
 	e.displayStringBg(int(c.PName[0])+2, 19, colourGreen, colourBlack, text)
 	e.displayStringBg(1, 20, colourGreen, colourBlack, spellNames[sp])
-	e.gameDelay()
+	e.pauseForMessage()
 	e.clearCombatText()
 }
 
@@ -1485,7 +1485,7 @@ func (e *Engine) restFor(showing bool) bool {
 					e.displayStringBg(1, 19, colourWhite, colourBlack, "Your repose is suddenly interrupted!")
 					stop = true
 					interrupted = true
-					e.gameDelay()
+					e.pauseForMessage()
 				}
 			}
 		}

@@ -552,7 +552,7 @@ func (e *Engine) groundAt(c *Character, dir int) (who, gr byte, stinking, poison
 func (e *Engine) combatRemoveFromMap(c *Character) {
 	if e.gameState != 5 {
 		e.PlaySound(sndFall)
-		e.gameDelay()
+		e.pauseForMessage()
 		return
 	}
 	if int(e.v70C7) < len(e.bodies) && e.bodies[e.v70C7].c == c {
@@ -589,7 +589,7 @@ func (e *Engine) combatRemoveFromMap(c *Character) {
 		}
 		b.c, b.x, b.y = c, byte(x), byte(y)
 	}
-	e.gameDelay()
+	e.pauseForMessage()
 	e.combatClearIcon(0, 0, idx)
 	e.cpos[e.combatIndex(c)].size = 0
 	e.combatRedrawMap()

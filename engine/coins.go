@@ -1,7 +1,7 @@
 package engine
 
-// Money in CotAB is coins on each character plus the treasure pool of the
-// current shop or treasure (unit O0BA): carrying it, pooling, sharing,
+// Money is coins on each character plus the treasure pool of the
+// current shop or treasure (unit O13C): carrying it, pooling, sharing,
 // taking and appraising gems and jewelry.
 
 // carryBase: the weight anyone can carry before strength is counted.
@@ -23,16 +23,17 @@ func willOverload(c *Character, weight uint16) (bool, uint16) {
 	return false, 0
 }
 
-// poolGold = O0BA:00C1 (coins): the pool's coins in gold pieces.
+// poolGold = O13C:00E9 (coins): the pool's coins in gold pieces, rounded
+// down.
 func poolGold(coins [coinKinds]int32) int32 {
 	var copper int32
 	for k := range coinValues {
 		copper += coinValues[k] * coins[k]
 	}
-	return (copper + 100) / coinValues[coinGold]
+	return copper / coinValues[coinGold]
 }
 
-// setGold = O0BA:0149 (gold): the selected member's coins become platinum
+// setGold = O13C:0164 (gold): the selected member's coins become platinum
 // and gold worth that much.
 func (e *Engine) setGold(gold uint16) {
 	c := e.selected()
@@ -46,7 +47,7 @@ func (e *Engine) setGold(gold uint16) {
 // platinumGold: gold pieces per platinum piece.
 const platinumGold = 5
 
-// setPoolGold = O0BA:019E (gold): the pool's coins become platinum and gold.
+// setPoolGold = O13C:01B9 (gold): the pool's coins become platinum and gold.
 func (e *Engine) setPoolGold(gold uint16) {
 	for k := 0; k <= coinPlatinum; k++ {
 		e.treasureCoins[k] = 0
@@ -55,7 +56,7 @@ func (e *Engine) setPoolGold(gold uint16) {
 	e.treasureCoins[coinGold] = int32(gold % platinumGold)
 }
 
-// addPlatinum = O0BA:021C (n): platinum to the selected member; what does
+// addPlatinum = O13C:0237 (n): platinum to the selected member; what does
 // not fit goes into the pool.
 func (e *Engine) addPlatinum(n uint16) {
 	c := e.selected()
@@ -70,9 +71,9 @@ func (e *Engine) addPlatinum(n uint16) {
 	c.Weight += n
 }
 
-// askAmount = O0BA:02AD (max, prompt, colour): a number up to max typed on
+// askAmount = O13C:02CC (max, prompt, colour): a number up to max typed on
 // the bottom row (a digit that makes it too big is not taken); Esc is 0.
-func (e *Engine) askAmount(max uint16, prompt string, colour int) uint16 {
+func (e *Engine) askAmount(max uint32, prompt string, colour int) uint32 {
 	e.ClearRow24()
 	e.displayStringBg(0, statusRow, colour, colourBlack, prompt)
 	start := len(prompt)
@@ -84,7 +85,7 @@ func (e *Engine) askAmount(max uint16, prompt string, colour int) uint16 {
 		switch {
 		case k >= '0' && k <= '9':
 			try := text + string(k)
-			if v, ok := parseUint(try); ok && uint32(max) >= v {
+			if v, ok := parseUint(try); ok && max >= v {
 				text = try
 				x++
 			} else {
@@ -105,7 +106,7 @@ func (e *Engine) askAmount(max uint16, prompt string, colour int) uint16 {
 		return 0
 	}
 	v, _ := parseUint(text)
-	return uint16(v)
+	return v
 }
 
 const keyBackspace = 8
@@ -122,7 +123,7 @@ func parseUint(s string) (uint32, bool) {
 	return v, true
 }
 
-// moveCoins = O0BA:046B add_object (from, to, amount, kind): hand coins
+// moveCoins (from, to, amount, kind): hand coins
 // over unless they overload the receiver.
 func (e *Engine) moveCoins(from, to *Character, amount uint16, kind int) {
 	if to.Weight+amount > carryLimit(to) {
@@ -137,7 +138,7 @@ func (e *Engine) moveCoins(from, to *Character, amount uint16, kind int) {
 
 // controlFree: members the player controls (party members and the charmed).
 
-// poolMoney = O0BA:0527: everyone the player controls puts their coins in
+// poolMoney = O13C:0581: everyone the player controls puts their coins in
 // the pool.
 func (e *Engine) poolMoney() {
 	e.poolHasMoney = true
@@ -152,7 +153,7 @@ func (e *Engine) poolMoney() {
 	}
 }
 
-// sharers = O0BA:05FF: the members the pool is shared between.
+// sharers = O13C:064B: the members the pool is shared between.
 func (e *Engine) sharers() byte {
 	var n byte
 	for _, c := range e.party {
@@ -163,7 +164,7 @@ func (e *Engine) sharers() byte {
 	return n
 }
 
-// shareMoney = O0BA:0659: the pool is split between the members; what does
+// shareMoney = O13C:06A1: the pool is split between the members; what does
 // not fit, and the remainders, go to whoever can still carry it.
 func (e *Engine) shareMoney() {
 	n := int32(e.sharers())
@@ -235,22 +236,31 @@ func (e *Engine) dropCoins(c *Character, amount uint16, kind int) {
 	}
 }
 
-// takeCoins = O0BA:0AA0 (c, amount, kind): coins from the pool, at most
-// what is there, unless they overload the character.
-func (e *Engine) takeCoins(c *Character, amount uint16, kind int) {
-	if over, _ := willOverload(c, amount); over {
+// takeCoins = O13C:0B23 (c, amount, kind): coins from the pool, at most
+// what is there, unless they overload the character (a pause, and the keys
+// typed ahead are dropped).
+func (e *Engine) takeCoins(c *Character, amount uint32, kind int) {
+	if amount > coinWordMax {
+		amount = coinWordMax
+	}
+	if over, _ := willOverload(c, uint16(amount)); over {
 		e.printMessage("Overloaded")
+		e.pauseForMessage()
+		e.ClearKeyboard()
 		return
 	}
 	if int32(amount) > e.treasureCoins[kind] {
-		amount = uint16(e.treasureCoins[kind])
+		amount = uint32(e.treasureCoins[kind])
 	}
 	e.treasureCoins[kind] -= int32(amount)
-	c.Coins[kind] += amount
-	c.Weight += amount
+	c.Coins[kind] += uint16(amount)
+	c.Weight += uint16(amount)
 }
 
-// coinKindOf = O0BA:0BAB (line): which coin a "Name amount" line of the
+// coinWordMax: the most coins of a kind a character holds.
+const coinWordMax = 1<<16 - 1
+
+// coinKindOf = O13C:0C3A (line): which coin a "Name amount" line of the
 // take list names, and the name with a space.
 func coinKindOf(line string) (int, string) {
 	i := 0
@@ -280,7 +290,7 @@ func coinKindOf(line string) (int, string) {
 	return 0, ""
 }
 
-// takeMoney = O0BA:0D0A takeItems: choose a kind of coin in the pool and
+// takeMoney = O13C:0DA4: choose a kind of coin in the pool and
 // how much of it the selected member takes, until the pool is empty or the
 // player leaves.
 func (e *Engine) takeMoney() {
@@ -289,7 +299,7 @@ func (e *Engine) takeMoney() {
 	for {
 		redraw := true
 		var list []*ListNode
-		for k := coinKinds - 1; k >= 0; k-- {
+		for k := 0; k < coinKinds; k++ {
 			if e.treasureCoins[k] > 0 {
 				list = append([]*ListNode{{Text: coinNames[k] + " " + itoa(int(e.treasureCoins[k]))}}, list...)
 			}
@@ -301,7 +311,11 @@ func (e *Engine) takeMoney() {
 			return
 		}
 		kind, name := coinKindOf(sel.Text)
-		amount := e.askAmount(uint16(e.treasureCoins[kind]), "How much "+name+"will you take? ", colourGreen)
+		ask := "How much "
+		if kind == coinGems {
+			ask = "How Many "
+		}
+		amount := e.askAmount(uint32(e.treasureCoins[kind]), ask+name+" will you take? ", colourGreen)
 		e.takeCoins(e.selected(), amount, kind)
 		e.poolHasMoney = false
 		done := true
@@ -317,7 +331,7 @@ func (e *Engine) takeMoney() {
 	}
 }
 
-// treasureLeft = O0BA:0F7B: whether money and whether items are left.
+// treasureLeft = O13C:105C: whether money and whether items are left.
 func (e *Engine) treasureLeft() (money, items bool) {
 	for k := 0; k < coinKinds; k++ {
 		if e.treasureCoins[k] != 0 {
@@ -335,7 +349,7 @@ const (
 	maxItems       = 16
 )
 
-// appraise = O0BA:1928: gems and jewelry are valued one at a time and kept
+// appraise = O13C:19F2: gems and jewelry are valued one at a time and kept
 // as items or sold for platinum. Returns false when there was nothing.
 func (e *Engine) appraise() bool {
 	c := e.selected()

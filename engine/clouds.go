@@ -150,7 +150,7 @@ func (e *Engine) createCloud(k cloudKind) {
 	}
 	e.combatName(sel, k.message, combatMsgRow, false)
 	e.combatCentre(e.tgtX, e.tgtY, 255, 8)
-	e.gameDelay()
+	e.pauseForMessage()
 	e.clearCombatText()
 	if k.ground == groundStinkingCloud {
 		// one breath for each one under it
@@ -272,7 +272,7 @@ func (e *Engine) delayedBlastHandler(c *Character, a *Affect, flag byte) {
 		caught = append(caught, e.combatant(n.index))
 	}
 	e.combatCentre(x, y, 255, 8)
-	e.gameDelay()
+	e.pauseForMessage()
 	e.hitColours(delayedBlastColours)
 	for frame := 0; frame < delayedBlastFrames; frame++ {
 		if frame == 1 {

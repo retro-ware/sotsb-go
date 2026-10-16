@@ -115,14 +115,14 @@ func (e *Engine) attackText(a, b *Character, kind, damage, shown, hit int) {
 	if damage&0xFF > 0 {
 		b.Combat.CanCast = 0
 		if b.Combat.Spell > 0 {
-			e.gameDelay()
+			e.pauseForMessage()
 			e.combatName(b, "lost a spell", combatMsgRow+2, true)
 			forgetSpell(b, b.Combat.Spell) // the spell stays chosen
 		} else {
-			e.gameDelay()
+			e.pauseForMessage()
 		}
 	} else {
-		e.gameDelay()
+		e.pauseForMessage()
 	}
 	if b.Okay == 0 {
 		e.combatName(b, "goes down", row, false)
@@ -137,7 +137,7 @@ func (e *Engine) attackText(a, b *Character, kind, damage, shown, hit int) {
 		if b.Okay == 0 {
 			e.combatRemoveFromMap(b)
 		} else {
-			e.gameDelay()
+			e.pauseForMessage()
 		}
 	}
 	e.clearCombatText()

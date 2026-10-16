@@ -265,9 +265,6 @@ func (e *Engine) wildernessPicture() {
 	e.drawBigPic()
 }
 
-// gameDelay = R540:0BF7: the message pause for the game speed.
-func (e *Engine) gameDelay() { e.Delay(int(e.gameSpeed) * 100) }
-
 // clearTreasure = O050:1314's part: the treasure's money and items.
 func (e *Engine) clearTreasure() {
 	e.treasureCoins = [7]int32{}
@@ -651,7 +648,7 @@ const keyEnter = 13
 func (e *Engine) flashMessage(text string, fg, bg int) {
 	e.ClearRow24()
 	e.displayStringBg(0, statusRow, fg, bg, text)
-	e.gameDelay()
+	e.pauseForMessage()
 	e.ClearRow24()
 }
 

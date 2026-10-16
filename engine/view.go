@@ -138,7 +138,7 @@ func (e *Engine) ItemsMenu() bool {
 						e.msgCol, e.msgRow = 1, 21
 						if e.gameState == stateVault {
 							e.DisplayTextBlock(1, 21, 38, 22, colourYellow, true, "Your "+it.Name()+"will be left in the vault")
-							e.gameDelay()
+							e.pauseForMessage()
 							kept := *it
 							e.treasureItems = append(e.treasureItems, &kept)
 							it.Contents = nil // the bag's scrolls went with the copy
@@ -537,7 +537,7 @@ func (e *Engine) useItem(it *Item) bool {
 		} else {
 			e.ItemName(c, it, 1, 22, false, true)
 		}
-		e.gameDelay()
+		e.pauseForMessage()
 		e.clearCombatText()
 	}
 	e.usingItem = true
@@ -676,7 +676,7 @@ func (e *Engine) identifyItem(it *Item) (redraw bool) {
 			e.DisplayTextBlock(1, 21, 38, 22, colourYellow, true, "It looks like some sort of "+it.Name())
 			redraw = true
 		}
-		e.gameDelay()
+		e.pauseForMessage()
 	}
 	e.ClearCells(1, 21, 38, 22)
 	return

@@ -125,7 +125,7 @@ func (e *Engine) tradeCoins() {
 				break
 			}
 			kind, name := coinKindOf(sel.Text)
-			amount := e.askAmount(e.selected().Coins[kind], "How much "+name+"will you trade? ", colourGreen)
+			amount := uint16(e.askAmount(uint32(e.selected().Coins[kind]), "How much "+name+"will you trade? ", colourGreen))
 			e.moveCoins(e.selected(), to, amount, kind)
 			left := false
 			for k := 0; k < coinKinds; k++ {
@@ -159,7 +159,7 @@ func (e *Engine) dropCoinsMenu() {
 		if e.gameState == stateVault {
 			verb = "will you deposit? "
 		}
-		amount := e.askAmount(e.selected().Coins[kind], "How much "+name+verb, colourGreen)
+		amount := uint16(e.askAmount(uint32(e.selected().Coins[kind]), "How much "+name+verb, colourGreen))
 		e.dropCoins(e.selected(), amount, kind)
 		left := false
 		for k := 0; k < coinKinds; k++ {

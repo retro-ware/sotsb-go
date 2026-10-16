@@ -237,7 +237,7 @@ func (e *Engine) poisonAttack(c *Character, bonus int) {
 	}
 	saved := e.SavingThrow(t, saveVsParalysis, bonus)
 	e.isUnaffected(t, affectPoisoned, 0, 255, 0, 1, saved, "is "+affectNameOf(affectPoisoned))
-	e.gameDelay()
+	e.pauseForMessage()
 	if e.FindAffect(t, affectPoisoned) != nil {
 		e.killWithMessage(t, statusDead, "is killed")
 	}
@@ -1056,7 +1056,7 @@ func (e *Engine) swallowsWholeHandler(c *Character, a *Affect, flag byte) {
 	t := targetOf(c)
 	e.rv.target = t
 	e.combatName(t, "is swallowed whole", combatMsgRow, true)
-	e.gameDelay()
+	e.pauseForMessage()
 	t.Status = statusDead
 	t.Okay = 0
 	t.HP = 0
@@ -1105,7 +1105,7 @@ func (e *Engine) swallowsWholeHandler(c *Character, a *Affect, flag byte) {
 	e.combatCentre(e.cmap.viewX+3, e.cmap.viewY+3, 3, 8)
 	ci := combatInfo(t)
 	ci.Delay, ci.Moves, ci.Spell, ci.Guarding = 0, 0, 0, 0
-	e.gameDelay()
+	e.pauseForMessage()
 	e.clearCombatText()
 }
 
