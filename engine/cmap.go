@@ -50,7 +50,7 @@ func (e *Engine) pageGeom() (x0, w int) {
 	return 8, pageCells * 8
 }
 
-// footprint = O121:000F (size, part, var dx, var dy): offset of one square
+// footprint = O18B:0000 (size, part, var dx, var dy): offset of one square
 // of a combatant that covers several (DS:2844).
 func (e *Engine) footprint(size, part int) (int, int, bool) {
 	if size == 0 {
@@ -290,23 +290,7 @@ func (e *Engine) hitColours(slot int) {
 func (e *Engine) drawHitFrame(f, x, y int) { e.drawPage(x, y, e.spr, f, true, true) }
 func (e *Engine) restoreHitFrame(x, y int) { e.restoreUnder(x, y, e.spr) }
 
-// combatViewEnter = O121:0130 / combatViewLeave = O121:00F2: the EGA
-// palette entries 0 and 8 swap for the combat screen (EGA only, DS:4A1E == 1).
-func (e *Engine) combatViewEnter() {
-	if e.Cfg.Graphics == 'E' {
-		e.SetPaletteColor(0, 0)
-		e.SetPaletteColor(8, 8)
-	}
-}
-
-func (e *Engine) combatViewLeave() {
-	if e.Cfg.Graphics == 'E' {
-		e.SetPaletteColor(8, 0)
-		e.SetPaletteColor(0, 8)
-	}
-}
-
-// updateScreenPos = O121:0077: screen squares of every combatant.
+// updateScreenPos = O18B:0068: screen squares of every combatant.
 func (e *Engine) updateScreenPos() {
 	for i := 1; i <= e.ncomb; i++ {
 		e.combatScreenX[i] = int8(int(e.cpos[i].x) - e.cmap.viewX)
@@ -314,7 +298,7 @@ func (e *Engine) updateScreenPos() {
 	}
 }
 
-// drawCursor = O121:016E (x, y): the ground under the cursor, the cursor
+// drawCursor = O18B:00F1 (x, y): the ground under the cursor, the cursor
 // icon and whoever stands there.
 func (e *Engine) drawCursor(x, y int) {
 	sx, sy := x-e.cmap.viewX, y-e.cmap.viewY
@@ -342,13 +326,13 @@ func (e *Engine) drawOccupant(x, y int) {
 	}
 }
 
-// eraseCursor = O121:031C (x, y).
+// eraseCursor = O18B:029D (x, y).
 func (e *Engine) eraseCursor(x, y int) {
 	e.combatClearIcon(x-e.cmap.viewX, y-e.cmap.viewY, 0)
 	e.drawOccupant(x, y)
 }
 
-// combatRedrawMap = O121:03E7: rebuild the occupancy grid (DS:60DB).
+// combatRedrawMap = O18B:0368: rebuild the occupancy grid (DS:60DB).
 func (e *Engine) combatRedrawMap() {
 	e.occ = [25][50]byte{}
 	for i := 1; i <= e.ncomb; i++ {
@@ -369,7 +353,7 @@ func (e *Engine) combatRedrawMap() {
 	}
 }
 
-// mapAt = O121:0505 (x, y, var who, var ground).
+// mapAt = O18B:0483 (x, y, var who, var ground).
 func (e *Engine) mapAt(x, y int) (byte, byte) {
 	if x < 0 || x > 0x31 || y < 0 || y > 0x18 {
 		return 0, 0
@@ -377,7 +361,7 @@ func (e *Engine) mapAt(x, y int) (byte, byte) {
 	return e.occ[y][x], e.cmap.ground[y][x]
 }
 
-// combatClearIcon = O121:0572 (x, y, idx): ground tiles over combatant
+// combatClearIcon = O18B:04F2 (x, y, idx): ground tiles over combatant
 // idx (or over the occupant of screen square x,y when idx is 0).
 func (e *Engine) combatClearIcon(sx, sy, idx int) {
 	x, y := sx+e.cmap.viewX, sy+e.cmap.viewY
@@ -406,7 +390,7 @@ func combatInView(x, y int) bool { return x >= 0 && x < viewW && y >= 0 && y < v
 
 func (e *Engine) combatInView(x, y int) bool { return combatInView(x, y) }
 
-// combatOnScreen = O121:0761 (char, all): any (or with all, every) square
+// combatOnScreen = O18B:06DD (char, all): any (or with all, every) square
 // of the combatant in view.
 func (e *Engine) combatOnScreen(c *Character, all bool) bool {
 	idx := e.combatIndex(c)
@@ -434,7 +418,7 @@ func (e *Engine) combatOnScreen(c *Character, all bool) bool {
 	return r
 }
 
-// recentre = O121:081B (x, y, margin): scroll the view so (x,y) is at
+// recentre = O18B:0797 (x, y, margin): scroll the view so (x,y) is at
 // least margin squares inside it (0xFF: always centre); redraws the ground.
 func (e *Engine) recentre(x, y, r int) bool {
 	const half = viewW / 2
@@ -474,7 +458,7 @@ func (e *Engine) recentre(x, y, r int) bool {
 	return true
 }
 
-// combatCentre = O121:09DD (x, y, margin, dir): bring the square next to
+// combatCentre = O18B:0959 (x, y, margin, dir): bring the square next to
 // (x,y) in direction dir (8 = itself) into view and draw the cursor there.
 func (e *Engine) combatCentre(x, y, r, dir int) {
 	dd := stepTable()
@@ -496,7 +480,7 @@ func (e *Engine) combatCentre(x, y, r, dir int) {
 	e.Flip()
 }
 
-// combatTurn = O121:0B3F (char, dir, pose, hide): face dir and draw the
+// combatTurn = O18B:0AB9 (char, dir, pose, hide): face dir and draw the
 // icon in the given pose (not with hide).
 func (e *Engine) combatTurn(c *Character, dir, pose byte, hide bool) {
 	idx := e.combatIndex(c)
@@ -513,11 +497,11 @@ func (e *Engine) combatTurn(c *Character, dir, pose byte, hide bool) {
 	}
 }
 
-func (e *Engine) combatX(c *Character) int    { return int(e.cpos[e.combatIndex(c)].x) }    // O121:0C32
-func (e *Engine) combatY(c *Character) int    { return int(e.cpos[e.combatIndex(c)].y) }    // O121:0C5A
-func (e *Engine) combatSize(c *Character) int { return int(e.cpos[e.combatIndex(c)].size) } // O121:0C82
+func (e *Engine) combatX(c *Character) int    { return int(e.cpos[e.combatIndex(c)].x) }    // O18B:0BB0
+func (e *Engine) combatY(c *Character) int    { return int(e.cpos[e.combatIndex(c)].y) }    // O18B:0BD8
+func (e *Engine) combatSize(c *Character) int { return int(e.cpos[e.combatIndex(c)].size) } // O18B:0C00
 
-// combatIndex = O121:0CAA (char): its index in DS:65B9, 0 if none.
+// combatIndex = O18B:0C28 (char): its index in DS:65B9, 0 if none.
 func (e *Engine) combatIndex(c *Character) int {
 	for i := 1; i <= e.ncomb; i++ {
 		if e.combatant(byte(i)) == c {
@@ -527,7 +511,7 @@ func (e *Engine) combatIndex(c *Character) int {
 	return 0
 }
 
-// groundAt = O121:0D04 (char, dir, var who, var ground, var stinking,
+// groundAt = O18B:0C80 (char, dir, var who, var ground, var stinking,
 // var poison): who stands on and the dearest ground of the squares the
 // combatant would cover one step in direction dir (8: where it stands);
 // 0 = off the map. A cloud on any of them sets its flag instead.
@@ -562,9 +546,9 @@ func (e *Engine) groundAt(c *Character, dir int) (who, gr byte, stinking, poison
 	return
 }
 
-// combatRemoveFromMap = O121:0E6F (char): a fallen combatant leaves the
-// map: it flickers out, and unless summoned a body (ground 0x1F) stays
-// where it fell.
+// combatRemoveFromMap = O18B:0DEB (char): a fallen combatant leaves the
+// map: it flickers out, and unless summoned a body stays where it fell
+// (a stone one for the petrified).
 func (e *Engine) combatRemoveFromMap(c *Character) {
 	if e.gameState != 5 {
 		e.PlaySound(sndFall)
@@ -597,7 +581,11 @@ func (e *Engine) combatRemoveFromMap(c *Character) {
 		b := &e.bodies[e.nbodies]
 		b.ground = e.cmap.ground[y][x]
 		if e.cmap.ground[y][x] != groundStinkingCloud {
-			e.cmap.ground[y][x] = groundBody
+			if c.Status == statusStoned {
+				e.cmap.ground[y][x] = groundStoneBody
+			} else {
+				e.cmap.ground[y][x] = groundBody
+			}
 		}
 		b.c, b.x, b.y = c, byte(x), byte(y)
 	}
@@ -617,7 +605,7 @@ const (
 	deathFrameDelay = 10 // ms
 )
 
-// combatSquareFree = O121:115A (char, x, y, uncover): put the combatant on
+// combatSquareFree = O18B:10FA (char, x, y, uncover): put the combatant on
 // (x,y) if every square it needs is free ground; with uncover, its body is
 // taken off the map.
 func (e *Engine) combatSquareFree(c *Character, x, y int, uncover bool) bool {
@@ -636,7 +624,7 @@ func (e *Engine) combatSquareFree(c *Character, x, y int, uncover bool) bool {
 	if uncover && c.Combat.Extra == 0 {
 		for k := 1; k <= e.nbodies; k++ {
 			if e.bodies[k].c == c {
-				if e.bodies[k].ground != groundBody {
+				if gr := e.bodies[k].ground; gr != groundBody && gr != groundStoneBody {
 					g = e.bodies[k].ground
 				}
 				e.bodies[k] = body{}
@@ -656,18 +644,18 @@ func (e *Engine) combatSquareFree(c *Character, x, y int, uncover bool) bool {
 	return true
 }
 
-// combatRedrawChar = O121:1356 (char, margin, cursor): centre on the
+// combatRedrawChar = O18B:1307 (char, margin, cursor): centre on the
 // combatant, with the cursor icon over all its squares when asked.
 func (e *Engine) combatRedrawChar(c *Character, r int, cursor byte) {
 	e.cmap.cursor = cursor
 	e.cmap.cursorSize = byte(e.combatSize(c))
-	if e.showMoves { // O121:1356 redraws only while moves are shown (b7600)
+	if e.showMoves { // O18B:1307 redraws only while moves are shown (b7600)
 		e.combatCentre(e.combatX(c), e.combatY(c), r, 8)
 	}
 	e.cmap.cursor, e.cmap.cursorSize = 0, 1
 }
 
-// nearSort = O11C:0033: order the near list by distance.
+// nearSort = O186:002E: order the near list by distance.
 func (e *Engine) nearSort() {
 	l := e.near.list
 	for i := 0; i < len(l)-1; i++ {
@@ -680,7 +668,7 @@ func (e *Engine) nearSort() {
 	}
 }
 
-// lineOfSight = O11C:03F1 (map, var range, var tx, var ty, x, y): walk from
+// lineOfSight = O186:03E3 (map, var range, var tx, var ty, x, y): walk from
 // (x,y) towards (tx,ty) until the target, a wall higher than the line or
 // the range (in half squares) stops it.
 func (e *Engine) lineOfSight(rng *int, tx, ty *int, x, y int) bool {
@@ -737,7 +725,7 @@ func (e *Engine) inArc(x1, y1, x2, y2, dir int) bool {
 	return true
 }
 
-// buildNear = O11C:08D8 (x, y, range, dir, size, map): every combatant on
+// buildNear = O186:08D1 (x, y, range, dir, size, map): every combatant on
 // the map seen from the squares of a combatant of that size at (x,y),
 // within range and the quarter dir (0xFF: all round), nearest first.
 func (e *Engine) buildNear(x, y, rng, dir, size int) {
@@ -793,7 +781,7 @@ func (e *Engine) buildNear(x, y, rng, dir, size int) {
 	e.nearSort()
 }
 
-// nearCombatants = O121:0C82 + O11C:08D8: everyone the combatant at (x,y)
+// nearCombatants = O18B:0C00 + O186:08D1: everyone the combatant at (x,y)
 // sees within range r, all round.
 func (e *Engine) nearCombatants(c *Character, x, y, r int) {
 	e.buildNear(x, y, r, 0xFF, e.combatSize(c))

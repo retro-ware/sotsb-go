@@ -273,7 +273,7 @@ const (
 )
 
 // cloudsUnder: is any square the combatant covers a stinking or a poison
-// cloud? (the two flags of O121:0D04 with direction 8).
+// cloud? (the two flags of O18B:0C80 with direction 8).
 func (e *Engine) cloudsUnder(c *Character) (stinking, poison bool) {
 	idx := e.combatIndex(c)
 	for part := 0; part <= 3; part++ {

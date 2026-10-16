@@ -49,7 +49,6 @@ func (e *Engine) combatEnd() {
 	}
 	e.cmap = nil
 	e.spr = nil
-	e.combatViewEnter()
 	e.combatTargets = false // DS:8A8E = O113:1253 cast_spell_on
 }
 
@@ -843,7 +842,6 @@ const combatMsgRow = 10
 // combatUseHook = O151:3430: redraw the combat screen: the map frame
 // (extra: full width, no panel frame), rows 23-24 cleared, the map centred on the view.
 func (e *Engine) combatUseHook() {
-	e.combatViewLeave() // O121:00F2: the combat palette
 	e.drawCombatFrame()
 	e.combatCentre(e.cmap.viewX+viewW/2, e.cmap.viewY+3, 0xFF, 8)
 }

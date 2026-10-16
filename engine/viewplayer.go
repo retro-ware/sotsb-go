@@ -7,9 +7,6 @@ package engine
 // Items, Spells, Trade, Drop, Heal and Cure; done is set when an item was
 // used in combat.
 func (e *Engine) viewPlayer() bool {
-	if e.gameState == stateCombat {
-		e.combatViewEnter()
-	}
 	key := byte(' ')
 	done := false
 	e.viewStart = e.selected()
@@ -67,9 +64,6 @@ func (e *Engine) viewPlayer() bool {
 		if !done && (key == 'I' || key == 'S' || key == 'T') {
 			e.CharacterSheet()
 		}
-	}
-	if e.gameState == stateCombat {
-		e.combatViewLeave()
 	}
 	e.loadPicture()
 	return done

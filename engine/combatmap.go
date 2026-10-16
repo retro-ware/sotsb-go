@@ -4,7 +4,7 @@ package engine
 // rules call. They are placeholders until the combat overlays are ported;
 // outside combat none of them is reached.
 
-// nearEntry is one 3-byte record of the DS:6718 list built by O11C:08D8.
+// nearEntry is one 3-byte record of the DS:6718 list built by O186:08D1.
 type nearEntry struct{ index, dist, dir byte }
 
 type nearState struct{ list []nearEntry } // DS:6716..671A
@@ -32,20 +32,20 @@ func sign(n int) int {
 	return 0
 }
 
-// line is the O11C line walker record (0x18 bytes): O11C:01A5 starts it,
-// O11C:024C takes one step. err (+8) counts in half units of the major
+// line is the O186 line walker record (0x18 bytes): O186:0196 starts it,
+// O186:023F takes one step. err (+8) counts in half units of the major
 // axis; steps (+22) counts half squares, three for a diagonal.
 type line struct {
 	x1, y1, err, dx, dy, x, y, sx, sy, steps int
 	dir                                      byte // +23
 }
 
-// newLine = O11C:01A5.
+// newLine = O186:0196.
 func newLine(x0, y0, x1, y1 int) *line {
 	return &line{x1: x1, y1: y1, dx: abs(x1 - x0), dy: abs(y1 - y0), sx: sign(x1 - x0), sy: sign(y1 - y0), x: x0, y: y0}
 }
 
-// step = O11C:024C: one square along the major axis, and along the minor
+// step = O186:023F: one square along the major axis, and along the minor
 // one when the error reaches the major distance; dir is the direction
 // taken (8 = none).
 func (e *Engine) step(l *line) bool {

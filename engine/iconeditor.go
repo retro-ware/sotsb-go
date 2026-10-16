@@ -18,7 +18,6 @@ const iconWorkSlot = 12
 func (e *Engine) iconBuilder() {
 	c := e.selected()
 	e.drawScreenFrame()
-	e.combatViewLeave() // O121:00F2
 	menu3 := iconMenus[3]
 	var state, parent, part int // parent and part are uninitialised until set
 	var sub, key byte
@@ -191,5 +190,4 @@ func (e *Engine) iconBuilder() {
 			break
 		}
 	}
-	e.combatViewEnter() // O121:0130
 }
