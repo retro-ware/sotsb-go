@@ -9,6 +9,7 @@ import (
 // load the always-resident assets. Everything the DOS code zeroed with
 // FillChar is zero-valued here.
 func (e *Engine) Init() {
+	e.Randomize() // O0A1:0027 seeds before anything else
 	e.game = make([]byte, 0x800) // DS:49D6
 	e.area = make([]byte, 0x800) // DS:49D2
 	e.aux = make([]byte, 0x400)  // DS:49DA
@@ -22,7 +23,7 @@ func (e *Engine) Init() {
 	e.listTop = 0                         // w72AC
 	e.mapPairA[1], e.mapPairA[2] = -1, -1 // DS:6AAE+4i, i = 2..3
 	e.mapPairB[1], e.mapPairB[2] = -1, -1 // DS:6AB0+4i
-	e.es.v6F69, e.es.v6F68 = 0xE8, 0xDB   // DS:6F69/6F68
+	e.es.v6F69, e.es.v6F68 = 232, 219     // b8F4D/b8F4C
 	e.symPrev = e.symDAX                  // DS:5377
 	e.newGameState()
 
@@ -31,8 +32,6 @@ func (e *Engine) Init() {
 	e.DisplayString(0, 24, 0xA, "Loading...Please Wait")
 	e.LoadSymbolSet(4, 202) // Pool ovr35:003B
 	e.LoadSymbolSet(0, 203)
-	e.sqrpaci[0] = e.LoadPic("SQRPACI", 1) // R226:0111 → DS:5E52
-	e.sqrpaci[1] = e.LoadPic("SQRPACI", 2) // DS:5E56
 	for i := 0; i <= 0xB; i++ {
 		e.LoadIconPic("COMSPR", i, i+0xD) // O12A:01D0
 	}
@@ -44,8 +43,7 @@ func (e *Engine) Init() {
 	}
 	e.items = e.readItems() // ITEMS file, 2-byte header then 0x810 bytes → DS:5582
 	e.ClearRow24()
-	e.Randomize()      // R811:24D1
-	e.spellTableInit() // O0C2:658F
+	e.spellTableInit() // O113:67A1
 	setupAffectHandlers()
 }
 

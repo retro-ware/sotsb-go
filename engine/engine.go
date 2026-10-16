@@ -1,6 +1,6 @@
-// Package engine is the Pool of Radiance game engine, ported routine by
-// routine from the DOS START.EXE/GAME.OVR disassembly. It reads every asset
-// from the original data directory at run time, exactly like the DOS build.
+// Package engine is the Secret of the Silver Blades game engine, ported
+// routine by routine from the Turbo Pascal reconstruction of START.EXE and
+// GAME.OVR. It reads every asset from the original data directory at run time.
 package engine
 
 import (
@@ -15,18 +15,29 @@ import (
 	"sotsb/ega"
 )
 
-// Config mirrors CURSE.CFG: graphics letter, sound letter, the save directory
-// and the intro ('F' = full intro with the painting, banner and credits).
+// Config mirrors BLADES.CFG (read by R210's initialisation): the graphics
+// letter (C, E or T), the sound letter (A AdLib, T Tandy, P PC speaker, S
+// silent), the alternate input (J joystick, M mouse, N neither) and the save
+// directory. The joystick calibration lines are not used: the port has no
+// joystick.
 type Config struct {
-	Graphics, Sound  byte
-	GameDir, SaveDir string
-	FullIntro        bool   // DS:49D1
-	Param            string // ParamStr(1): "STING" unlocks the 'J' debug key
-	Param2           string // ParamStr(2): the debug word (debugWord) unlocks more
+	Graphics, Sound, Input byte
+	GameDir, SaveDir       string
+	Param                  string // ParamStr(1): "Hoop" skips the title
+	Param2                 string // ParamStr(2): the code word that skips the code wheel
 }
 
 // Engine holds the global state the DOS program kept in its data segment.
 type Engine struct {
+	textWindowReady  bool // b67C5: the game screen is up; messages go to its text window
+	inTitle          bool // b741E: the title runs (Ctrl-S does not toggle the sound)
+	mouseShown       bool // R73D: the cursor is shown
+	soundDevice      byte // b741A: the sound device chosen in BLADES.CFG (soundDeviceNone: none)
+	digitizedSample  int  // O04B: the digitized sound playing
+	digitizedPlaying bool
+	savedSoundDevice byte // b741B: the device before a Ctrl-S toggle
+	music            musicState
+
 	L         *dax.Loader
 	S         *ega.Screen
 	Cfg       Config
@@ -216,8 +227,8 @@ func New(dir string, scr *ega.Screen) (*Engine, error) {
 		return nil, err
 	}
 	e := &Engine{L: l, S: scr, symDAX: "8X8D1", start: time.Now()}
-	e.Cfg = Config{Graphics: 'E', Sound: 'P', GameDir: dir, SaveDir: filepath.Join(dir, "SAVE"), FullIntro: true}
-	if p := l.Path("CURSE.CFG"); p != "" {
+	e.Cfg = Config{Graphics: 'E', Sound: 'A', Input: 'M', GameDir: dir, SaveDir: filepath.Join(dir, "SAVE")}
+	if p := l.Path("BLADES.CFG"); p != "" {
 		f, err := os.Open(p)
 		if err == nil {
 			defer f.Close()
@@ -226,15 +237,15 @@ func New(dir string, scr *ega.Screen) (*Engine, error) {
 			for sc.Scan() {
 				lines = append(lines, strings.TrimSpace(sc.Text()))
 			}
-			if len(lines) >= 4 && lines[0] != "" && lines[1] != "" && lines[3] != "" {
-				e.Cfg.Graphics, e.Cfg.Sound = upper(lines[0][0]), upper(lines[1][0])
-				e.Cfg.FullIntro = upper(lines[3][0]) == 'F'
-				// The save directory (line 3, e.g. C:\SAVE\) is kept as a SAVE folder next to the data.
+			if len(lines) >= 3 && lines[0] != "" && lines[1] != "" && lines[2] != "" {
+				e.Cfg.Graphics, e.Cfg.Sound, e.Cfg.Input = upper(lines[0][0]), upper(lines[1][0]), upper(lines[2][0])
+				// The save directory (line 4, e.g. C:\SAVE\) is kept as a SAVE folder next to the data.
 			}
 		}
 	}
+	e.soundDevice = soundDeviceFor(e.Cfg.Sound)
 	if !l.Exists("TITLE.DAX") || !l.Exists("8X8D1.DAX") {
-		return nil, fmt.Errorf("%s: not a Curse of the Azure Bonds directory (TITLE.DAX / 8X8D1.DAX missing)", dir)
+		return nil, fmt.Errorf("%s: not a Secret of the Silver Blades directory (TITLE.DAX / 8X8D1.DAX missing)", dir)
 	}
 	e.pic.block = -1
 	e.port = portrait{headID: 0xFF, bodyID: 0xFF}
@@ -254,33 +265,46 @@ func upper(c byte) byte {
 // blocks on keyboard reads like the DOS program did.
 func (e *Engine) Run() {
 	e.Init()
-	// START: the driver is started, stopped around the overlay loader's
-	// set-up (O060:0054) and started again with song 0.
-	e.soundInit()
-	e.PlaySound(sndStop)
-	e.soundInit()
-	e.PlaySound(sndMute)
-	e.soundInit()
-	if e.Cfg.Param != "STING" { // ParamStr(1) = 'STING' skips the title
+	e.musicInstall()
+	if e.Cfg.Param != "Hoop" { // ParamStr(1) = 'Hoop' skips the title
 		e.Title()
+	} else {
+		e.textWindowReady = true
 	}
-	e.demo = e.playOrDemo(demoTimeoutFirst)
-	// The code wheel check (copy_protection) is left out.
+	e.gameArea = 2
+	e.DisplayString(0, 22, colourGreen, "      Secret of the Silver Blades      ")
+	e.DisplayString(0, 23, colourGreen, "   Version 1.30           May 18,1990  ")
+	e.demo = e.playOrDemo("              ", demoTimeoutFirst)
 	for {
 		if e.demo {
-			e.gameArea, e.gameSpeed = 1, demoSpeed
+			e.gameArea, e.gameSpeed = 2, demoSpeed
 		} else {
-			e.gameArea = 2
+			e.gameArea = 1
 		}
+		e.musicRestart()
 		if !e.demo {
-			e.PartyMenu() // startGameMenu
+			e.PartyMenu() // O0EF:01A1
+			// The code wheel check (O069:0112) is left out.
+			if e.gameState == stateWilderness && !e.wildernessOverview() {
+				e.drawTextWindowFrame()
+			} else {
+				e.drawAdventureFrame()
+			}
+			e.playerSummary(e.selected())
 		}
+		e.musicRestart()
+		e.SetSkyColours(e.gs.sky[0], e.gs.sky[1], e.gs.sky[2], e.gs.sky[3])
+		e.musicRestart()
 		e.Adventure()
+		e.musicRestart()
+		e.newGameState()
 		if e.demo {
+			e.musicCommand(musicShutdown)
 			e.Title()
+			e.musicInstall()
 			e.ClearKeyboard()
-			e.demo = e.playOrDemo(demoTimeoutAgain)
-			e.PlaySound(sndMute)
+			e.demo = e.playOrDemo("Secret of the Silver Blades ", demoTimeoutAgain)
+			e.musicCommand(musicSilence)
 		}
 	}
 }
@@ -294,9 +318,9 @@ const (
 
 // playOrDemo asks "Play Demo" with a timeout that picks Demo; it tells
 // whether the demo was chosen.
-func (e *Engine) playOrDemo(timeout int64) bool {
+func (e *Engine) playOrDemo(prompt string, timeout int64) bool {
 	e.inputTimeout, e.inputTimeoutKey = timeout, 'D'
-	k, _ := e.DisplayInput("Curse of the Azure Bonds v1.3 ", "Play Demo", colourLightMagenta, colourGreen, colourWhite, false, false)
+	k, _ := e.DisplayInput(prompt, "Play Demo", colourLightMagenta, colourGreen, colourWhite, false, false)
 	e.inputTimeout, e.inputTimeoutKey = 0, 0
 	return k == 'D'
 }
@@ -427,4 +451,11 @@ func (e *Engine) Play() {
 	e.gameArea = 2
 	e.PartyMenu()
 	e.Adventure()
+}
+
+// wildernessOverview is the game word the main loop reads before the first
+// frame (p67C6^[312]): set while the wilderness shows its overview map.
+func (e *Engine) wildernessOverview() bool {
+	const overviewWord = 624
+	return wordAt(e.game, overviewWord) != 0
 }

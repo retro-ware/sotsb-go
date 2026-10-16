@@ -18,26 +18,6 @@ const (
 	statusLineRow  = 15
 )
 
-// drawAdventureFrame = R133:0137 draw8x8_03: the screen frame, the rules
-// beside and under the view and the view's own frame.
-func (e *Engine) drawAdventureFrame() {
-	e.drawScreenFrame()
-	for x := 0; x <= screenLastCol; x++ {
-		e.Put8x8Symbol(x, viewRuleRow, int(frameMiddleRow[x])+frameRuleBase)
-	}
-	for y := 0; y <= viewRuleRow; y++ {
-		e.Put8x8Symbol(viewRuleCol, y, int(viewDivider[y])+frameRuleBase)
-	}
-	for x := viewBoxFirst; x <= viewBoxLast; x++ {
-		e.Put8x8Symbol(x, viewBoxFirst, int(viewFrameTop[x])+viewFrameBase)
-		e.Put8x8Symbol(x, viewBoxLast, int(viewFrameBottom[x])+viewFrameBase)
-	}
-	for y := viewBoxFirst; y <= viewBoxLast; y++ {
-		e.Put8x8Symbol(viewBoxFirst, y, int(viewFrameLeft[y])+viewFrameBase)
-		e.Put8x8Symbol(viewBoxLast, y, int(viewFrameRight[y])+viewFrameBase)
-	}
-}
-
 // clearViewArea is drawAdventureFrame under the name the scripts use.
 func (e *Engine) clearViewArea() { e.drawAdventureFrame() }
 

@@ -19,6 +19,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strconv"
 	"strings"
 
@@ -137,6 +138,9 @@ func writePNG(scr *ega.Screen, path string) {
 func run(e *engine.Engine) (stop string) {
 	defer func() {
 		if r := recover(); r != nil {
+			if os.Getenv("TRACE_STACK") != "" {
+				debug.PrintStack()
+			}
 			if d, ok := r.(engine.TraceDone); ok {
 				stop = d.Reason
 				return

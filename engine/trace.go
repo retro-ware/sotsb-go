@@ -35,9 +35,13 @@ type traceState struct {
 	ready bool
 	idle  int
 	ms    int64
+	keyMS int64 // virtual time of the last key read
 }
 
-const traceMaxIdle = 200 // = emu.Machine.max_idle
+const (
+	traceMaxIdle   = 200    // = emu.Machine.max_idle
+	traceMaxIdleMS = 120000 // timed waits (the title, the demo prompt) poll for minutes
+)
 
 // StartTrace switches the engine to trace mode with the given seed and key script.
 func (e *Engine) StartTrace(fn TraceFunc, seed uint32, keys []uint16) {
@@ -60,7 +64,7 @@ func (t *traceState) keyPressed(e *Engine) bool {
 	e.Trace("INT16", "KeyPressed", 0)
 	if len(t.keys) > 0 {
 		t.ready = true
-	} else if t.idle++; t.idle > traceMaxIdle {
+	} else if t.idle++; t.idle > traceMaxIdle && t.ms-t.keyMS > traceMaxIdleMS {
 		panic(TraceDone{fmt.Sprintf("key script exhausted (KeyPressed polled %d times)", t.idle)})
 	}
 	return false
@@ -72,7 +76,7 @@ func (t *traceState) readKey(e *Engine) uint16 {
 	}
 	k := t.keys[0]
 	t.keys = t.keys[1:]
-	t.ready, t.idle = false, 0
+	t.ready, t.idle, t.keyMS = false, 0, t.ms
 	e.Trace("INT16", "ReadKey", int(k))
 	return k
 }

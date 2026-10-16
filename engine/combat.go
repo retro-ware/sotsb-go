@@ -720,20 +720,3 @@ func (e *Engine) combatUseHook() {
 	e.drawCombatFrame()
 	e.combatCentre(e.cmap.viewX+viewW/2, e.cmap.viewY+3, 0xFF, 8)
 }
-
-// drawCombatFrame = R133:0397 draw8x8_06: the frame around the map and
-// the panel.
-func (e *Engine) drawCombatFrame() {
-	e.ClearCells(0, 0, screenLastCol, 23)
-	for x := 0; x <= screenLastCol; x++ {
-		e.Put8x8Symbol(x, 0, int(frameTop[x])+frameRuleBase)
-	}
-	for y := 0; y <= 22; y++ {
-		e.Put8x8Symbol(0, y, int(combatFrameLeft[y])+frameRuleBase)
-		e.Put8x8Symbol(22, y, int(combatFrameMiddle[y])+frameRuleBase)
-		e.Put8x8Symbol(screenLastCol, y, int(combatFrameRight[y])+frameRuleBase)
-	}
-	for x := 0; x <= screenLastCol; x++ {
-		e.Put8x8Symbol(x, 22, int(frameBottom[x])+frameRuleBase)
-	}
-}

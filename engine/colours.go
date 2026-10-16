@@ -4,6 +4,7 @@ package engine
 const (
 	colourBlack        = 0
 	colourBlue         = 1
+	colourMagenta      = 5
 	colourGreen        = 10
 	colourCyan         = 11
 	colourLightRed     = 12

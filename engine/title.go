@@ -1,52 +1,88 @@
 package engine
 
-// The title sequence (unit O039 of the reconstruction).
+// The title sequence and the credits (unit O047 of the reconstruction).
 
-// Title pictures in TITLE.DAX.
+// Title pictures in TITLE.DAX and where they go, in 8-pixel cells.
 const (
-	titleSSILogo     = 1 // "SSI presents an official AD&D computer product"
-	titleHeroine     = 2 // the full-screen painting
-	titleCurseLogo   = 3 // "Curse of the Azure Bonds", over the painting
-	titleForgotten   = 4 // the Forgotten Realms banner, over the painting
-	titleLogoColumn  = 6 // where the Curse logo goes, in 8-pixel columns
-	titleBannerRow   = 11
-	titleFirstWait   = 5 // seconds
-	titleSecondWait  = 10
-	soundTitleBanner = titleSound // the tune started with the banner
+	titleSSILogo       = 1 // "SSI presents an official AD&D computer product"
+	titlePainting      = 2 // the full-screen painting
+	titleForgotten     = 3 // the Forgotten Realms banner, over the painting
+	titleSilverBlades  = 4 // the "Secret of the Silver Blades" logo, over the painting
+	titleBannerColumn  = 2
+	titleBannerRow     = 5
+	titleLogoColumn    = 5
+	titleLogoRow       = 5
+	titleSoundSample   = 0 // the digitized sound played over the pictures
+	titleSSIWait       = 15
+	titlePictureWait   = 50
+	titleLogoWait      = 60
+	titleCreditsWait   = 80
+	waitStepsPerSecond = 10 // O047:0000 counts its waits in tenths of a second
 )
 
-// waitSecondsOrKey = O039:0000: clear the keyboard, wait n seconds or until a
-// key is pressed, clear the keyboard again.
-func (e *Engine) waitSecondsOrKey(n int) {
+// waitOrKey = O047:0000: clear the keyboard and wait tenths/10 seconds or
+// until a key is pressed. It tells whether a key cut the wait short.
+func (e *Engine) waitOrKey(tenths int) bool {
 	e.ClearKeyboard()
-	end := e.Ticks() + int64(n)*ticksPerSecond
+	end := e.Ticks() + int64(tenths)*ticksPerSecond/waitStepsPerSecond
 	for !e.keyWaiting() && e.Ticks() < end {
 		e.idle()
 	}
+	pressed := e.Ticks() < end
 	e.ClearKeyboard()
+	return pressed
 }
 
-// Title = O039:0632 title_screen.
+// endTitle = O047:006F: clear the screen, stop the digitized sound and let
+// the game start.
+func (e *Engine) endTitle() {
+	e.ClearScreen()
+	e.stopDigitizedSound()
+	e.ShowMouse()
+	e.textWindowReady = true
+	e.inTitle = false
+}
+
+// Title = O047:0571: the SSI logo, the painting with the Forgotten Realms
+// banner, then with the Silver Blades logo, and the credits. A key at any
+// picture ends it.
 func (e *Engine) Title() {
-	e.DrawPicture(0, 0, e.LoadPic("TITLE", titleSSILogo), 0)
-	e.waitSecondsOrKey(titleFirstWait)
-	if !e.Cfg.FullIntro {
+	e.PlaySound(sndStop)
+	e.restoreBackground()
+	e.inTitle = true
+	e.startDigitizedSound(titleSoundSample)
+	e.HideMouse()
+	show := func(id, col, row int) {
+		e.DrawPicture(col, row, e.LoadPic("TITLE", id), 0)
+	}
+	show(titleSSILogo, 0, 0)
+	if e.waitOrKey(titleSSIWait) {
+		e.endTitle()
 		return
 	}
-	e.DrawPicture(0, 0, e.LoadPic("TITLE", titleHeroine), 0)
-	e.DrawPicture(titleLogoColumn, titleBannerRow, e.LoadPic("TITLE", titleCurseLogo), 0)
-	e.waitSecondsOrKey(titleSecondWait)
-	banner := e.LoadPic("TITLE", titleForgotten)
-	e.PlaySound(soundTitleBanner)
-	e.DrawPicture(0, titleBannerRow, banner, 0)
-	e.waitSecondsOrKey(titleSecondWait)
+	show(titlePainting, 0, 0)
+	if e.waitOrKey(titlePictureWait) {
+		e.endTitle()
+		return
+	}
+	show(titleForgotten, titleBannerColumn, titleBannerRow)
+	if e.waitOrKey(titlePictureWait) {
+		e.endTitle()
+		return
+	}
+	show(titlePainting, 0, 0)
+	show(titleSilverBlades, titleLogoColumn, titleLogoRow)
+	if e.waitOrKey(titleLogoWait) {
+		e.endTitle()
+		return
+	}
 	e.ClearScreen()
 	e.Credits()
-	e.waitSecondsOrKey(titleSecondWait)
-	e.ClearScreen()
+	e.waitOrKey(titleCreditsWait)
+	e.endTitle()
 }
 
-// Credits = O039:01DD.
+// Credits = O047:029C.
 func (e *Engine) Credits() {
 	e.drawCreditsFrame()
 	for _, t := range creditLines {
@@ -59,38 +95,26 @@ var creditLines = []struct {
 	x, y, colour int
 	text         string
 }{
-	{2, 1, colourGreen, `based on the tsr novel "azure bonds"`},
-	{6, 2, colourGreen, "by:"},
-	{9, 2, colourCyan, "kate novak"},
-	{20, 2, colourGreen, "and"},
-	{24, 2, colourCyan, "jeff grubb"},
-	{10, 4, colourGreen, "scenario created by:"},
-	{11, 5, colourYellow, "tsr, inc."},
-	{21, 5, colourGreen, "and"},
-	{25, 5, colourYellow, "ssi"},
-	{14, 6, colourCyan, "jeff grubb"},
-	{11, 7, colourCyan, "george mac donald"},
-	{1, 9, colourGreen, "game created by:"},
-	{18, 9, colourYellow, "ssi special projects"},
-	{2, 11, colourYellow, "project leader:"},
-	{2, 12, colourCyan, "george mac donald"},
-	{2, 14, colourYellow, "programming:"},
-	{2, 15, colourCyan, "scot bayless"},
-	{2, 16, colourCyan, "russ brown"},
-	{2, 17, colourCyan, "michael mancuso"},
-	{2, 19, colourYellow, "development:"},
-	{2, 20, colourCyan, "david shelley"},
-	{2, 21, colourCyan, "michael mancuso"},
-	{2, 22, colourCyan, "oran kangas"},
-	{22, 11, colourYellow, "graphic arts:"},
-	{22, 12, colourCyan, "tom wahl"},
-	{22, 13, colourCyan, "fred butts"},
-	{22, 14, colourCyan, "susan manley"},
-	{22, 15, colourCyan, "mark johnson"},
-	{22, 16, colourCyan, "cyrus lum"},
-	{22, 18, colourYellow, "playtesting:"},
-	{22, 19, colourCyan, "jim jennings"},
-	{22, 20, colourCyan, "james kucera"},
-	{22, 21, colourCyan, "rick white"},
-	{22, 22, colourCyan, "robert daly"},
+	{7, 0, colourMagenta, "secret of the silver blades"},
+	{2, 3, colourMagenta, "game created by:    story and"},
+	{2, 4, colourYellow, "ssi special"},
+	{22, 4, colourMagenta, "development by:"},
+	{2, 5, colourYellow, "projects team       Dave Shelley"},
+	{2, 7, colourMagenta, "programming:        graphic arts:"},
+	{2, 8, colourYellow, "ken nicholson       mark johnson"},
+	{2, 9, colourYellow, "russ brown          laura bowen"},
+	{22, 10, colourYellow, "fred butts"},
+	{2, 11, colourMagenta, "Encounter Design:"},
+	{22, 11, colourYellow, "cyrus lum"},
+	{2, 12, colourYellow, "dave shelley        susan manley"},
+	{2, 13, colourYellow, "michael mancuso     mike provenza"},
+	{2, 14, colourYellow, "ken humphries       tom wahl"},
+	{2, 15, colourYellow, "graeme Bayless"},
+	{2, 16, colourYellow, "rick white"},
+	{22, 16, colourMagenta, "Musical Score:"},
+	{22, 17, colourYellow, "john halbleib"},
+	{2, 19, colourMagenta, "playtest:"},
+	{12, 19, colourYellow, "rick white,don mc clure,"},
+	{2, 20, colourYellow, "dave lucca,cliff mann,rick wilson,"},
+	{2, 21, colourYellow, "erik flom,james young,larry webber"},
 }
