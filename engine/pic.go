@@ -2,22 +2,26 @@ package engine
 
 import "sotsb/dax"
 
-// symFix = DS:2682 symbol_set_fix: the first symbol number of each of the
+// symFix = DS:1A7C symbol_set_fix (O20C:01C4): the first symbol number of each of the
 // five 8x8 symbol sets; symLast (DS 9868) the last.
 var (
 	symFix  = [5]int{1, 46, 116, 186, 256}
-	symLast = [5]int{45, 115, 185, 255, 295}
+	symLast = [5]int{45, 115, 185, 255, 333}
 )
 
-// LoadSymbolSet = Pool ovr35:003B — load 8X8D<n>.DAX block into set index,
-// masked on colour 13.
+// LoadSymbolSet = O20C:004D (block, set): load 8X8D<area>.DAX block into
+// set index, masked on colour 13; area 5 uses 8X8D1.
 func (e *Engine) LoadSymbolSet(set, block int) {
 	if set < 0 || set > 4 {
 		return
 	}
-	e.sym[set] = e.LoadPicMasked(e.symDAX, block, 0xD)
+	digit := e.areaDigit()
+	if e.gameArea == 5 {
+		digit = "1"
+	}
+	e.sym[set] = e.LoadPicMasked("8X8D"+digit, block, 0xD)
 	if e.sym[set] == nil {
-		e.MessageRow24b(0xF, "Unable to load 8x8D"+e.symDAX[4:]+"-"+itoa(block))
+		e.MessageRow24b(0xF, "Unable to load "+itoa(block)+" from 8x8D"+digit)
 		e.Exit()
 	}
 }

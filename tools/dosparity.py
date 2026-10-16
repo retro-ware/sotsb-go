@@ -2,7 +2,7 @@
 input, QMP on 127.0.0.1:4444), apply steps and save screen dumps for parity checks.
 
 Steps: wait:SECONDS  key:NAME (QMP key name, pressed ~150 ms)  text:STRING  shot:NAME
-The game runs from a temporary copy of GAMEDIR, started as START.EXE STING (no title)."""
+The game runs from a temporary copy of GAMEDIR, started as START.EXE Hoop (no title)."""
 import os, shutil, subprocess, sys, tempfile, time
 sys.path.insert(0, os.path.expanduser('~/tools/dos-mcp/src'))
 from dos_mcp.qmp import QmpClient
@@ -57,18 +57,18 @@ def game_ds(client):
         mem = b''
         for a in range(0, 0xA0000, 0x1000):
             mem += bytes.fromhex(tools.read_memory(client, a, 0x1000, allow_running=True)['data_hex'])
-        sig = b'\x23Save View Magic Rest Alter Fix Exit'
+        sig = b'\x14Create New Character'
         i = mem.find(sig)
-        while i >= 0 and (i - 0x042A) % 16 != 0:
+        while i >= 0 and (i - 0x06C0) % 16 != 0:
             i = mem.find(sig, i + 1)
-        _ds[0] = (i - 0x042A) // 16 if i >= 0 else tools.status(client)['cpu']['ds']
+        _ds[0] = (i - 0x06C0) // 16 if i >= 0 else tools.status(client)['cpu']['ds']
     return _ds[0]
 
 
 def main():
     game, out, steps = sys.argv[1], sys.argv[2], sys.argv[3:]
     os.makedirs(out, exist_ok=True)
-    tmp = tempfile.mkdtemp(prefix='cotab-dos-')
+    tmp = tempfile.mkdtemp(prefix='sotsb-dos-')
     for f in os.listdir(game):
         p = os.path.join(game, f)
         if os.path.isfile(p):
@@ -139,7 +139,7 @@ def main():
                 # Turbo Pascal's RandSeed: DS offset 18416 in Curse of the Azure Bonds
                 ds = tools.status(client)['cpu']['ds']
                 with client.session() as session:
-                    session.execute('memwrite', {'address': ds * 16 + 18416, 'data': int(arg).to_bytes(4, 'little').hex()})
+                    session.execute('memwrite', {'address': ds * 16 + 0x599C, 'data': int(arg).to_bytes(4, 'little').hex()})
                 print('seed', arg)
             elif kind == 'saves':
                 # copy the game's SAVE folder (as the game wrote it) to OUTDIR/arg

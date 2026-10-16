@@ -1,6 +1,6 @@
 package engine
 
-// Party menu, ported from Pool ovr17:0161 and the list display O0ED:07A2.
+// Party menu (O0EF:01A1) and the list display O0ED:07A2.
 
 // DisplayPartyList = O0ED:07A2 (selected): the roster with AC and HP.
 // While adventuring with the minimap on (extras.go) the panel shows the
@@ -88,8 +88,8 @@ func (e *Engine) partyKeypad(k byte) {
 	}
 }
 
-// The party menu's entries (DS 1363, 42-byte records: name, enabled flag).
-// The first letter of each name is its key.
+// The party menu's entries (DS 06C0, 42-byte records: name, enabled flag).
+// Picking one gives its first letter.
 var partyMenuEntries = [...]string{
 	"Create New Character",
 	"Drop Character",
@@ -101,7 +101,8 @@ var partyMenuEntries = [...]string{
 	"Remove Character from Party",
 	"Load Saved Game",
 	"Save Current Game",
-	"BEGIN Adventuring",
+	"Begin Adventuring",
+	"Initialize Mouse/Joystick",
 	"Exit to DOS",
 }
 
@@ -117,101 +118,86 @@ const (
 	menuLoad
 	menuSave
 	menuBegin
+	menuInitInput
 	menuExit
 )
 
-// The party menu's own rows: the function list starts at row 12, column 2.
+// The party menu's list window (text cells, edges included).
 const (
-	partyMenuListRow = 12
-	partyMenuListCol = 2
+	partyMenuLeft, partyMenuTop     = 9, 12
+	partyMenuRight, partyMenuBottom = 38, 22
 )
 
-// PartyMenu = O0A7:01CD startGameMenu. Returns when the party begins
-// adventuring (or a loaded game starts play).
+// PartyMenu = O0EF:01A1. Returns when the party begins adventuring.
 func (e *Engine) PartyMenu() {
-	e.symDAX = "8X8D" + itoa(int(e.gameArea))
 	stateBefore := e.gameState
 	e.gameState = stateStartMenu
-	var enabled [len(partyMenuEntries)]bool
-	enabled[menuCreate], enabled[menuAdd], enabled[menuLoad], enabled[menuExit] = true, true, true, true
-	redraw := true
+	enabled := [len(partyMenuEntries)]bool{menuCreate: true, menuAdd: true, menuLoad: true, menuInitInput: true, menuExit: true}
 	e.freeTraining = false
+	index := 0
 	for {
-		if redraw {
-			e.drawScreenFrame()
-			if len(e.party) > 0 {
-				e.DisplayPartyList()
-				enabled[menuDrop], enabled[menuModify] = true, true
-				if e.trainingClasses() > 0 || e.freeTraining {
-					enabled[menuTrain] = true // like the original, never cleared while there is a party
-				}
-				enabled[menuChangeClass] = (e.trainingClasses() > 0 || e.freeTraining) && e.mayChangeClass(e.selected())
-				enabled[menuView], enabled[menuRemove] = true, true
-				enabled[menuLoad] = false
-				enabled[menuSave], enabled[menuBegin] = true, true
-			} else {
-				for _, m := range []int{menuDrop, menuModify, menuTrain, menuChangeClass, menuView, menuRemove, menuSave, menuBegin} {
-					enabled[m] = false
-				}
-				enabled[menuLoad] = true
-			}
-			row := 0
-			for i, name := range partyMenuEntries {
-				if enabled[i] {
-					e.DisplayString(partyMenuListCol, partyMenuListRow+row, colourWhite, name[:1])
-					e.DisplayString(partyMenuListCol+1, partyMenuListRow+row, colourGreen, name[1:])
-					row++
-				}
-			}
-			redraw = false
+		e.drawScreenFrame()
+		party := len(e.party) > 0
+		if party {
+			e.playerSummary(e.selected())
 		}
-		// The menu bar itself is hidden (colours 0): the list above shows
-		// the functions, the keys of disabled ones do nothing.
-		k, extra := e.DisplayInput("Choose a function ", "C D M T H V A R L S B E J", colourLightMagenta, colourBlack, colourBlack, true, false)
-		e.ClearRow24()
-		if extra {
-			if k == 'G' || k == 'O' { // keypad up/down: select another party member
-				couldChange := e.mayChangeClass(e.selected())
-				e.partyKeypad(k)
-				e.DisplayPartyList()
-				redraw = e.mayChangeClass(e.selected()) != couldChange && e.trainingClasses() > 0
+		training := e.trainingClasses() > 0 || e.freeTraining
+		enabled[menuDrop], enabled[menuModify] = party, party
+		enabled[menuTrain], enabled[menuChangeClass] = party && training, party && training
+		enabled[menuView], enabled[menuRemove], enabled[menuSave], enabled[menuBegin] = party, party, party, party
+		enabled[menuLoad], enabled[menuInitInput] = !party, !party
+		var list []*ListNode
+		for i, name := range partyMenuEntries {
+			if enabled[i] {
+				list = append(list, &ListNode{Text: name})
 			}
+		}
+		redraw := true
+		var sel *ListNode
+		e.ListMenu("Choose a FUNCTION ", "Select ", colourLightMagenta, colourGreen, colourWhite,
+			partyMenuLeft, partyMenuTop, partyMenuRight, partyMenuBottom, list, false, &redraw, &index, &sel)
+		if sel == nil {
 			continue
 		}
+		k := sel.Text[0]
 		if k != 'E' && k != 'S' {
 			e.saved = false
 		}
 		switch k {
 		case 'C':
-			if enabled[menuCreate] {
-				e.CreateCharacter()
-			}
+			e.CreateCharacter()
 		case 'D':
-			if enabled[menuDrop] {
-				e.DropCharacter()
+			e.DropCharacter()
+		case 'H':
+			if e.pickCharacter() {
+				c := e.selected()
+				if class := e.ChangeClass(c); class != noClass {
+					// the old class's protections go; a paladin or ranger gets its own
+					for _, typ := range []byte{affectProtFromEvil, affectRangerVsGiants} {
+						if e.FindAffect(c, typ) != nil {
+							e.RemoveAffect(c, typ, nil)
+						}
+					}
+					switch class {
+					case clsPaladin:
+						e.AddAffect(c, affectProtFromEvil, 0, permanent, 0)
+					case clsRanger:
+						e.AddAffect(c, affectRangerVsGiants, 0, permanent, 0)
+					}
+				}
 			}
 		case 'M':
-			if enabled[menuModify] {
-				e.ModifyCharacter()
-			}
+			e.ModifyCharacter()
 		case 'T':
-			if enabled[menuTrain] {
-				e.TrainCharacter()
-			}
-		case 'H':
-			if enabled[menuChangeClass] {
-				e.ChangeClass(e.selected())
-			}
+			e.TrainCharacter()
 		case 'V':
-			if enabled[menuView] {
+			if e.pickCharacter() {
 				e.viewPlayer()
 			}
 		case 'A':
-			if enabled[menuAdd] {
-				e.AddCharacter()
-			}
+			e.AddCharacter()
 		case 'R':
-			if enabled[menuRemove] && len(e.party) > 0 {
+			if e.pickCharacter() {
 				if c := e.selected(); !c.NPC() {
 					e.SaveCharacter(c, "")
 					e.freePlayers(false, true)
@@ -220,44 +206,74 @@ func (e *Engine) PartyMenu() {
 				}
 			}
 		case 'L':
-			if enabled[menuLoad] {
-				e.LoadGame()
-				if e.gameState != 0 {
-					e.loadedGame = true
-					return
-				}
-			}
+			e.LoadGame()
 		case 'S':
-			if enabled[menuSave] && len(e.party) > 0 {
-				e.SaveGame()
-			}
+			e.SaveGame()
 		case 'B':
-			if enabled[menuBegin] && (len(e.party) > 0 && !e.gameFinished() || e.demo) {
-				e.gameState = stateBefore
-				if !e.loadedGame && e.mapMode != mapPicture {
-					if e.gameState == stateWilderness {
-						e.drawWildernessFrame()
-					} else {
-						e.drawAdventureFrame()
-					}
-					e.playerSummary(e.selected())
-				} else if wordAt(e.area, 2*areaWordLastECL) == 0 {
+			if !party && !e.demo {
+				break
+			}
+			e.gameState = stateBefore
+			if !e.loadedGame || e.mapMode == mapPicture {
+				if e.gameState == stateWilderness && wordAt(e.area, 2*areaWordPartyOnMap) == 0 {
+					e.drawTextWindowFrame()
+				} else {
 					e.drawAdventureFrame()
 				}
-				e.ClearRow24()
-				putWord(e.game, trainingMaskByte, 0)
-				return
+				e.playerSummary(e.selected())
+			} else if wordAt(e.area, 2*areaWordLastECL) == 0 || wordAt(e.area, 2*areaWordPartyOnMap) != 0 {
+				e.drawAdventureFrame()
+				e.playerSummary(e.selected())
 			}
+			e.ClearRow24()
+			putWord(e.game, trainingMaskByte, 0)
+			return
+		case 'I':
+			e.initMouseJoystick()
 		case 'E':
-			if enabled[menuExit] && e.YesNo(colourYellow, colourGreen, colourWhite, "Quit to DOS ") == 'Y' {
-				if len(e.party) > 0 && !e.saved &&
-					e.YesNo(colourYellow, colourGreen, colourWhite, "Game not saved.  Quit anyway? ") == 'N' {
+			if e.yesNoFrom(answerNo, colourYellow, colourGreen, colourWhite, "Quit to DOS ") == 'Y' {
+				if party && !e.saved &&
+					e.yesNoFrom(answerNo, colourYellow, colourGreen, colourWhite, "Game NOT saved.  Quit anyway? ") == 'N' {
 					e.SaveGame()
 				}
 				e.Exit()
 			}
 		}
-		redraw = true
+	}
+}
+
+// initMouseJoystick = O0EF:5508: switch the mouse or the joystick on or
+// off and keep the choice as the input line of BLADES.CFG.
+// ponytail: only the setting is kept; the port reads mouse and gamepad either way, no joystick calibration.
+func (e *Engine) initMouseJoystick() {
+	index := 0
+	for {
+		state := func(on bool) string {
+			if on {
+				return "ON"
+			}
+			return "OFF"
+		}
+		list := []*ListNode{
+			{Text: "mouse " + state(e.Cfg.Input == 'M')},
+			{Text: "joystick " + state(e.Cfg.Input == 'J')},
+			{Text: "disable both"},
+		}
+		redraw := true
+		var sel *ListNode
+		if e.ListMenu("Init Mouse/Joystick: ", "Select", colourLightMagenta, colourGreen, colourWhite,
+			partyMenuLeft, partyMenuTop, partyMenuRight, partyMenuBottom, list, true, &redraw, &index, &sel) != 'S' {
+			return
+		}
+		switch {
+		case index == 0 && e.Cfg.Input != 'M':
+			e.Cfg.Input = 'M'
+		case index == 1 && e.Cfg.Input != 'J':
+			e.Cfg.Input = 'J'
+		default:
+			e.Cfg.Input = 'N'
+		}
+		e.writeConfig()
 	}
 }
 

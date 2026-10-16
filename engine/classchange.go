@@ -51,11 +51,12 @@ func mayTakeClass(c *Character, class int) bool {
 // ChangeClass = O164:0F49: a human picks a new class; the old class's
 // levels are kept apart and the character starts again at level 1. The
 // selected character must be a human who has not changed class before.
-func (e *Engine) ChangeClass(c *Character) {
+// Returns the new class, noClass when there is none.
+func (e *Engine) ChangeClass(c *Character) int {
 	doesNotQualify := func() { e.statusMessage(c.Name()+" doesn't qualify.", colourRed, colourWhite) }
 	if sel := e.selected(); !isHuman(sel) || activeClass(sel) != noClass {
 		doesNotQualify()
-		return
+		return noClass
 	}
 	race := int(c.Race)
 	list := []*ListNode{{Flag: 1, Text: "Pick New Class"}}
@@ -66,14 +67,14 @@ func (e *Engine) ChangeClass(c *Character) {
 	}
 	if len(list) == 1 {
 		doesNotQualify()
-		return
+		return noClass
 	}
 	index, redraw := 1, true
 	var sel *ListNode
 	for {
 		k := e.ListMenu("", "Select", colourLightMagenta, colourGreen, colourWhite, 1, 2, 38, 22, list, true, &redraw, &index, &sel)
 		if k == 0 {
-			return
+			return noClass
 		}
 		if k == 'S' {
 			break
@@ -113,4 +114,5 @@ func (e *Engine) ChangeClass(c *Character) {
 			it.Readied = 0
 		}
 	}
+	return newClass
 }

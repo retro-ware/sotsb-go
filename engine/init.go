@@ -15,7 +15,7 @@ func (e *Engine) Init() {
 	e.aux = make([]byte, 0x400)  // DS:49DA
 	e.ecl = make([]byte, 0x1E00) // DS:49DE, ECL code at pc-0x9900
 	e.eclPC = 0x9900             // DS:49ED
-	e.symDAX = "8X8D1"           // DS:5376 = 1
+	e.gameArea = 5               // b7420 (O0A1:0397): the symbols of 8X8D1, the font of 8X8D5
 	e.viewMode, e.prevViewMode = 1, 1
 	e.saved = false
 	e.flag49F5, e.flag49F6 = 1, 1         // DS:49F5/49F6
@@ -24,13 +24,12 @@ func (e *Engine) Init() {
 	e.mapPairA[1], e.mapPairA[2] = -1, -1 // DS:6AAE+4i, i = 2..3
 	e.mapPairB[1], e.mapPairB[2] = -1, -1 // DS:6AB0+4i
 	e.es.v6F69, e.es.v6F68 = 232, 219     // b8F4D/b8F4C
-	e.symPrev = e.symDAX                  // DS:5377
 	e.newGameState()
 
 	e.loadGameFont()
 	e.ClearRow24()
 	e.DisplayString(0, 24, 0xA, "Loading...Please Wait")
-	e.LoadSymbolSet(4, 202) // Pool ovr35:003B
+	e.LoadSymbolSet(4, 202) // O0A1:0489
 	e.LoadSymbolSet(0, 203)
 	for i := 0; i <= 0xB; i++ {
 		e.LoadIconPic("COMSPR", i, i+0xD) // O12A:01D0

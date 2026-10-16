@@ -320,10 +320,10 @@ func (e *Engine) LoadWalldef(block, slot int) {
 	if slot < 1 || slot > 3 {
 		return
 	}
-	b := e.daxBlock("WALLDEF"+e.symDAX[4:], block)
+	b := e.daxBlock("WALLDEF"+e.areaDigit(), block)
 	if len(b) == 0 || slot+len(b)/walldefSet > 4 {
 		// the original stops the game here
-		e.MessageRow24b(0xF, "Unable to load "+itoa(block)+" from WALLDEF"+e.symDAX[4:]+".")
+		e.MessageRow24b(0xF, "Unable to load "+itoa(block)+" from WALLDEF"+e.areaDigit()+".")
 		return
 	}
 	reloc := byte(symFix[slot] - symFix[1])
@@ -355,7 +355,7 @@ func (e *Engine) LoadWalldef(block, slot int) {
 
 // LoadGeo = O116:130D Load3DMap (n): GEO<n>.DAX block n into the map planes.
 func (e *Engine) LoadGeo(n int) {
-	b := e.daxBlock("GEO"+e.symDAX[4:], n)
+	b := e.daxBlock("GEO"+e.areaDigit(), n)
 	if len(b) != geoSize { // the original stops the game here
 		e.MessageRow24b(0xF, "Unable to load geo in Load3DMap.")
 	}

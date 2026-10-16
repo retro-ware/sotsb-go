@@ -18,25 +18,28 @@ import (
 	"sotsb/exe"
 )
 
-// The driver's segment (R699) in the load image, and its data. The driver is Pool of
-// Radiance's (its 08AE), 189 bytes further down.
+// The driver's segment (R7E4) in the load image, and its data. The driver is Curse of
+// the Azure Bonds' (its R699), its data 2 bytes further up and its code 8591 bytes down.
 const (
-	segment      = 0x699 * 16 // R699:0000
-	jumpTable    = 356        // the six script commands' handlers, from command 250 on
-	channelSize  = 48
-	speakerSet   = 368  // the PC speaker's four channels
-	tandySet     = 778  // the Tandy's: three tones, then the noise
-	speakerSongs = 1186 // R699:1685's table
-	tandySongs   = 1354 // R699:16F1's table
-	songs        = 21
-	channels     = 4
-	enabledFlag  = 336
-	firstCommand = 250
+	segment        = 0x7E4 * 16 // R7E4:0000
+	jumpTable      = 354        // the six script commands' handlers, from command 250 on
+	channelSize    = 48
+	speakerSet     = 366  // the PC speaker's four channels
+	tandySet       = 776  // the Tandy's: three tones, then the noise
+	speakerSongs   = 1184 // the PC speaker's song table (R7E4:3814)
+	tandySongs     = 1288 // the Tandy's (R7E4:3880)
+	songs          = 13
+	channels       = 4
+	enabledFlag    = 334
+	speakerPeriods = 750  // R7E4:3549's note periods
+	tandyPeriods   = 1160 // R7E4:35BE's
+	envelopeSteps  = 8
+	firstCommand   = 250
 )
 
 // The handlers of the commands, by their address in the segment.
 var commands = map[int]string{
-	5521: "reset", 5615: "return", 5622: "call", 5512: "switch", 5489: "loop", 5570: "set",
+	14112: "reset", 14206: "return", 14213: "call", 14103: "switch", 14080: "loop", 14161: "set",
 }
 
 // The channel fields a script may set, by their offset in a channel, and what the
@@ -44,15 +47,16 @@ var commands = map[int]string{
 var fields = map[int]string{
 	0: "sndTimer", 4: "sndPeriod", 6: "sndSlide", 10: "sndLevel", 12: "sndLevelSlide",
 	28: "sndVibrato", 32: "sndVibratoSpeed", 34: "sndVibratoDepth", 36: "sndVibratoLength",
-	38: "sndCounter", 40: "sndCounter2",
+	38: "sndCounter", 40: "sndCounter2", 14: "sndTempo", 18: "sndTranspose", 22: "sndEnvelope",
 }
-var unread = map[int]bool{14: true, 16: true, 18: true, 22: true} // tempo, -, transpose, envelope table
-var noteOnly = map[int]bool{20: true, 24: true, 26: true}         // the release timer and the envelope position
+var unread = map[int]bool{16: true}                       // nothing reads it
+var noteOnly = map[int]bool{20: true, 24: true, 26: true} // the release timer and the envelope position
 
 type op struct {
 	addr, next int
 	kind       string
 	field, arg int
+	length     int // a note's
 }
 
 func main() {
@@ -69,11 +73,7 @@ func main() {
 	if seg[enabledFlag] != 1 {
 		log.Fatalf("the driver starts with the sound off (%d)", seg[enabledFlag])
 	}
-	for o := speakerSet; o < speakerSet+channels*channelSize; o++ {
-		if seg[o] != 0 || seg[tandySet+o-speakerSet] != 0 {
-			log.Fatal("the channels do not start cleared")
-		}
-	}
+	// (The channels are not cleared in the image: a song clears each channel it takes.)
 
 	// every script the songs start, and what they call
 	var todo []int
@@ -97,7 +97,13 @@ func main() {
 			}
 			b := int(seg[pc])
 			if b < firstCommand {
-				log.Fatalf("a note at %d: the engine plays no notes", pc)
+				// a note: its channel (top three bits), its pitch (bit 7: the last
+				// of the event's notes; 127: a rest) and its length
+				o := op{addr: pc, kind: "note", field: b >> 5, arg: int(seg[pc+1]), next: pc + 3}
+				o.length = int(seg[pc+2])
+				ops[pc] = o
+				pc = o.next
+				continue
 			}
 			o := op{addr: pc, kind: commands[word(jumpTable+2*(b-firstCommand))]}
 			switch o.kind {
@@ -171,6 +177,15 @@ func main() {
 	for i, a := range vibAddrs {
 		vibIndex[a] = i + 1
 	}
+	// the envelopes overlap: each is taken as its eight steps
+	envIndex := map[int]int{}
+	var envAddrs []int
+	for _, a := range addrs {
+		if o := ops[a]; o.kind == "set" && o.field == 22 && envIndex[o.arg] == 0 {
+			envAddrs = append(envAddrs, o.arg)
+			envIndex[o.arg] = len(envAddrs)
+		}
+	}
 
 	// the program: the kept ops in address order after the empty op 0; a dropped set
 	// stands for the op after it
@@ -209,6 +224,8 @@ func main() {
 		switch o.kind {
 		case "return":
 			fmt.Fprintf(&b, "\t{kind: sndReturn},\n")
+		case "note":
+			fmt.Fprintf(&b, "\t{kind: sndNote, field: %d, arg: %d, length: %d},\n", o.field, o.arg, o.length)
 		case "call":
 			fmt.Fprintf(&b, "\t{kind: sndCall, arg: %d},\n", resolve(o.arg))
 		case "switch":
@@ -217,8 +234,11 @@ func main() {
 			fmt.Fprintf(&b, "\t{kind: sndLoop, field: %s, arg: %d},\n", fields[o.field], resolve(o.arg))
 		case "set":
 			arg := o.arg
-			if o.field == 28 {
+			switch o.field {
+			case 28:
 				arg = vibIndex[arg]
+			case 22:
+				arg = envIndex[arg]
 			}
 			fmt.Fprintf(&b, "\t{kind: sndSet, field: %s, arg: %d},\n", fields[o.field], arg)
 		}
@@ -260,5 +280,33 @@ func main() {
 		fmt.Fprintf(&b, "\n\t},\n")
 	}
 	fmt.Fprintf(&b, "}\n")
+	fmt.Fprintf(&b, "\n// sndEnvelopes are the notes' level envelopes, eight (value, ticks) steps each: the\n"+
+		"// attack from step 0, the release from step 4; ticks 0xFFFF sets the level, others\n"+
+		"// slide it by value for that many ticks (0: the envelope stops). Table 0 is none.\n"+
+		"var sndEnvelopes = [][envelopeSteps][2]uint16{\n\t{},\n")
+	for _, a := range envAddrs {
+		fmt.Fprintf(&b, "\t{")
+		for i := range envelopeSteps {
+			if i > 0 {
+				fmt.Fprintf(&b, ", ")
+			}
+			fmt.Fprintf(&b, "{%d, %d}", word(a+4*i), word(a+4*i+2))
+		}
+		fmt.Fprintf(&b, "},\n")
+	}
+	fmt.Fprintf(&b, "}\n")
+	for _, t := range []struct {
+		name, doc string
+		addr      int
+	}{{"sndSpeakerPeriods", "the PC speaker's timer divisors", speakerPeriods}, {"sndTandyPeriods", "the Tandy's dividers times 64", tandyPeriods}} {
+		fmt.Fprintf(&b, "\n// %s are %s of the twelve notes of the lowest octave.\nvar %s = [12]uint16{", t.name, t.doc, t.name)
+		for i := range 12 {
+			if i > 0 {
+				fmt.Fprintf(&b, ", ")
+			}
+			fmt.Fprintf(&b, "%d", word(t.addr+2*i))
+		}
+		fmt.Fprintf(&b, "}\n")
+	}
 	os.Stdout.WriteString(b.String())
 }

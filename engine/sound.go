@@ -10,20 +10,16 @@ import (
 	"sotsb/amiga"
 )
 
-//go:generate sh -c "go run ../cmd/sounddata $$COTAB_EXE > sounddata.go"
+//go:generate sh -c "go run ../cmd/sounddata $$SOTSB_EXE > sounddata.go"
 
-// The sound driver of START.EXE (its segment R699): a sequencer run from the timer
+// The sound driver of START.EXE (its segment R7E4, Curse's R699 with notes in use): a sequencer run from the timer
 // interrupt, reprogrammed to 236.7 Hz, that steps two sets of four channels every tick,
 // the PC speaker's and the Tandy/PCjr's (three tones and the noise of its SN76489). A song
 // starts a script on each channel of one set; a script sets the channel's fields (its
-// period and level and their slides, a vibrato) and waits on its timer. The songs, their
-// scripts and the vibrato waveforms are in sounddata.go, generated from the exe by
-// cmd/sounddata.
-//
-// The driver also plays notes with an envelope, but no song of the game does, so that
-// part is not ported (cmd/sounddata refuses data that would need it). Op 0 of the
-// program ends a script: the Tandy's song 18 (sound 19, which the game never plays)
-// returns without a call, which in the original runs on into the driver's own code.
+// period and level and their slides, a vibrato) or plays notes, each with a level
+// envelope, and waits on its timer. The songs, their scripts, the vibrato waveforms,
+// the envelopes and the note periods are in sounddata.go, generated from the exe by
+// cmd/sounddata. Op 0 of the program ends a script.
 //
 // Nothing is audible, and nothing waits, until SoundReader is called, so the
 // headless tools stay silent and fast.
@@ -34,7 +30,7 @@ const (
 	sndTimerHz  = pitClock / 5041 // the driver's tick: timer 0's divisor 5041
 	snClock     = 3579545.0       // SN76489 input clock on the Tandy 1000 / PCjr
 	sndChannels = 4
-	sndSongs    = 21
+	sndSongs    = 13
 	speakerAmp  = 4000
 )
 
@@ -67,9 +63,10 @@ const (
 
 // sndOp is a command of a song's script.
 type sndOp struct {
-	kind  sndKind
-	field sndField
-	arg   int
+	kind   sndKind
+	field  sndField // a note's channel
+	arg    int      // a note's pitch: bit 7 ends the event, 127 is a rest
+	length int      // a note's, in ticks (times the tempo)
 }
 
 type sndKind uint8
@@ -80,6 +77,18 @@ const (
 	sndReturn                //
 	sndSwitch                // work on channel arg of the set from here on, its sound cleared
 	sndLoop                  // count field down and go to op arg until it reaches 0 (from 0: always)
+	sndNote                  // play a note (R7E4:3796)
+)
+
+// The notes' octaves and envelopes.
+const (
+	notesPerOctave = 12
+	envelopeSteps  = 8
+	releaseStep    = 4 // where an envelope's release begins
+	envelopeSet    = 0xFFFF
+	notePitchMask  = 127
+	noteRest       = 127
+	noteLast       = 128
 )
 
 // sndField is a channel field a script sets.
@@ -97,6 +106,9 @@ const (
 	sndVibratoLength
 	sndCounter
 	sndCounter2
+	sndTempo
+	sndTranspose
+	sndEnvelope
 )
 
 // sndChannel is one channel of a set. The words wrap around as the 16-bit driver's did.
@@ -115,6 +127,12 @@ type sndChannel struct {
 	vibratoDepth      uint16
 	vibratoLength     uint16
 	counter, counter2 uint16
+	tempo             uint16 // its low byte, above 1, multiplies the notes' lengths
+	transpose         uint16 // added to the notes
+	envelope          int    // the notes' envelope (sndEnvelopes), 0 none
+	release           uint16 // ticks to the note's release
+	envelopePos       int    // the envelope's next step
+	envelopeCount     uint16 // ticks to it; 0: the envelope stands
 }
 
 func (c *sndChannel) field(f sndField) *uint16 {
@@ -139,27 +157,38 @@ func (c *sndChannel) field(f sndField) *uint16 {
 		return &c.counter
 	case sndCounter2:
 		return &c.counter2
+	case sndTempo:
+		return &c.tempo
+	case sndTranspose:
+		return &c.transpose
 	}
 	panic("sound: no such field")
 }
 
 func (c *sndChannel) set(f sndField, v int) {
-	if f == sndVibrato {
+	switch f {
+	case sndVibrato:
 		c.vibrato = v
+		return
+	case sndEnvelope:
+		c.envelope = v
 		return
 	}
 	*c.field(f) = uint16(v)
 }
 
-// clear silences a channel a script switches to; its timer, script and counters stay.
+// clear silences a channel a script switches to; its timer, script, tempo, release
+// and counters stay.
 func (c *sndChannel) clear() {
-	*c = sndChannel{timer: c.timer, script: c.script, counter: c.counter, counter2: c.counter2}
+	*c = sndChannel{timer: c.timer, script: c.script, counter: c.counter, counter2: c.counter2,
+		tempo: c.tempo, release: c.release}
 }
 
 // sndChannelSet is the four channels of a sound chip and the songs for them.
 type sndChannelSet struct {
-	ch    [sndChannels]sndChannel
-	songs *[sndSongs][sndChannels]int
+	ch      [sndChannels]sndChannel
+	songs   *[sndSongs][sndChannels]int
+	periods *[notesPerOctave]uint16 // the lowest octave's
 }
 
 // sound is the driver state.
@@ -291,8 +320,8 @@ func (e *Engine) SoundReader() *soundReader {
 	s := &e.snd
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.speaker = sndChannelSet{songs: &sndSpeakerSongs}
-	s.tandySet = sndChannelSet{songs: &sndTandySongs}
+	s.speaker = sndChannelSet{songs: &sndSpeakerSongs, periods: &sndSpeakerPeriods}
+	s.tandySet = sndChannelSet{songs: &sndTandySongs, periods: &sndTandyPeriods}
 	s.enabled, s.ret = true, 0
 	s.sn.att = [4]int{snSilent, snSilent, snSilent, snSilent}
 	s.tandy = e.Cfg.Sound == 'T'
@@ -454,10 +483,61 @@ func (s *sound) step(set *sndChannelSet, c int) {
 		}
 	}
 	ch.out = ch.period + bend
+	if ch.release != 0 {
+		ch.release--
+		if ch.release == 0 {
+			ch.envelopePos, ch.envelopeCount = releaseStep, 1
+		}
+	}
 	ch.timer--
 	if ch.timer == 0 {
 		s.fetch(set, c)
 	}
+	if ch.envelopeCount != 0 {
+		ch.envelopeCount--
+		if ch.envelopeCount == 0 {
+			ch.nextEnvelopeStep()
+		}
+	}
+}
+
+// nextEnvelopeStep takes the envelope's steps that set the level, up to one that
+// slides it for a while.
+func (ch *sndChannel) nextEnvelopeStep() {
+	// ponytail: a table ends after eight steps; the original reads on into the next one
+	for ch.envelopePos < envelopeSteps {
+		step := sndEnvelopes[ch.envelope][ch.envelopePos]
+		ch.envelopePos++
+		if step[1] != envelopeSet {
+			ch.levelSlide, ch.envelopeCount = step[0], step[1]
+			return
+		}
+		ch.level = step[0]
+		if step[0] == 0 {
+			ch.levelSlide = 0
+		}
+	}
+}
+
+// note = R7E4:3796: the current channel waits the note's length; a note for the
+// set's first channel (the others are only waited on) starts there with its
+// envelope, an octave of the period table shifted down.
+func (s *sound) note(set *sndChannelSet, c int, op sndOp) {
+	length := uint16(op.length)
+	if tempo := byte(set.ch[c].tempo); tempo > 1 {
+		length = uint16(tempo) * uint16(op.length)
+	}
+	set.ch[c].timer = length
+	if op.arg&notePitchMask == noteRest || op.field != 0 {
+		return
+	}
+	ch := &set.ch[0]
+	ch.timer, ch.release = length, length
+	ch.envelopePos, ch.envelopeCount = 0, 1
+	n := uint16(op.arg&notePitchMask) + ch.transpose
+	octave := byte(n / notesPerOctave)
+	ch.period = set.periods[n%notesPerOctave] >> (octave & 31) // the 386's shift count
+	ch.out = ch.period
 }
 
 // fetch runs channel c's script up to its next event: a timer set. A script may switch
@@ -489,6 +569,15 @@ func (s *sound) fetch(set *sndChannelSet, c int) {
 				}
 			}
 			pc = op.arg
+		case sndNote:
+			s.note(set, c, op)
+			if op.arg&noteLast != 0 {
+				if set.ch[cur].timer == 0 {
+					pc = 0
+				}
+				set.ch[cur].script = pc
+				return
+			}
 		case sndSet:
 			set.ch[c].set(op.field, op.arg)
 			if op.field == sndTimer {
@@ -519,7 +608,7 @@ func (s *sound) stop() {
 	s.start(&s.speaker, 0)
 }
 
-// PlaySound = R699:0020 (n): only 0..15 and 255 are taken, and only with a sound
+// PlaySound = R7E4:0020 (n): only 0..15 and 255 are taken, and only with a sound
 // card. sndMute starts the empty song 0 on both sets, sndUnmute lets the speaker
 // sound, sndStop silences everything and unhooks the timer interrupt; 2..14 start
 // song n-1 on the card's set. 15 arms the driver's copy-protection countdown
@@ -543,7 +632,7 @@ func (e *Engine) PlaySound(n int) {
 		s.stop()
 		s.unhook()
 		s.installed = false
-	case n >= sndSpell && n < sndCountdown:
+	case n >= sndSpell && n < sndCountdown && n-1 < sndSongs:
 		if s.am != nil && n-sndSpell < len(amigaFx) {
 			s.am.Effect(amigaFx[n-sndSpell])
 		} else if s.typ == sndSpeaker {
@@ -554,7 +643,7 @@ func (e *Engine) PlaySound(n int) {
 	}
 }
 
-// soundInit = R699:00D4: remember the card (DS:5C05), mark the driver
+// soundInit = R7E4:00CB: remember the card (DS:5C05), mark the driver
 // installed (DS:5C06) and, with a card, hook the timer interrupt (R699:12BF)
 // and start song 0 on both sets.
 func (e *Engine) soundInit() {

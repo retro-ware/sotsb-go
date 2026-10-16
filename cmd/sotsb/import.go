@@ -39,10 +39,14 @@ func gameFile(name string) bool {
 		return true
 	case base == "ITEMS" || base == "BLADES.CFG":
 		return true
-	case strings.HasPrefix(base, "SAVGAM") || strings.HasPrefix(base, "CHRDAT"):
-		return true // saved games and saved characters
 	}
-	return false
+	return isSave(base)
+}
+
+// isSave: saved games and saved characters.
+func isSave(name string) bool {
+	base := strings.ToUpper(path.Base(name))
+	return strings.HasPrefix(base, "SAVGAM") || strings.HasPrefix(base, "CHRDAT")
 }
 
 // importGame (-import, for goplay) finds a Secret of the Silver Blades install in
@@ -63,7 +67,8 @@ func importGame(src, dst string) error {
 		byDir[d][strings.ToUpper(path.Base(name))] = b
 	}
 	var game map[string][]byte
-	for _, fs := range byDir {
+	gameDir := ""
+	for d, fs := range byDir {
 		ok := true
 		for _, m := range markerFiles {
 			if _, has := fs[m]; !has {
@@ -71,21 +76,33 @@ func importGame(src, dst string) error {
 			}
 		}
 		if ok {
-			game = fs
+			game, gameDir = fs, d
 			break
 		}
 	}
 	if game == nil {
 		return fmt.Errorf("no Secret of the Silver Blades found in %s", src)
 	}
-	if err := os.MkdirAll(dst, 0o755); err != nil {
+	// Saves of the game's SAVE folder (BLADES.CFG's C:\SAVE\) join those next to it.
+	for d, fs := range byDir {
+		if strings.EqualFold(path.Base(d), "SAVE") && path.Dir(d) == gameDir {
+			for n, b := range fs {
+				game[n] = b
+			}
+		}
+	}
+	if err := os.MkdirAll(filepath.Join(dst, "SAVE"), 0o755); err != nil {
 		return err
 	}
 	for name, b := range game {
 		if !gameFile(name) {
 			continue // a marker only
 		}
-		if err := os.WriteFile(filepath.Join(dst, name), b, 0o644); err != nil {
+		to := filepath.Join(dst, name)
+		if isSave(name) {
+			to = filepath.Join(dst, "SAVE", name) // the engine's save folder
+		}
+		if err := os.WriteFile(to, b, 0o644); err != nil {
 			return err
 		}
 	}

@@ -249,7 +249,7 @@ func (e *Engine) LoadIconPic(name string, block, slot int) {
 			e.recolour(ic[1], recolourIcon)
 		}
 	default:
-		n := name + e.symDAX[4:] // DS:5C08 game area digit
+		n := name + e.areaDigit() // DS:5C08 game area digit
 		ic[0], ic[1] = load(n, block), load(n, block+0x80)
 		e.recolour(ic[0], recolourCombat)
 		e.recolour(ic[1], recolourCombat)

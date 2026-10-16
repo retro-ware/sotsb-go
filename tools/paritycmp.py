@@ -2,8 +2,8 @@
 with the same keys and report the pixel differences of every screen.
 
 KEYS uses snap's notation: letters, ^ v < > arrows, | Enter, %e Esc, _ a pause. The original gets
-`START.EXE STING Wooden` and the Play key first; GAMEDIR is the port's data folder, SAVEDGAMEDIR the
-original's (save path C:\\). Screens: /tmp/pc_port/game_NN.raw and /tmp/pc_dos/sNN.raw."""
+`START.EXE Hoop` (no title) and the Play key first; GAMEDIR is the port's data folder, SAVEDGAMEDIR the
+original's (with START.EXE, saves in SAVE\\). Screens: /tmp/pc_port/game_NN.raw and /tmp/pc_dos/sNN.raw."""
 import os, shutil, subprocess, sys
 
 here = os.path.dirname(os.path.abspath(__file__))
@@ -20,7 +20,7 @@ while i < len(keys):
         toks.append(keys[i]); i += 1
 
 qmp = {'^': 'up', 'v': 'down', '<': 'left', '>': 'right', '|': 'ret', '%e': 'esc', ' ': 'spc'}
-steps = ['wait:8', 'seed:' + os.environ.get('COTAB_SEED', '1'), 'key:p', 'wait:3']
+steps = ['wait:10', 'seed:' + os.environ.get('SOTSB_SEED', '1'), 'key:p', 'wait:5']
 for n, t in enumerate(toks, 1):
     if t != '_':
         steps.append('key:' + qmp.get(t, t.lower()))
@@ -30,10 +30,10 @@ steps += [x for x in os.environ.get('DOSPAR_EXTRA', '').split() if x]
 for d in ('/tmp/pc_port', '/tmp/pc_dos'):
     shutil.rmtree(d, ignore_errors=True)
     os.makedirs(d)
-env = dict(os.environ, DOSPAR_CMD='START.EXE STING Wooden', SDL_VIDEODRIVER='dummy', DOSBOX_NO_HOST_INPUT='1')
+env = dict(os.environ, DOSPAR_CMD='START.EXE Hoop', SDL_VIDEODRIVER='dummy', DOSBOX_NO_HOST_INPUT='1')
 dos = subprocess.Popen([sys.executable, os.path.join(here, 'dosparity.py'), dos_dir, '/tmp/pc_dos'] + steps,
                        env=env, stdout=open('/tmp/pc_dos.log', 'w'), stderr=subprocess.STDOUT)
-penv = dict(os.environ, SDL_VIDEODRIVER='dummy', COTAB_SEED=os.environ.get('COTAB_SEED', '1'))
+penv = dict(os.environ, SDL_VIDEODRIVER='dummy', SOTSB_SEED=os.environ.get('SOTSB_SEED', '1'), SNAP_WAIT=wait)
 port_copy = '/tmp/pc_portdata'
 shutil.rmtree(port_copy, ignore_errors=True)
 shutil.copytree(port_dir, port_copy)  # the game writes and deletes files

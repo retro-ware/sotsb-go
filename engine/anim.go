@@ -32,7 +32,7 @@ func (e *Engine) LoadAnimPic(name string, block int, masked bool) {
 	}
 	e.FreeAnimPic()
 	a.name, a.block = name, block
-	b := e.daxBlock(name+e.symDAX[4:], block)
+	b := e.daxBlock(name+e.areaDigit(), block)
 	if b == nil {
 		return
 	}
@@ -94,7 +94,7 @@ func (e *Engine) DrawAnimFrame(frame int) {
 // while the ids do not change; 0xFF leaves that half alone.
 func (e *Engine) LoadPortrait(head, body int) {
 	p := &e.port
-	d := e.symDAX[4:]
+	d := e.areaDigit()
 	if head != 0xFF && (p.headID == 0xFF || p.headID != head) {
 		p.head = e.LoadPic("HEAD"+d, head)
 		p.headID = head

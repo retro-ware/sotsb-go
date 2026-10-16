@@ -209,3 +209,21 @@ func (e *Engine) partyCount() int { return int(binary.LittleEndian.Uint16(e.game
 func (e *Engine) setPartyCount(n int) {
 	binary.LittleEndian.PutUint16(e.game[gsPartyCount:], uint16(n))
 }
+
+// writeConfig keeps the input choice as line 3 of BLADES.CFG (O0EF:5508);
+// the other lines stay as they are.
+func (e *Engine) writeConfig() {
+	path := e.L.Path("BLADES.CFG")
+	if path == "" {
+		path = filepath.Join(e.Cfg.GameDir, "BLADES.CFG")
+	}
+	b, _ := os.ReadFile(path)
+	lines := strings.Split(strings.TrimRight(string(b), "\r\n"), "\r\n")
+	for len(lines) < 3 {
+		lines = append(lines, "")
+	}
+	lines[0], lines[1], lines[2] = string(e.Cfg.Graphics), string(e.Cfg.Sound), string(e.Cfg.Input)
+	if err := os.WriteFile(path, []byte(strings.Join(lines, "\r\n")+"\r\n"), 0o644); err != nil {
+		e.fileError("write", path)
+	}
+}

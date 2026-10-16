@@ -52,7 +52,6 @@ type Engine struct {
 
 	font   []byte        // DS:7DC8 -> 8X8D5 block 201, 8 bytes per glyph
 	sym    [5]*dax.Image // DS:5E3A symbol sets
-	symDAX string        // "8X8D" + DS:5376 digit
 	start  time.Time
 
 	pendingScan byte // ReadKey: scan code waiting after a 0 byte
@@ -130,7 +129,6 @@ type Engine struct {
 
 	cm             charMgmtState       // ovr17 create/modify/train state
 	es             eclState            // ovr08/ovr04 interpreter state
-	symPrev        string              // DS:5377
 	msgRow, msgCol int                 // DS:65BB / 65BA text-block cursor
 	slowText       bool                // DS:4A00: DisplayTextBlock types out
 	listTop        int                 // DS:6B29 ovr26 list menu: first visible row
@@ -226,7 +224,7 @@ func New(dir string, scr *ega.Screen) (*Engine, error) {
 	if err != nil {
 		return nil, err
 	}
-	e := &Engine{L: l, S: scr, symDAX: "8X8D1", start: time.Now()}
+	e := &Engine{L: l, S: scr, gameArea: 5, start: time.Now()}
 	e.Cfg = Config{Graphics: 'E', Sound: 'A', Input: 'M', GameDir: dir, SaveDir: filepath.Join(dir, "SAVE")}
 	if p := l.Path("BLADES.CFG"); p != "" {
 		f, err := os.Open(p)
@@ -457,7 +455,7 @@ func (e *Engine) Play() {
 // frame (p67C6^[312]): set while the wilderness shows its overview map.
 func (e *Engine) wildernessOverview() bool {
 	const overviewWord = 624
-	return wordAt(e.game, overviewWord) != 0
+	return wordAt(e.area, overviewWord) != 0
 }
 
 // textBox is a rectangle of text cells, edges included.

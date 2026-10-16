@@ -6,9 +6,9 @@ import (
 	"strconv"
 )
 
-// scriptTrace (COTAB_ECLTRACE=1) prints each command run, the way the
+// scriptTrace (SOTSB_ECLTRACE=1) prints each command run, the way the
 // original does with its debug flag (b4FDA).
-var scriptTrace = os.Getenv("COTAB_ECLTRACE") != ""
+var scriptTrace = os.Getenv("SOTSB_ECLTRACE") != ""
 
 // Running the area script: init (O07D:01B9), loading (O07D:032C), the
 // event runner (O050:3BF2), area changes (O050:3C5C) and the adventuring
@@ -182,9 +182,12 @@ func (e *Engine) Adventure() {
 	if last := wordAt(e.area, 2*areaWordLastECL); last == 0 {
 		s.firstLoad = false
 		if e.demo {
+			e.drawScreenFrame()
 			s.block = demoBlock
+			e.gameArea = 1
 		} else {
-			s.block = 1
+			e.gameArea = 2
+			s.block = firstBlock
 			e.playerSummary(e.selected())
 		}
 	} else {
@@ -193,13 +196,12 @@ func (e *Engine) Adventure() {
 	if wordAt(e.area, 2*areaWordFreeSteps) == 0 {
 		e.gameState = stateWilderness
 	}
-	if !e.loadedGame || wordAt(e.area, 2*areaWordLastECL) == 0 {
-		e.loadScript(s.block)
-	} else {
-		s.keepScript = true
-	}
+	e.loadScript(s.block)
 	e.initScript()
-	e.loadedGame = false
+	if e.demo {
+		e.drawAdventureFrame()
+		e.playerSummary(e.selected())
+	}
 	e.runEvent(s.events[4])
 	if e.demo {
 		e.releaseParty(true)
@@ -210,14 +212,14 @@ func (e *Engine) Adventure() {
 	} else {
 		e.scriptRestart()
 	}
-	if e.gameState != stateWilderness && s.keepScript {
+	if e.gameState != stateWilderness && e.loadedGame {
 		if s.firstLoad {
 			e.loadPicture()
 		}
 		e.viewReset = true
 		e.drawView()
 	}
-	s.keepScript = false
+	e.loadedGame = false
 	for !e.partyDead {
 		k := e.adventureInput()
 		s.savedSelected = e.selected()
@@ -291,5 +293,9 @@ func (e *Engine) releaseParty(keepCount bool) {
 	}
 }
 
-// demoBlock: the script the demonstration runs.
-const demoBlock = 82
+// The scripts a game starts with: the demonstration's (in ECL1) and a new
+// party's (in ECL2).
+const (
+	demoBlock  = 3
+	firstBlock = 17
+)
