@@ -120,7 +120,7 @@ func (e *Engine) dungeonMap() {
 					e.cmap.ground[py][px] = t + 1
 				}
 			}
-			// nested O05D:03FC: floor, west wall or door
+			// nested O097:03A4: floor, west wall or door
 			for row := 2; row <= 4; row++ {
 				for col := 0; col <= 5; col++ {
 					put(col, row, 0x16)
@@ -148,7 +148,7 @@ func (e *Engine) dungeonMap() {
 				put(3, 1, 0x16)
 				put(4, 1, 0x16)
 			}
-			// nested O05D:051E: the north-west corner
+			// nested O097:04C6: the north-west corner
 			nw := e.cellEdge(x, y-1, 6) == 0 && e.cellEdge(x-1, y, 0) == 0
 			pick := func(ok bool, a, b byte) byte {
 				if ok {
@@ -189,7 +189,7 @@ func (e *Engine) dungeonMap() {
 			put(2, 0, b)
 			put(1, 1, cc)
 			put(2, 1, d)
-			// nested O05D:06F6: the north-east corner
+			// nested O097:069E: the north-east corner
 			ne7, ne8 := e.cellEdge(x, y-1, 2), e.cellEdge(x+1, y, 0)
 			ne := ne7 == 0 && ne8 == 0
 			a = map[byte]byte{0: pick(ne7 == 1, 4, 0x16), 3: 0xF, 1: 5}[n]
