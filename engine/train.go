@@ -15,24 +15,24 @@ func (e *Engine) trainingClasses() int { return int(wordAt(e.game, 2*gameWordTra
 
 // Experience a character may have and still be modified: none, or what
 // a character brought over from Pool of Radiance starts with.
-var modifiableExp = [...]uint32{0, 8333, 12500, 25000}
+var modifiableExp = [...]uint32{0, 66667, 100000, 200000}
 
-// Modify lines: the six abilities, the hit points and the name.
+// Modify lines: the six abilities, the name and the hit points.
 const (
-	modifyHPLine   = 6
-	modifyNameLine = 7
+	modifyNameLine = 6
+	modifyHPLine   = 7
 	nameMaxLen     = 15
 )
 
-// modifyDraw = O0A7:26F2 (highlight) nested in modifyPlayer: the line,
+// modifyDraw = O0EF:24E5 (highlight) nested in modifyPlayer: the line,
 // for the name with the cursor character ('%' on a space).
 func (e *Engine) modifyDraw(line, cursor int, hi bool) {
 	c := e.selected()
 	switch {
-	case line < modifyHPLine:
+	case line < modifyNameLine:
 		e.showStat(line, hi)
 	case line == modifyHPLine:
-		e.displayHP(c, 4, 0x12, hi, false)
+		e.displayHP(c, 31, 3, hi, false)
 	case hi:
 		n := int(c.PName[0])
 		e.displayStringBg(n+1, 1, colourBlack, colourBlack, " ")
@@ -47,12 +47,15 @@ func (e *Engine) modifyDraw(line, cursor int, hi bool) {
 	}
 }
 
-// ModifyCharacter = O0EF:2653 modifyPlayer: change the abilities, hit
-// points and name of a character without experience. Home/End or Enter
-// pick the line, left/right lower and raise, on the name they move the
-// cursor and letters type over it; Keep (K) accepts, Exit or Esc puts the
-// old values back.
+// ModifyCharacter = O0EF:2653 modifyPlayer: pick a character without
+// experience and change the abilities, name and hit points. Up/Down (or
+// Enter) pick the line, Subtract and Add lower and raise, on the name they
+// move the cursor and other letters type over it; Keep (K) accepts, Exit
+// or Esc puts the old values back.
 func (e *Engine) ModifyCharacter() {
+	if !e.pickCharacter() {
+		return
+	}
 	c := e.selected()
 	fresh := false
 	for _, x := range modifiableExp {
@@ -81,120 +84,126 @@ func (e *Engine) ModifyCharacter() {
 		e.ApplyItems(c)
 	}
 	cursor := 1
-	line := modifyNameLine
+	line := modifyHPLine
 	e.modifyDraw(line, cursor, false)
 	line = 0
 	e.modifyDraw(line, cursor, true)
 	var key byte
-	var extra bool
-	for {
-		if line == modifyNameLine {
-			key = e.ReadKeyByte()
-			extra = false
-			if key == 0 {
+	for key != 'K' {
+		for extra := true; extra; {
+			if line == modifyNameLine {
+				extra = false
 				key = e.ReadKeyByte()
-				extra = true
-			}
-			if key == keyEsc {
-				key = 0
-			}
-		} else {
-			key, extra = e.DisplayInput("Modify: ", "Keep Exit", colourLightMagenta, colourGreen, colourWhite, true, false)
-		}
-		e.modifyDraw(line, cursor, false)
-		if extra {
-			switch key {
-			case scanDelete:
-				if n := int(c.PName[0]); line == modifyNameLine && n > 1 {
-					if cursor == n {
-						c.PName[0]--
-						cursor = int(c.PName[0])
+				if key >= '1' && key <= '9' || key == '\\' { // the keypad
+					if key == '\\' {
+						key = '7'
 					} else {
-						copy(c.PName[cursor:n], c.PName[cursor+1:n+1])
-						c.PName[0]--
+						key = keypadMap[key-'1']
 					}
+					extra = true
 				}
-			case scanEnd:
-				if line++; line > modifyNameLine {
-					line = 0
+				if key == 0 {
+					key = e.ReadKeyByte()
+					extra = true
 				}
-			case scanHome:
-				if line--; line < 0 {
-					line = modifyNameLine
+				if key == keyEsc {
+					key = 0
 				}
-			case scanLeft:
-				switch {
-				case line < modifyHPLine:
-					e.modifyLower(c, line, limits, class, sex)
-				case line == modifyHPLine:
-					c.MaxHP--
-					if m := e.minHitPoints(c); m > c.MaxHP {
-						c.MaxHP = m
-					}
-					c.HP = c.MaxHP
-				case cursor == 1:
-					cursor = int(c.PName[0])
-				default:
-					cursor--
-				}
-			case scanRight:
-				switch {
-				case line < modifyHPLine:
-					e.modifyRaise(c, line, limits, sex)
-				case line == modifyHPLine:
-					c.MaxHP++
-					if m := e.maxHitPoints(c); m < c.MaxHP {
-						c.MaxHP = m
-					}
-					c.HP = c.MaxHP
-				case cursor == int(c.PName[0]):
-					cursor = 1
-				default:
-					cursor++
-				}
+			} else {
+				key, extra = e.DisplayInput("Modify: ", "Add Subtract Keep Exit", colourLightMagenta, colourGreen, colourWhite, true, false)
 			}
-		} else {
-			switch {
-			case key == keyEnter:
-				if line++; line > modifyNameLine {
-					line = 0
-				}
-			case key == keyBackspace:
-				if n := int(c.PName[0]); cursor > 1 && line > modifyHPLine {
-					for k := cursor; k <= n; k++ {
-						c.PName[k-1] = c.PName[k]
+			e.modifyDraw(line, cursor, false)
+			if extra {
+				switch key {
+				case scanDelete:
+					if n := int(c.PName[0]); line == modifyNameLine && n > 1 {
+						if cursor == n {
+							c.PName[0]--
+							cursor = int(c.PName[0])
+						} else {
+							copy(c.PName[cursor:n], c.PName[cursor+1:n+1])
+							c.PName[0]--
+						}
 					}
-					c.PName[0]--
-					if cursor > int(c.PName[0]) {
+				case scanDown:
+					if line++; line > modifyHPLine {
+						line = 0
+					}
+				case scanUp:
+					if line--; line < 0 {
+						line = modifyHPLine
+					}
+				}
+			} else {
+				switch {
+				case key == 'S':
+					switch {
+					case line < modifyNameLine:
+						e.modifyLower(c, line, limits, class, sex)
+					case line == modifyHPLine:
+						c.MaxHP--
+						if m := e.minHitPoints(c); m > c.MaxHP {
+							c.MaxHP = m
+						}
+						c.HP = c.MaxHP
+					case cursor == 1:
 						cursor = int(c.PName[0])
+					default:
+						cursor--
 					}
-				}
-			case key >= ' ' && key <= 'z':
-				if line > modifyHPLine {
-					if cursor <= nameMaxLen {
-						c.PName[cursor] = key
-						if cursor++; cursor > nameMaxLen {
-							cursor = nameMaxLen
+				case key == 'A':
+					switch {
+					case line < modifyNameLine:
+						e.modifyRaise(c, line, limits, sex)
+					case line == modifyHPLine:
+						c.MaxHP++
+						if m := e.maxHitPoints(c); m < c.MaxHP {
+							c.MaxHP = m
 						}
+						c.HP = c.MaxHP
+					case cursor == int(c.PName[0]):
+						cursor = 1
+					default:
+						cursor++
+					}
+				case key == keyEnter:
+					if line++; line > modifyHPLine {
+						line = 0
+					}
+				case key == keyBackspace:
+					if n := int(c.PName[0]); cursor > 1 && line == modifyNameLine {
+						for k := cursor; k <= n; k++ {
+							c.PName[k-1] = c.PName[k]
+						}
+						c.PName[0]--
 						if cursor > int(c.PName[0]) {
-							c.PName[0]++
-							c.PName[cursor] = ' '
+							cursor = int(c.PName[0])
 						}
 					}
-				} else if key == 'E' {
+				case key >= ' ' && key <= 'z':
+					if line == modifyNameLine {
+						if cursor <= nameMaxLen {
+							c.PName[cursor] = key
+							if cursor++; cursor > nameMaxLen {
+								cursor = nameMaxLen
+							}
+							if cursor > int(c.PName[0]) {
+								c.PName[0]++
+								c.PName[cursor] = ' '
+							}
+						}
+					} else if key == 'E' {
+						restore()
+						return
+					}
+				case key == 0:
 					restore()
 					return
 				}
-			case key == 0:
-				restore()
-				return
 			}
-		}
-		e.ApplyItems(c)
-		e.showCombatStats()
-		e.modifyDraw(line, cursor, true)
-		if !extra && key == 'K' {
-			break
+			e.ApplyItems(c)
+			e.showCombatStats()
+			e.modifyDraw(line, cursor, true)
 		}
 	}
 	e.clericSlots(c)
@@ -265,7 +274,7 @@ func (e *Engine) modifyLower(c *Character, i int, limits [16]byte, class, sex in
 			c.MaxHP = m
 		}
 		c.HP = c.MaxHP
-		e.modifyDraw(modifyHPLine, 0, false)
+		e.modifyDraw(modifyNameLine, 0, false) // the original's line 6, Curse's hit points
 	}
 }
 
@@ -298,7 +307,7 @@ func (e *Engine) modifyRaise(c *Character, i int, limits [16]byte, sex int) {
 			c.MaxHP = m
 		}
 		c.HP = c.MaxHP
-		e.modifyDraw(modifyHPLine, 0, false)
+		e.modifyDraw(modifyNameLine, 0, false) // the original's line 6, Curse's hit points
 	}
 }
 
