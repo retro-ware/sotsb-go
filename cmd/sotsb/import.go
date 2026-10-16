@@ -16,8 +16,9 @@ import (
 )
 
 // markerFiles: a folder holding all of these is a Secret of the Silver Blades install.
-// Pool of Radiance and Secret of the Silver Blades have no BLADES.CFG.
-var markerFiles = []string{"BLADES.CFG", "TITLE.DAX", "GAME.OVR"}
+// Pool of Radiance and Curse of the Azure Bonds have no GEO1.DAX (Curse's start at 2);
+// BLADES.CFG is not required: the installer writes it, a copy may lack it.
+var markerFiles = []string{"GEO1.DAX", "TITLE.DAX", "GAME.OVR"}
 
 // isMarker tells whether name is one of markerFiles.
 func isMarker(name string) bool {
