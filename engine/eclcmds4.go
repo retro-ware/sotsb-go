@@ -115,7 +115,7 @@ func (e *Engine) cmdAddNPC() {
 	e.playerSummary(e.selected())
 }
 
-// addNPC = O0A1:357D (monster): load it, join the party and take its
+// addNPC = O0F8:25C3 (monster): load it, join the party and take its
 // combat icon.
 func (e *Engine) addNPC(block byte) {
 	if wordAt(e.game, 2*cvPartyCount) > 7 {
@@ -123,7 +123,7 @@ func (e *Engine) addNPC(block byte) {
 	}
 	c := e.loadMonsterRecord(block)
 	c.RandomID = block
-	if e.demo { // the demo's own icons (O0F8:25C3)
+	if e.demo { // the demo's own icons
 		if b, ok := map[byte]byte{50: 77, 51: 76, 52: 66}[block]; ok {
 			block = b
 		}

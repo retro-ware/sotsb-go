@@ -8,6 +8,7 @@ package engine
 const (
 	itemPropertyFlag       = 128
 	itemDexterityUp        = 2  // dexterity +4 / +2 / +1 for dexterity 0..6 / 7..13 / more
+	itemStrength1800       = 3  // strength 18/00
 	itemGiantStrength      = 5  // value 0..6: strength 18/00, 19 .. 24
 	itemConstitutionUp     = 6  // constitution +1, charisma -1
 	itemScoreUp            = 8  // value: the score raised by 1 (if under 18)
@@ -25,6 +26,7 @@ const (
 	regenerationScore   = 20 // constitution from which the body heals itself
 	regenerationTime    = 60
 	lowScore            = 3 // a score item 13 or feeblemindedness leaves
+	lowIntelligence     = 7 // the intelligence item 12 leaves
 	noFixedScore        = 255
 	giantStrengthBase   = 18 // value 0 is 18/00; value n >= 1 is 18 + n
 	strengthEncodedBase = 100
@@ -59,7 +61,7 @@ func strongerThan(c *Character, str, str00 byte) (byte, bool) {
 	return 0, false
 }
 
-// statAffects = O089:1194 (c, stat): the score in use from the
+// statAffects = O145:16C0 (c, stat): the score in use from the
 // character's own, its readied magic items and its affects. Constitution
 // also works out the maximum hit points again.
 func (e *Engine) statAffects(c *Character, stat int) {
@@ -80,6 +82,8 @@ func (e *Engine) statAffects(c *Character, stat int) {
 		switch stat {
 		case statStr:
 			switch prop {
+			case itemStrength1800:
+				better, better00 = giantStrengthBase, exceptionalMaximum
 			case itemGiantStrength:
 				switch arg {
 				case 0:
@@ -108,7 +112,7 @@ func (e *Engine) statAffects(c *Character, stat int) {
 					value++
 				}
 			case itemLowIntelligence:
-				fixed = feebleScore
+				fixed = lowIntelligence
 			case itemLowStrengthAndMind:
 				fixed = lowScore
 			}
@@ -163,8 +167,8 @@ func (e *Engine) statAffects(c *Character, stat int) {
 			}
 			takeBetter()
 		}
-		if a := e.FindAffect(c, affectGiantStrength); a != nil {
-			better, better00 = strengthDecode(a)
+		if e.FindAffect(c, affectGiantStrength) != nil { // 18/xx left as it was
+			better = giantStrength21
 			takeBetter()
 		}
 		if a := e.FindAffect(c, affectEnlarge); a != nil {
@@ -181,15 +185,13 @@ func (e *Engine) statAffects(c *Character, stat int) {
 	case statCon:
 		e.conHitPoints(c, value)
 		c.Stats[statCon].Value = value
-		if c.Stats[statCon].Value >= regenerationScore {
-			if e.FindAffect(c, affectHealingOverTime) == nil {
-				e.AddAffect(c, affectHealingOverTime, regenerationTime, 0xFF, 1)
-			} else {
-				e.RemoveAffect(c, affectHealingOverTime, nil)
-			}
+		if c.Stats[statCon].Value >= regenerationScore { // O145:1235 adds another each time
+			e.AddAffect(c, affectHealingOverTime, regenerationTime, 0xFF, 1)
+		} else {
+			e.RemoveAffect(c, affectHealingOverTime, nil)
 		}
 	case statInt, statWis:
-		if e.FindAffect(c, affectFeebleminded) != nil && fixed > feebleScore {
+		if e.FindAffect(c, affectFeebleminded) != nil && fixed > lowIntelligence {
 			fixed = lowScore
 		}
 		if fixed != noFixedScore {
