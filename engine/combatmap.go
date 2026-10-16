@@ -81,11 +81,13 @@ func (e *Engine) step(l *line) bool {
 	return moved
 }
 
-// flyMissile = O0ED:1AA4 (x1, y1, x2, y2, frames, delay): the missile
+// flyMissile = O151:1A5E (x1, y1, x2, y2, frames, delay): the missile
 // sprite (DS:6E36, loaded by hitColours) flies from square to square in
-// thirds of a square, cycling its frames and scrolling the map along.
+// thirds of a square, cycling its frames. When it leaves the view, the view
+// jumps to the target and the flight goes on from where the path comes
+// back into it.
 func (e *Engine) flyMissile(x1, y1, x2, y2, frames, delay int) {
-	var path []byte
+	path := make([]byte, 0, 148)
 	l := newLine(x1*3, y1*3, x2*3, y2*3)
 	for {
 		moved := e.step(l)
@@ -94,30 +96,35 @@ func (e *Engine) flyMissile(x1, y1, x2, y2, frames, delay int) {
 			break
 		}
 	}
-	n := len(path)
-	if n < 2 {
+	end := len(path) - 2
+	if end < 2 {
 		return
 	}
-	path = append(path, 8) // the rest of the 0x94 byte buffer
+	for len(path) < 148 {
+		path = append(path, 8)
+	}
 	ddx, ddy := stepBytes(stepX), stepBytes(stepY)
 	dX, dY := x2-x1, y2-y1
-	var done bool
+	done := true
 	var cx, cy int
-	if e.combatInView(x1-e.cmap.viewX, y1-e.cmap.viewY) && e.combatInView(x2-e.cmap.viewX, y2-e.cmap.viewY) {
-		done, cx, cy = true, e.cmap.viewX+viewW/2, e.cmap.viewY+3
-	} else if abs(dX) <= viewW-1 && abs(dY) <= 6 {
-		done, cx, cy = true, x1+dX/2, y1+dY/2
-	} else {
-		cx, cy = e.cmap.viewX+viewW/2, e.cmap.viewY+3
+	switch {
+	case e.combatInView(x1-e.cmap.viewX, y1-e.cmap.viewY) && e.combatInView(x2-e.cmap.viewX, y2-e.cmap.viewY):
+		cx, cy = e.cmap.viewX+3, e.cmap.viewY+3
+	case abs(dX) <= 6 && abs(dY) <= 6:
+		cx, cy = x1+dX/2, y1+dY/2
+	default:
+		done, cx, cy = false, e.cmap.viewX+3, e.cmap.viewY+3
 	}
 	e.combatCentre(cx, cy, 0xFF, 8)
+	out := func(px, py int) bool { return px < 0 || px > 18 || py < 0 || py > 18 }
 	i, f, ox, oy := 0, 0, 0, 0
 	for {
 		px := (x1-e.cmap.viewX)*3 + ox
 		py := (y1-e.cmap.viewY)*3 + oy
-		sx, sy := x1, y1
-		out := false
-		for {
+		for left := false; i < end && !left; {
+			mx, my := int(int8(ddx[path[i]])), int(int8(ddy[path[i]]))
+			px += mx
+			py += my
 			if delay > 0 || px%3 == 0 || py%3 == 0 {
 				e.drawHitFrame(f, px, py)
 				e.Flip()
@@ -128,61 +135,80 @@ func (e *Engine) flyMissile(x1, y1, x2, y2, frames, delay int) {
 				}
 			}
 			i++
-			d := path[i]
-			mx, my := int(int8(ddx[d])), int(int8(ddy[d]))
-			px += mx
-			py += my
-			out = px < 0 || px > viewW*3-3 || py < 0 || py > 0x12
-			if !out && i < n {
+			left = out(px, py)
+			if !left && i < end {
 				ox += mx
 				oy += my
 				if abs(ox) == 3 {
 					x1 += sign(ox)
-					cx += sign(ox)
 					ox = 0
 				}
 				if abs(oy) == 3 {
 					y1 += sign(oy)
-					cy += sign(oy)
 					oy = 0
 				}
 			}
-			if i >= n || out {
+		}
+		if i < end {
+			// to the target, then back along the path to the view's edge
+			ox, oy, x1, y1 = 0, 0, x2, y2
+			ex, ey := 0, 0
+			if x2+3 > 49 {
+				ex = x2 - 49
+			} else if x2 < 3 {
+				ex = 3 - x2
+			}
+			if y2+3 > 24 {
+				ey = y2 - 24
+			} else if y2 < 3 {
+				ey = 3 - y2
+			}
+			e.combatCentre(x2+ex, y2+ey, 0xFF, 8)
+			px, py := (x2-e.cmap.viewX)*3, (y2-e.cmap.viewY)*3
+			for i = end; ; i-- {
+				mx, my := -int(int8(ddx[path[i]])), -int(int8(ddy[path[i]]))
+				px += mx
+				py += my
+				if px > 18 {
+					x1 = e.cmap.viewX + 6
+				} else if px < 0 {
+					x1 = e.cmap.viewX
+				}
+				if py > 18 {
+					y1 = e.cmap.viewY + 6
+				} else if py < 0 {
+					y1 = e.cmap.viewY
+				}
+				if out(px, py) {
+					break
+				}
+				ox += mx
+				oy += my
+				if abs(ox) == 3 {
+					x1 += sign(ox)
+					ox = 0
+				}
+				if abs(oy) == 3 {
+					y1 += sign(oy)
+					oy = 0
+				}
+			}
+			if done { // the flag set when the flight began ends it here
 				break
 			}
+			continue
 		}
-		if i < n {
-			if sign(x1-sx) != 0 {
-				if x1 >= e.cmap.viewX+viewW-1 {
-					cx = x1 + 3
-				} else if x1 <= e.cmap.viewX {
-					cx = x1 - 3
-				}
-			}
-			if sign(y1-sy) != 0 {
-				if y1 >= e.cmap.viewY+6 {
-					cy = y1 + 3
-				} else if y1 <= e.cmap.viewY {
-					cy = y1 - 3
-				}
-			}
-			e.combatCentre(cx, cy, 0xFF, 8)
-		} else {
-			done = true
-			if !e.combatInView(x2-e.cmap.viewX, y2-e.cmap.viewY) {
-				e.combatCentre(x2, y2, 3, 8)
-			}
-			px, py := (x2-e.cmap.viewX)*3, (y2-e.cmap.viewY)*3
-			e.drawHitFrame(f, px, py)
-			if delay > 0 {
-				e.Flip()
-				e.Delay(delay)
-				e.restoreHitFrame(px, py)
-			}
+		if !e.combatInView(x2-e.cmap.viewX, y2-e.cmap.viewY) {
+			e.combatCentre(x2, y2, 3, 8)
 		}
-		if done {
-			break
+		px, py = (x2-e.cmap.viewX)*3, (y2-e.cmap.viewY)*3
+		e.drawHitFrame(f, px, py)
+		if delay > 0 {
+			e.Flip()
+			e.Delay(delay)
+			e.restoreHitFrame(px, py)
 		}
+		break
 	}
 	e.Flip()
 }
