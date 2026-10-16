@@ -135,7 +135,7 @@ func (e *Engine) pickFromList(list []*ListNode) (int, bool) {
 // experience; keep it, name it, pick the pictures, save it.
 func (e *Engine) CreateCharacter() {
 	c := &Character{}
-	for i, t := range defaultIconColours {
+	for i, t := range defaultIconColours[1:] {
 		c.IconColour[i] = (t+8)<<4 + t
 	}
 	c.BaseAC = startBaseAC
