@@ -119,7 +119,7 @@ func addrKindOf(a uint16) int {
 	return addrSpecial
 }
 
-// readArgs = O04C:0032 (n): decode the opcode's n operands following pc and
+// readArgs = O07D:0000 (n): decode the opcode's n operands following pc and
 // step pc past them.
 func (e *Engine) readArgs(n int) {
 	s := &e.sc
@@ -154,7 +154,7 @@ func (e *Engine) readArgs(n int) {
 	}
 }
 
-// arg = O04C:0168 (k): the value of operand k.
+// arg = O07D:0138 (k): the value of operand k.
 func (e *Engine) arg(k int) uint16 {
 	s := &e.sc
 	lo, hi := s.argLo[k], s.argHi[k]
@@ -169,7 +169,7 @@ func (e *Engine) arg(k int) uint16 {
 	return 0
 }
 
-// varAddr = O04C:06D7 (lo, hi).
+// varAddr = O07D:06B4 (lo, hi).
 func varAddr(lo, hi byte) uint16 { return uint16(hi)<<8 | uint16(lo) }
 
 // letterOf = O07D:06D9: a 6-bit text code as a character (1..31 are letters).
@@ -180,7 +180,7 @@ func letterOf(c byte) byte {
 	return c + 64
 }
 
-// unpackText = O04C:1279 (len): the text packed 6 bits per character in the
+// unpackText = O07D:140D (len): the text packed 6 bits per character in the
 // len bytes after pc (pc ends on the last one).
 func (e *Engine) unpackText(n int) string {
 	s := &e.sc
@@ -221,7 +221,7 @@ func (e *Engine) unpackText(n int) string {
 	return string(out)
 }
 
-// readTextVar = O04C:1421 (addr): the text kept one character per word (one
+// readTextVar = O07D:15B5 (addr): the text kept one character per word (one
 // per byte in the code) from addr on, up to a 0; the character's name for
 // the first area2 address.
 func (e *Engine) readTextVar(a uint16) string {
@@ -250,7 +250,7 @@ func (e *Engine) readTextVar(a uint16) string {
 	return string(out)
 }
 
-// setTextVar = O04C:105D (addr, text): store text one character per word
+// setTextVar = O07D:11F1 (addr, text): store text one character per word
 // (per byte in the code) with a 0 after it; the first area2 address is the
 // selected character's name.
 func (e *Engine) setTextVar(a uint16, text string) {
@@ -279,7 +279,7 @@ func (e *Engine) setTextVar(a uint16, text string) {
 	}
 }
 
-// compareValues = O04C:1A11 / 193B: set the six comparison flags.
+// compareValues = O07D:1BC9 / 193B: set the six comparison flags.
 func (e *Engine) compareValues(a, b uint16) {
 	e.sc.flags = [6]bool{a == b, a != b, a < b, a > b, a <= b, a >= b}
 }
@@ -288,13 +288,13 @@ func (e *Engine) compareTexts(a, b string) {
 	e.sc.flags = [6]bool{a == b, a != b, a < b, a > b, a <= b, a >= b}
 }
 
-// scriptCall = O04C:1A77 (k): push pc and jump to the address in operand k.
+// scriptCall = O07D:1C2E (k): push pc and jump to the address in operand k.
 func (e *Engine) scriptCall(k int) {
 	e.sc.calls = append(e.sc.calls, e.sc.pc)
 	e.sc.pc = varAddr(e.sc.argLo[k], e.sc.argHi[k])
 }
 
-// stepForward = O04C:1B01: one square ahead on the 16x16 map, wrapping at the
+// stepForward = O07D:1CB8: one square ahead on the 16x16 map, wrapping at the
 // edges; then the wall and cell values there.
 func (e *Engine) stepForward() {
 	s := &e.sc

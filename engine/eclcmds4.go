@@ -23,15 +23,17 @@ func (e *Engine) cmdRob() {
 	}
 }
 
-// robMoney = O04C:1DEF (factor, c): each kind of coin times the factor.
+// robMoney = O07D:1D49 (factor, c): each kind of coin times the factor.
 func (e *Engine) robMoney(keep float64, c *Character) {
 	for k := range c.Coins {
 		c.Coins[k] = uint16(math.Trunc(real48Mul(float64(c.Coins[k]), keep)))
 	}
 }
 
-// robItems = O04C:1F1C (chance, c): each item goes with the chance in
-// percent; heavy items lower the chance for the rest of the list.
+// robItems = O07D:1E78 (chance, c): each item goes with the chance in
+// percent; heavy items lower the chance for the rest of the list. A readied
+// item is unreadied first (fixed: the original unreadies it as the selected
+// member's, whoever owns it).
 func (e *Engine) robItems(chance byte, c *Character) {
 	for _, it := range append([]*Item(nil), c.Items...) {
 		if it.Weight > 255 {
@@ -48,6 +50,12 @@ func (e *Engine) robItems(chance byte, c *Character) {
 			}
 		}
 		if byte(e.Dice(1, 100)) <= chance {
+			if it.Readied != 0 {
+				saved := e.selected()
+				e.selectMember(c)
+				e.readyItem(it)
+				e.selectMember(saved)
+			}
 			e.loseItem(c, it)
 		}
 	}

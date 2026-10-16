@@ -36,7 +36,7 @@ func (e *Engine) cmdApproach() {
 	s.pc++
 }
 
-// freeSteps = O04C:04B4 (x, y, dir): open squares ahead, 0..2; 2 without
+// freeSteps = O07D:0478 (x, y, dir): open squares ahead, 0..2; 2 without
 // walls to stop the view (outdoors).
 func (e *Engine) freeSteps(x, y, dir byte) byte {
 	if wordAt(e.area, 2*areaWordFreeSteps) == 0 {
@@ -65,11 +65,14 @@ func (e *Engine) freeSteps(x, y, dir byte) byte {
 
 const maxDistance = 2
 
-// showEncounter = O04C:0580 (sprite, picture, distance): the approaching
+// showEncounter = O07D:0546 (sprite, picture, distance): the approaching
 // monster's sprite for the distance; at distance 0 its picture (or the
-// portrait the script set).
+// portrait the script set). Picture 255 means none.
 func (e *Engine) showEncounter(sprite, pic, dist byte) {
 	s := &e.sc
+	if pic == noPicture {
+		s.pictureBig = false
+	}
 	if !s.pictureBig {
 		if !s.pictureShown {
 			if e.gs.overhead {
@@ -91,7 +94,7 @@ func (e *Engine) showEncounter(sprite, pic, dist byte) {
 		}
 	}
 	face := wordAt(e.game, 2*gameWordFace)
-	if (!s.pictureBig || uint16(s.faceShown) != face) && dist == 0 && e.gameState == stateDungeon &&
+	if (!s.pictureBig || uint16(s.faceShown) != face) && dist == 0 && e.gameState == stateDungeon && pic != noPicture &&
 		(!s.inEncounter || e.forcePicture) {
 		s.faceShown = byte(face)
 		s.pictureOn = true

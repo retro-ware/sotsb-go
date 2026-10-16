@@ -409,26 +409,17 @@ func (e *Engine) loadMonsterRecord(block byte) *Character {
 	return c
 }
 
-// partySpeeds = O04C:20E5: the party's fastest and slowest movement
-// (doubled by haste, halved by slow). Fixed: the original doubles for slow
-// (39) and halves for haste (42), the other way round from the character
-// sheet (O0AF).
+// partySpeeds = O07D:2056: the party's fastest and slowest movement.
 func (e *Engine) partySpeeds() (fastest, slowest byte) {
 	if len(e.party) > 0 {
 		fastest, slowest = e.party[0].Move, e.party[0].Move
 	}
 	for _, c := range e.party {
-		v := c.Move
-		if e.FindAffect(c, affectHaste) != nil {
-			v *= 2
-		} else if e.FindAffect(c, affectSlow) != nil {
-			v >>= 1
+		if c.Move > fastest {
+			fastest = c.Move
 		}
-		if v > fastest {
-			fastest = v
-		}
-		if v < slowest {
-			slowest = v
+		if c.Move < slowest {
+			slowest = c.Move
 		}
 	}
 	return

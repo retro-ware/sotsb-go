@@ -10,7 +10,7 @@ import (
 // original does with its debug flag (b4FDA).
 var scriptTrace = os.Getenv("COTAB_ECLTRACE") != ""
 
-// Running the area script: init (O04C:01E8), loading (O04C:036C), the
+// Running the area script: init (O07D:01B9), loading (O07D:032C), the
 // event runner (O050:3BF2), area changes (O050:3C5C) and the adventuring
 // loop (O050:3DB9).
 
@@ -37,7 +37,7 @@ const (
 	textLookRow        = 9
 )
 
-// initScript = O04C:01E8: reset the machine and read the five entry
+// initScript = O07D:01B9: reset the machine and read the five entry
 // points at the start of the code.
 func (e *Engine) initScript() {
 	s := &e.sc
@@ -59,7 +59,6 @@ func (e *Engine) initScript() {
 		e.readArgs(1)
 		s.events[k] = varAddr(s.argLo[1], s.argHi[1])
 	}
-	putWord(e.area, 2*areaWordFreeSteps, 1)
 	if !e.loadedGame {
 		for w := areaWordFlagsFirst; w <= areaWordFlagsLast; w++ {
 			putWord(e.area, 2*w, 0)
@@ -70,7 +69,7 @@ func (e *Engine) initScript() {
 	}
 }
 
-// loadScript = O04C:036C load_ecl_dax (block): ECL<area>.DAX block into
+// loadScript = O07D:032C load_ecl_dax (block): ECL<area>.DAX block into
 // the code (its first word is the size).
 func (e *Engine) loadScript(block byte) {
 	e.sc.code = [scriptCodeSize]byte{}

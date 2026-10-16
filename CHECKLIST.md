@@ -36,6 +36,7 @@ data segment by content.
   - [x] graphics R2BC (retags; no palette-register call)
   - [x] View/items O100 (SotSB sheet layout, Deposit to the vault, bundles of scrolls: join, halve, use, identify refusal; sell prices and discard; Up/Down cycling waits for its callers; Pick Character 40C8 goes with O0EF)
   - [x] text R540 (font from 8X8D5 block 201 — 8X8D1 has none; line editor: no leading spaces, extended keys ignored, trailing spaces trimmed)
+  - [x] script machine O07D (no free-steps reset at init, picture 255 skips the picture, ROB unreadies items, no haste/slow in party speeds, no damage message for the stoned; 1B9A has no counterpart)
 - [ ] M8 sound
 - [ ] M9 goplay: games.js, deploy.sh build rule, README tables, wasm build
 - [ ] M10 publish (public deploy: only with the user's go-ahead)

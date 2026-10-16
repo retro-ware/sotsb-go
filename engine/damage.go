@@ -1,7 +1,7 @@
 package engine
 
 // The DAMAGE command (O050:2D82) and its helpers: the trap's hit roll
-// (O0E3:11DD), damage with its message (O04C:2200) and damage_player
+// (O0E3:11DD), damage with its message (O07D:210D) and damage_player
 // (O151:2953).
 
 // DAMAGE's first operand: the count of random targets, or flags.
@@ -30,10 +30,10 @@ func (e *Engine) trapHits(c *Character, bonus byte) bool {
 	return e.rv.hitRoll >= 0 && int(e.rv.hitRoll)+int(bonus) > int(c.AC[0])
 }
 
-// damageWithMessage = O04C:2200 (damage, target): "is hit FOR n points of
+// damageWithMessage = O07D:210D (damage, target): "is hit FOR n points of
 // Damage." (or "dies." when it kills) in the text window, then the damage.
 func (e *Engine) damageWithMessage(dmg byte, c *Character) {
-	if c.Status == statusDead {
+	if c.Status == statusDead || c.Status == statusStoned {
 		return
 	}
 	var msg string
