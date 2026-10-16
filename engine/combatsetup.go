@@ -64,7 +64,7 @@ const combatIconCount = 32
 // (game word 1420).
 func (e *Engine) combatBlocks() {
 	for i, c := range e.party {
-		e.ApplyItems(c) // O0ED:0C20
+		e.ApplyItems(c) // O151:2141
 		c.Combat = &CombatInfo{}
 		if i+1 > int(wordAt(e.game, gsPartyCount)) {
 			c.Combat.Extra = 1

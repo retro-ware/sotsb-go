@@ -208,7 +208,7 @@ func (e *Engine) addAllScrolls(unknownOnly bool) {
 	}
 }
 
-// buildSpellList = O0C2:0A74 (kind): fill the list; false when it is empty.
+// buildSpellList = O113:0B3E (kind): fill the list; false when it is empty.
 func (e *Engine) buildSpellList(kind int) bool {
 	l := &e.spells
 	l.lines = nil
@@ -247,10 +247,17 @@ func (e *Engine) buildSpellList(kind int) bool {
 		e.addAllScrolls(true)
 		sorted = false
 	case listToChoose:
-		for n := 1; n < len(spellTable); n++ {
-			s := spellTable[n]
-			if c.SpellSlots[int(s.class())*5+int(s.level())-1] != 0 && e.canUseSpell(c, byte(n), false) && c.SpellBook[n-1] == 0 {
-				e.addSpellSorted(byte(n))
+		for lvl := 1; lvl <= 7; lvl++ {
+			if c.SpellSlots[mageSlots+lvl-1] == 0 {
+				continue
+			}
+			for _, n := range mageSpellsByLevel[lvl-1] {
+				if n == 0 {
+					break
+				}
+				if c.SpellBook[n-1] == 0 {
+					e.addSpellSorted(n)
+				}
 			}
 		}
 	}
@@ -263,7 +270,7 @@ func (e *Engine) buildSpellList(kind int) bool {
 	return true
 }
 
-// addLevelHeadings is the tail of O0C2:0A74 for the sorted lists: a heading
+// addLevelHeadings is the tail of O113:0B3E for the sorted lists: a heading
 // before the first spell and wherever the level rises.
 func (e *Engine) addLevelHeadings() {
 	l := &e.spells
@@ -407,4 +414,19 @@ func (e *Engine) learnNewSpell(c *Character) {
 			return
 		}
 	}
+}
+
+// mageSlots: the magic-user's levels in SpellSlots.
+const mageSlots = 21
+
+// mageSpellsByLevel = DS:5851 + 11*level + 1..11: the magic-user spells a
+// new level may learn (the third row runs into the next one's 47).
+var mageSpellsByLevel = [7][11]byte{
+	{9, 10, 13, 16, 17, 19, 20, 14, 15, 12, 0},
+	{29, 30, 31, 32, 33, 34, 35},
+	{45, 46, 48, 49, 50, 51, 52, 53, 54, 55, 47},
+	{81, 82, 83, 84, 85, 86, 87, 88, 89, 100, 0},
+	{91, 92, 93, 94},
+	{111, 112, 113, 114, 110},
+	{115, 116, 117},
 }
