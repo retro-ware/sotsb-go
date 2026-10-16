@@ -10,7 +10,7 @@ const (
 // pauseForMessage = R4CE:0B19: wait game speed × 100 ms.
 func (e *Engine) pauseForMessage() { e.Delay(int(e.gameSpeed) * statusDelayStep) }
 
-// statusMessage = R4CE:0ABF: show text on the bottom row in the given
+// statusMessage = R540:0B9D: show text on the bottom row in the given
 // colours, pause, clear the row again.
 func (e *Engine) statusMessage(text string, fg, bg int) {
 	e.ClearRow24()
@@ -19,7 +19,7 @@ func (e *Engine) statusMessage(text string, fg, bg int) {
 	e.ClearRow24()
 }
 
-// printMessage = O0ED:172C string_print01 (S40): a green bottom-row message.
+// printMessage = O151:16E3 string_print01 (S40): a green bottom-row message.
 func (e *Engine) printMessage(text string) {
 	e.statusMessage(cut(text, screenLastCol+1), colourGreen, colourBlack)
 }

@@ -82,7 +82,7 @@ func (e *Engine) combatBlocks() {
 	}
 }
 
-// --- the dungeon map (O05D:08CD) -------------------------------------
+// --- the dungeon map (O097:0875) -------------------------------------
 
 // cellSide = O05D:0306 (x, y, dir): 1 wall, 0 open, 3 door. Off the
 // 16x16 map only the party's row is open east and west.
@@ -102,13 +102,13 @@ func (e *Engine) cellSide(x, y, dir int) byte {
 	return 1
 }
 
-// cellEdge = O05D:0388 (x, y, dir): the side seen from both cells.
+// cellEdge = O097:0330 (x, y, dir): the side seen from both cells.
 func (e *Engine) cellEdge(x, y, dir int) byte {
 	dx, dy := int(stepX[dir]), int(stepY[dir])
 	return e.cellSide(x, y, dir) | e.cellSide(x+dx, y+dy, (dir+4)%8)
 }
 
-// dungeonMap = O05D:08CD: every cell within 6 east-west and 2 north-south
+// dungeonMap = O097:0875: every cell within 6 east-west and 2 north-south
 // of the party becomes a 6x5 block of tiles, rows skewed 5 squares.
 func (e *Engine) dungeonMap() {
 	for r := -2; r <= 2; r++ {
@@ -575,7 +575,7 @@ func (e *Engine) placeCombatants() {
 	}
 }
 
-// formationEdge = O05D:1202 (x, y): outside the 11x6 formation both ways.
+// formationEdge = O097:0AEB (x, y): outside the 11x6 formation both ways.
 func formationEdge(x, y int) bool {
 	return (x < 0 || x >= 0xB) && (y < 0 || y >= 6)
 }

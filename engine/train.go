@@ -32,7 +32,7 @@ func (e *Engine) modifyDraw(line, cursor int, hi bool) {
 	case line < modifyHPLine:
 		e.showStat(line, hi)
 	case line == modifyHPLine:
-		e.displayHP(c, 4, 0x12, hi)
+		e.displayHP(c, 4, 0x12, hi, false)
 	case hi:
 		n := int(c.PName[0])
 		e.displayStringBg(n+1, 1, colourBlack, colourBlack, " ")
@@ -47,7 +47,7 @@ func (e *Engine) modifyDraw(line, cursor int, hi bool) {
 	}
 }
 
-// ModifyCharacter = O0A7:2830 modifyPlayer: change the abilities, hit
+// ModifyCharacter = O0EF:2653 modifyPlayer: change the abilities, hit
 // points and name of a character without experience. Home/End or Enter
 // pick the line, left/right lower and raise, on the name they move the
 // cursor and letters type over it; Keep (K) accepts, Exit or Esc puts the

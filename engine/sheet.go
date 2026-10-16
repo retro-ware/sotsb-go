@@ -11,9 +11,7 @@ const (
 	sheetWeaponRow  = 20
 	sheetStatColumn = 5
 	acBase          = 60 // armour class is kept as 60 - AC
-	itemTypeWand    = 86
-	wordQuarrel     = 135 // name words that are already plural
-	wordArrows      = 177
+	wordPlural      = 93 // a third name word that is already plural
 )
 
 var statLabels = [6]string{"STR ", "INT ", "WIS ", "DEX ", "CON ", "CHA "}
@@ -104,7 +102,7 @@ func (e *Engine) showCombatStats() {
 	e.displayStringBg(1, y, colourWhite, colourBlack, "AC    ")
 	e.displayAC(c, 4, y)
 	e.displayStringBg(1, y+1, colourWhite, colourBlack, "HP    ")
-	e.displayHP(c, 4, y+1, false)
+	e.displayHP(c, 4, y+1, false, false)
 	x := 8
 	e.displayStringBg(x+1, y, colourWhite, colourBlack, "THAC0   ")
 	e.displayStringBg(x+7, y, colourGreen, colourBlack, itoa(int(byte(acBase-int(c.THAC0)))))
@@ -156,7 +154,7 @@ func (e *Engine) showStat(stat int, hi bool) {
 	}
 }
 
-// displayAC = O0ED:0933 minus (c, x, y): the armour class.
+// displayAC = O151:0B1C minus (c, x, y): the armour class.
 func (e *Engine) displayAC(c *Character, x, y int) {
 	s := itoa(abs(int(c.AC[0]) - acBase))
 	if c.AC[0] > acBase {
@@ -165,8 +163,9 @@ func (e *Engine) displayAC(c *Character, x, y int) {
 	e.displayStringBg(x, y, colourGreen, colourBlack, s)
 }
 
-// displayHP = O0ED:09BA display_hp (c, x, y, highlight): yellow when wounded.
-func (e *Engine) displayHP(c *Character, x, y int, hi bool) {
+// displayHP = O151:0BA6 (c, x, y, highlight, showMax): the hit points,
+// yellow when wounded, then "/max" when asked.
+func (e *Engine) displayHP(c *Character, x, y int, hi, showMax bool) {
 	col := colourGreen
 	if c.HP < c.MaxHP {
 		col = colourYellow
@@ -174,16 +173,20 @@ func (e *Engine) displayHP(c *Character, x, y int, hi bool) {
 	if hi {
 		col = colourLightMagenta
 	}
-	e.displayStringBg(x, y, col, colourBlack, itoa(int(c.HP)))
+	hp := itoa(int(c.HP))
+	e.displayStringBg(x, y, col, colourBlack, hp)
+	if showMax {
+		e.displayStringBg(x+len(hp), y, colourGreen, colourBlack, "/"+itoa(int(c.MaxHP)))
+	}
 }
 
-// displayName = O0ED:18A2 (c, x, y, possessive): light red when out of
-// action, yellow for monsters, cyan otherwise.
+// displayName = O151:185C (c, x, y, possessive): light red when out of
+// action, yellow for monsters in combat, cyan otherwise.
 func (e *Engine) displayName(c *Character, x, y int, possessive bool) {
 	col := colourLightRed
 	if c.Okay != 0 {
 		col = colourCyan
-		if c.Side == 1 {
+		if c.Side == 1 && e.gameState == stateCombat {
 			col = colourYellow
 		}
 	}
@@ -193,10 +196,11 @@ func (e *Engine) displayName(c *Character, x, y int, possessive bool) {
 	}
 }
 
-// ItemName = O0ED:0466 (c, item, x, y, readied, display): build the item's
+// ItemName = O151:0438 (c, item, x, y, readied, display): build the item's
 // shown name into its name field: the readied column, "*" for magic when
 // someone detects it, the count, the known name words (plural for counts);
-// draw it when display is set.
+// a bag shows the number of items it holds in place of its second word.
+// Draw it when display is set.
 func (e *Engine) ItemName(c *Character, it *Item, x, y int, readied, display bool) {
 	name := ""
 	if readied {
@@ -216,7 +220,8 @@ func (e *Engine) ItemName(c *Character, it *Item, x, y int, readied, display boo
 	if detect && (int8(it.Plus) > 0 || int8(it.Plus2) > 0 || it.Cursed != 0) {
 		name += "*" + " "
 	}
-	if it.Count > 0 {
+	bag := it.Type == itemTypeBag
+	if it.Count > 0 && !bag {
 		name += itoa(int(it.Count)) + " "
 	}
 	shown := 0 // bit i-1: word i is known and present
@@ -230,14 +235,18 @@ func (e *Engine) ItemName(c *Character, it *Item, x, y int, readied, display boo
 		if shown>>(i-1)&1 == 0 {
 			continue
 		}
-		name += itemWords[it.Words[i-1]]
+		if bag && i == 2 {
+			name += itoa(int(it.Count))
+		} else {
+			name += itemWords[it.Words[i-1]]
+		}
 		if it.Count < 2 || plural {
 			name += " "
 			continue
 		}
-		if 1<<(i-1) == shown || i == 1 && shown > 4 && it.Type != itemTypeWand || i == 2 && shown%2 == 0 ||
-			i == 3 && it.Type == itemTypeWand ||
-			it.Words[2] != wordQuarrel && (it.Type == itemTypeArrows || it.Type == itemTypeBolts) && it.Words[2] != wordArrows {
+		missile := it.Type == itemTypeArrows || it.Type == itemTypeDart || it.Type == itemTypeBolts
+		if 1<<(i-1) == shown || i == 1 && shown > 4 || i == 1 && bag || i == 2 && shown%2 == 0 ||
+			i == 3 && missile && it.Words[2] != wordPlural {
 			name += "s "
 			plural = true
 		} else {

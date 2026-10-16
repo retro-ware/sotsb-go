@@ -911,7 +911,7 @@ func (e *Engine) normalizeRest() {
 	}
 }
 
-// twoDigits = O0B6:058A.
+// twoDigits = O10C:04C8.
 func twoDigits(n uint16) string {
 	s := itoa(int(n))
 	if n < 10 {

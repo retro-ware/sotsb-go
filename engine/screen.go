@@ -116,26 +116,5 @@ func pad2(n int) string {
 	return s
 }
 
-// StatusLine = O0ED:2B66: "x,y dir hh:mm" (+ camping/search) under the
-// party list.
-func (e *Engine) StatusLine() {
-	x, y := e.partyX(), e.partyY()
-	hh := pad2(int(wordAt(e.area, 0x192)))
-	mm := pad2(10*int(wordAt(e.area, 0x190)) + int(wordAt(e.area, 0x18E)))
-	s := ""
-	if wordAt(e.area, 0x1F6) == 0 {
-		s = strconv.Itoa(x) + "," + strconv.Itoa(y) + " "
-	}
-	s += directionNames[e.viewFacing()] + " "
-	s += hh + ":" + mm
-	if e.gameState == 2 {
-		s += " camping"
-	} else if wordAt(e.game, 0x594)&1 != 0 {
-		s += " search"
-	}
-	if len(s) > 0x28 {
-		s = s[:0x28]
-	}
-	e.ClearCells(0x11, 0xF, 0x26, 0xF)
-	e.DisplayString(0x11, 0xF, 0xA, s)
-}
+// StatusLine = O151:316A: see statusLine.
+func (e *Engine) StatusLine() { e.statusLine() }

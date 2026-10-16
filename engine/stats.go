@@ -1,6 +1,6 @@
 package engine
 
-// The ability scores in use (O0E3:16B0..1FB9): a character's own scores
+// The ability scores in use (O145:149A..1FB9): a character's own scores
 // changed by its readied magic items and its affects.
 
 // Magic item properties: a readied item whose Spells[2] has the top bit set
@@ -31,7 +31,7 @@ const (
 	giantStrength21     = 21 // the Strength spell of O0C2:3FB7
 )
 
-// strengthCode = O0E3:16B0 (str, str00): one byte for a strength: 18/xx as
+// strengthCode = O145:149A (str, str00): one byte for a strength: 18/xx as
 // xx+1 (18/00 is 101), others +100.
 func strengthCode(str, str00 byte) byte {
 	if str == strengthMaximum18 {
@@ -59,7 +59,7 @@ func strongerThan(c *Character, str, str00 byte) (byte, bool) {
 	return 0, false
 }
 
-// statAffects = O0E3:18D9 (c, stat): the score in use from the
+// statAffects = O089:1194 (c, stat): the score in use from the
 // character's own, its readied magic items and its affects. Constitution
 // also works out the maximum hit points again.
 func (e *Engine) statAffects(c *Character, stat int) {
@@ -67,7 +67,7 @@ func (e *Engine) statAffects(c *Character, stat int) {
 	value00 := c.Str00.Base
 	var better, better00 byte
 	fixed := byte(noFixedScore)
-	takeBetter := func() { // O0E3:1771
+	takeBetter := func() { // O145:155D
 		if better > value || better == strengthMaximum18 && better00 > value00 {
 			value, value00 = better, better00
 		}

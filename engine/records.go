@@ -18,7 +18,7 @@ func (e *Engine) selected() *Character {
 	return e.party[e.partySel]
 }
 
-// partyIndex: c's place in the party list (O04C:077E), or the count when
+// partyIndex: c's place in the party list (O07D:075C), or the count when
 // it is not in it.
 func (e *Engine) partyIndex(c *Character) int {
 	for i, p := range e.party {

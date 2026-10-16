@@ -412,7 +412,7 @@ func (e *Engine) killWithMessage(c *Character, status byte, msg string) {
 	e.gameDelay()
 	e.clearCombatText()
 	if e.gameState != stateCombat {
-		e.playerSummary(e.selected())
+		e.summaryRow(c, c == e.selected())
 	}
 }
 
@@ -626,7 +626,7 @@ func (e *Engine) Revive(c *Character, hp byte) bool {
 	return true
 }
 
-// hitMessage = O0ED:218A (char, magical, message): in combat the target
+// hitMessage = O151:270F (char, magical, message): in combat the target
 // flashes (once per message delay step for magic) with a sound.
 func (e *Engine) hitMessage(c *Character, magical bool, msg string) {
 	msg = cut(msg, 0x28)
@@ -668,14 +668,10 @@ func (e *Engine) hitMessage(c *Character, magical bool, msg string) {
 	}
 }
 
-// forgetSpell = O0ED:1520 (spell): the selected character's first
-// memorised copy of the spell is gone.
-func (e *Engine) forgetSpell(sp byte) {
-	c := e.selected()
-	if c == nil {
-		return
-	}
-	for i := 0; i <= 0x14; i++ {
+// forgetSpell = O151:149F (char, spell): the character's first memorised
+// copy of the spell is gone.
+func forgetSpell(c *Character, sp byte) {
+	for i := range c.Memorized {
 		if c.Memorized[i] == sp {
 			c.Memorized[i] = 0
 			break
@@ -683,8 +679,8 @@ func (e *Engine) forgetSpell(sp byte) {
 	}
 }
 
-// healedMessage = O0ED:24F7 (char): fully or partially healed; outside
-// combat the selected character's summary is shown again.
+// healedMessage = O151:2A75 (char): fully or partially healed; outside
+// combat the character's summary row is drawn again.
 func (e *Engine) healedMessage(c *Character) {
 	msg := "is partially healed"
 	if c.HP == c.MaxHP {
@@ -692,11 +688,11 @@ func (e *Engine) healedMessage(c *Character) {
 	}
 	e.combatName(c, msg, combatMsgRow, true)
 	if e.gameState != stateCombat {
-		e.playerSummary(e.selected())
+		e.summaryRow(c, c == e.selected())
 	}
 }
 
-// countSides = O0ED:2588: standing members of each side (DS:6814/6815).
+// countSides = O151:2B1C: standing members of each side (DS:6814/6815).
 func (e *Engine) countSides() {
 	e.rv.side = [2]int8{}
 	for _, c := range e.party {

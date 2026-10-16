@@ -7,7 +7,7 @@ package engine
 // carryBase: the weight anyone can carry before strength is counted.
 const carryBase = 1500
 
-// carryLimit = O0BA:0019 (c): the weight the character can carry.
+// carryLimit = O13C:0000 (c): the weight the character can carry.
 func carryLimit(c *Character) uint16 { return uint16(int(strCarry(c)) + carryBase) }
 
 // willOverload = O0BA:006D (c, weight): whether adding the weight

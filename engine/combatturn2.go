@@ -698,7 +698,7 @@ func (e *Engine) aimManual(c, cand *Character, rng, showRange, allowGround, allo
 	}
 }
 
-// aimAt = O08D:3B25 (c, rng, showRange, allowGround, allowCreature, var
+// aimAt = O0C9:37DB (c, rng, showRange, allowGround, allowCreature, var
 // found, var t): the player aims for c. Candidates are walked through
 // nearest first (N next, P previous, M or an arrow key: manual cursor, T
 // take, C centre, Esc/E give up). rng 0xFF takes the range of the readied

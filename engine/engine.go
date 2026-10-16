@@ -161,6 +161,8 @@ type Engine struct {
 	ncomb          int                 // DS:5F2A combatants on the map list
 	occ            [25][50]byte        // DS:60DB combatant index per square
 	bodies         [10]body            // DS:66D6, 1-based, count DS:6715
+	fullPicture    bool                // DS:67EC a full-screen picture holds the screen
+	summaryBox     textBox             // DS:8A83..8A86 the party summary rows the mouse picks from
 	nbodies        int                 // DS:6715
 	v70C7          byte                // DS:70C7
 	icons          [0x48][2]*dax.Image // DS:5E5A, ready and action pose per slot
@@ -211,7 +213,7 @@ type Engine struct {
 	DevAction func() // run once at the next adventuring command prompt (cmd/snap)
 }
 
-// Dice = O0E3:1381 (n, sides): sum of n rolls of 1..sides, kept in a
+// Dice = O145:11C6 (n, sides): sum of n rolls of 1..sides, kept in a
 // byte like the original (wraps at 256).
 func (e *Engine) Dice(n, sides int) int {
 	t := 0
@@ -361,10 +363,10 @@ func (e *Engine) Random(n int) int {
 	return int(uint16(e.RandSeed>>16) % uint16(n))
 }
 
-// Ticks = R4CE:0988, time in hundredths of a second.
+// Ticks = R540:0A6B, time in hundredths of a second.
 func (e *Engine) Ticks() int64 {
 	if e.tr != nil { // virtual clock: 10 ms per call (emu prims.py _ticks)
-		e.Trace("R4CE:0988", "Ticks")
+		e.Trace("R540:0A6B", "Ticks")
 		t := e.tr.ms / 10
 		e.tr.ms += 10
 		return t
@@ -459,4 +461,9 @@ func (e *Engine) Play() {
 func (e *Engine) wildernessOverview() bool {
 	const overviewWord = 624
 	return wordAt(e.game, overviewWord) != 0
+}
+
+// textBox is a rectangle of text cells, edges included.
+type textBox struct {
+	left, top, right, bottom int
 }

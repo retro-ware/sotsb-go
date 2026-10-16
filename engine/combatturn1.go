@@ -283,7 +283,7 @@ func (e *Engine) leaveAttacks(c *Character, dir int) {
 	}
 }
 
-// fleeBattle = O08D:0D1B flee_battle (char) bool: try to run away; "Got Away" removes the character.
+// fleeBattle = O0C9:0D3B flee_battle (char) bool: try to run away; "Got Away" removes the character.
 func (e *Engine) fleeBattle(c *Character) bool {
 	away := false
 	if e.nearEnemies(c, 0xFF) == 0 {

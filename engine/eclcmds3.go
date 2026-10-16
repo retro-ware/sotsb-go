@@ -107,7 +107,7 @@ func (e *Engine) showEncounter(sprite, pic, dist byte) {
 	}
 }
 
-// showPortrait = O04C:0543 (head, body).
+// showPortrait = O07D:0507 (head, body).
 func (e *Engine) showPortrait(head, body byte) {
 	e.sc.viewDrawn = false
 	e.shopHead, e.shopBody = head, body

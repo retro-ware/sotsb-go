@@ -29,10 +29,11 @@ const (
 
 // Item types with special treatment.
 const (
-	itemTypeArrows  = 73
-	itemTypeBolts   = 28
-	itemTypeElfBow1 = 37
-	itemTypeElfBow2 = 36
+	itemTypeArrows    = 30
+	itemTypeBolts     = 12
+	itemTypeLongSword = 18
+	itemTypeFirstBow  = 22 // composite long bow
+	itemTypeLastBow   = 26 // long bow
 )
 
 // baseItem returns byte k of the base record of an item type.
@@ -54,7 +55,7 @@ const (
 	coinWeight = 1 // every coin weighs one unit
 )
 
-// ApplyItems = O0ED:0C20: everything that follows from the items carried
+// ApplyItems = O151:2141: everything that follows from the items carried
 // and readied: slots, weight, hands, attack and damage, armour class,
 // movement and the fighter's attack level.
 func (e *Engine) ApplyItems(c *Character) {
@@ -104,7 +105,6 @@ func (e *Engine) ApplyItems(c *Character) {
 	cursedAC := false
 	c.SaveBonus = 0
 	c.AC[0] = c.BaseAC
-	c.Move = c.BaseMove
 	c.THAC0 = c.THAC0Base
 	ac[0] = dexAC(c)
 	if c.Slots[slotWeapon] == nil {
@@ -114,14 +114,13 @@ func (e *Engine) ApplyItems(c *Character) {
 	e.weaponStats(c)
 	for _, it := range c.Items {
 		if it.Readied != 0 {
-			e.armourMove(c, it)
 			e.itemAC(c, it, &ac, &cursedAC)
 		}
 	}
 	if cursedAC {
 		ac[3] = 0
 	}
-	e.encumbrance(c)
+	c.Move = byte(e.moveRate(c) / 2)
 	if int(ac[4]) < int(c.AC[0]) {
 		ac[4] = int8(c.AC[0])
 	}
@@ -130,12 +129,20 @@ func (e *Engine) ApplyItems(c *Character) {
 		c.AC[0] += byte(ac[k])
 	}
 	c.AC[1] = byte(ac[4] + ac[2] + ac[3] - 2)
-	fighter := int8(c.Levels[clsFighter])
-	old := int8(c.OldLevels[clsFighter])
-	if fighter < 1 && (old < 1 || !oldClassUsable(c)) || int8(c.Race) < 1 {
+	// the fighting classes attack at their best level; the old-class
+	// test only ever looks at the fighter (the asm repeats it three times)
+	fighting := int8(c.Levels[clsFighter]) > 0 || int8(c.Levels[clsPaladin]) > 0 || int8(c.Levels[clsRanger]) > 0 ||
+		int8(c.OldLevels[clsFighter]) > 0 && oldClassUsable(c)
+	if !fighting || c.Race == raceTribble || c.Race == raceMonster {
 		c.FightLevel = 1
-	} else {
-		c.FightLevel = byte(fighter + old*b2i8(oldClassUsable(c)))
+		return
+	}
+	c.FightLevel = c.Levels[clsFighter]
+	if c.Levels[clsRanger] > c.FightLevel {
+		c.FightLevel = c.Levels[clsRanger]
+	}
+	if c.Levels[clsPaladin] > c.FightLevel {
+		c.FightLevel = c.Levels[clsPaladin]
 	}
 }
 
@@ -146,9 +153,10 @@ func b2i8(b bool) int8 {
 	return 0
 }
 
-// weaponStats = O0ED:0023: to-hit and damage of the readied weapon:
-// dexterity for missiles, strength for melee, the ammunition's bonus, elves
-// with their bows.
+// weaponStats = O151:0000: to-hit and damage of the readied weapon:
+// dexterity for missiles, strength for melee, the ammunition's bonus, and
+// one more to hit with swords and bows (for every race, unlike Curse's
+// elves).
 func (e *Engine) weaponStats(c *Character) {
 	w := c.Slots[slotWeapon]
 	if w == nil {
@@ -173,7 +181,7 @@ func (e *Engine) weaponStats(c *Character) {
 		plus += int8(c.Slots[slotArrows].Plus)
 	}
 	c.Bonus[0] = byte(int8(c.Bonus[0]) + plus)
-	if c.Race == raceElf && (t > 40 && t < 45 || t == itemTypeElfBow1 || t == itemTypeElfBow2) {
+	if t >= itemTypeFirstBow && t <= itemTypeLastBow || t == itemTypeShortSword || t == itemTypeLongSword {
 		plus++
 	}
 	c.THAC0 += byte(plus)
@@ -181,7 +189,36 @@ func (e *Engine) weaponStats(c *Character) {
 	c.Sides[0] = e.baseItem(t, itemSidesNormal)
 }
 
-// armourMove = O0ED:021E (c, item): body armour sets the movement by its weight.
+// moveRate = O151:25EA: the character's movement from its base, its
+// armour and its load, doubled by haste and magical boots and halved by a
+// slow; the party adds the game's movement bonus. The result (twice the
+// movement) is also left in the moves being worked out.
+func (e *Engine) moveRate(c *Character) int {
+	c.Move = c.BaseMove
+	for _, it := range c.Items {
+		if it.Readied != 0 {
+			e.armourMove(c, it)
+		}
+	}
+	e.encumbrance(c)
+	if e.FindAffect(c, affectHaste) != nil {
+		c.Move *= 2
+	}
+	if e.FindAffect(c, affectSlow) != nil {
+		c.Move /= 2
+	}
+	if e.FindAffect(c, affectMagicalBoots) != nil {
+		c.Move *= 2
+	}
+	e.rv.moves = c.Move
+	if c.Side == 0 {
+		e.rv.moves += byte(wordAt(e.game, area2PartyMoveBonus))
+	}
+	e.rv.moves *= 2
+	return int(e.rv.moves)
+}
+
+// armourMove = O151:01EE (c, item): body armour sets the movement by its weight.
 func (e *Engine) armourMove(c *Character, it *Item) {
 	if e.baseItem(it.Type, itemSlot) != slotClassArmour {
 		return
@@ -199,7 +236,7 @@ func (e *Engine) armourMove(c *Character, it *Item) {
 	}
 }
 
-// itemAC = O0ED:02A6 (c, item, ac, cursed): an armour class item adds to
+// itemAC = O151:0278 (c, item, ac, cursed): an armour class item adds to
 // its part of ac (shields and rings add up, cloaks keep the best, armour
 // sets the base); its second plus is a saving throw bonus.
 func (e *Engine) itemAC(c *Character, it *Item, ac *[5]int8, cursed *bool) {
@@ -232,7 +269,7 @@ func (e *Engine) itemAC(c *Character, it *Item, ac *[5]int8, cursed *bool) {
 	}
 }
 
-// encumbrance = O0ED:03C4: movement by the weight over the strength allowance.
+// encumbrance = O151:0396: movement by the weight over the strength allowance.
 func (e *Engine) encumbrance(c *Character) {
 	over := int(c.Weight) - int(strCarry(c))
 	if over < 0 {
@@ -253,7 +290,7 @@ func (e *Engine) encumbrance(c *Character) {
 	}
 }
 
-// dexAC = O0ED:117B stat_bonus: armour class from dexterity (full value).
+// dexAC = O151:10FA stat_bonus: armour class from dexterity (full value).
 func dexAC(c *Character) int8 {
 	d := c.Stats[statDex].Value
 	switch {
@@ -293,7 +330,7 @@ func dexMissile(c *Character) int8 {
 	return 0
 }
 
-// strIndex = O0ED:127F: strength as one scale (18/xx = 18..23, 19+ = 24+).
+// strIndex = O151:11FE: strength as one scale (18/xx = 18..23, 19+ = 24+).
 func strIndex(c *Character) byte {
 	s := c.Stats[statStr].Value
 	switch {
@@ -369,7 +406,7 @@ func strDamage(c *Character) int8 {
 	return 0
 }
 
-// strCarry = O0ED:1440: the weight allowance change from strength.
+// strCarry = O151:13BF: the weight allowance change from strength.
 func strCarry(c *Character) int16 {
 	switch v := int16(strIndex(c)); {
 	case v >= 1 && v <= 3:

@@ -186,7 +186,7 @@ func (e *Engine) CastSpell(spell, mode, b byte, quit *bool) {
 			e.DisplayString(1, 0x13, colourGreen, spellNames[int(spell)])
 			e.DisplayString(1, 0x14, colourGreen, "can't be cast here...")
 			if e.YesNo(0xD, 0xA, 0xF, "Lose it? ") == 'Y' {
-				e.forgetSpell(spell)
+				forgetSpell(caster, spell)
 			}
 		} else {
 			e.ClearCells(1, 17, 38, 22)
@@ -239,7 +239,7 @@ func (e *Engine) CastSpell(spell, mode, b byte, quit *bool) {
 			}
 			e.removeInvisibility(caster)
 			if !e.usingItem {
-				e.forgetSpell(spell)
+				forgetSpell(caster, spell)
 			}
 			e.curSpell = spell
 			e.spellFx[spell]()
@@ -253,7 +253,7 @@ func (e *Engine) CastSpell(spell, mode, b byte, quit *bool) {
 			}
 			e.printMessage("Spell Aborted")
 			if !e.usingItem {
-				e.forgetSpell(spell)
+				forgetSpell(caster, spell)
 			}
 			ok = false
 		}

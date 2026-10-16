@@ -138,7 +138,7 @@ func (e *Engine) cmdSurprise() {
 	e.setVar(surpriseResult, r)
 }
 
-// cmdSpriteOff = O03C:2CB6.
+// cmdSpriteOff = O050:3106.
 func (e *Engine) cmdSpriteOff() {
 	s := &e.sc
 	s.pc++
@@ -167,13 +167,13 @@ func (e *Engine) cmdFindItem() {
 	}
 }
 
-// cmdDelay = O03C:290B.
+// cmdDelay = O050:2D56.
 func (e *Engine) cmdDelay() {
 	e.sc.pc++
 	e.gameDelay()
 }
 
-// cmdPrintReturn = O03C:2D0F: the text cursor to the next line.
+// cmdPrintReturn = O050:3161: the text cursor to the next line.
 func (e *Engine) cmdPrintReturn() {
 	s := &e.sc
 	s.pc++
@@ -221,7 +221,7 @@ func (e *Engine) cmdSpell() {
 // offset 30 (the memorized spells and what follows them).
 const maxSpellSlot = 100
 
-// cmdDump = O03C:3271: the selected member leaves the party.
+// cmdDump = O050:3644: the selected member leaves the party.
 func (e *Engine) cmdDump() {
 	e.sc.pc++
 	e.freeSelected()

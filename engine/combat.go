@@ -494,20 +494,27 @@ func (e *Engine) markReach(reach map[[2]int][]int, on bool) {
 	e.Flip()
 }
 
-// rangedWeapon = O0ED:2FE4 (char): the readied weapon shoots (base item
+// rangedWeapon = O151:3466 (char): the readied weapon shoots (base item
 // +0xC above 1).
 func (e *Engine) rangedWeapon(c *Character) bool {
 	w := c.Slots[0]
 	return w != nil && e.baseItem(w.Type, 0xC) > 1
 }
 
-// throwable = O0ED:3027 (char): a ranged weapon that also works in melee
-// (base item flags 0x14).
+// throwable = O151:34A9 (char): a ranged weapon that also works in melee
+// (base item flags 0x14), or the one weapon type that is always thrown.
 func (e *Engine) throwable(c *Character) bool {
-	return e.rangedWeapon(c) && e.baseItem(c.Slots[0].Type, 0xE)&0x14 == 0x14
+	if !e.rangedWeapon(c) {
+		return false
+	}
+	t := c.Slots[0].Type
+	return e.baseItem(t, 0xE)&0x14 == 0x14 || t == itemTypeAlwaysThrown
 }
 
-// ammoFor = O0ED:306C (char, var item): the item a ranged attack uses up
+// itemTypeAlwaysThrown is thrown whatever its base item flags say.
+const itemTypeAlwaysThrown = 67
+
+// ammoFor = O151:34FD (char, var item): the item a ranged attack uses up
 // (the weapon itself, the arrows in slot 11 or the bolts in slot 12); true
 // when there is one or the weapon needs none (flags 0x0A).
 func (e *Engine) ammoFor(c *Character, it **Item) bool {
@@ -581,15 +588,17 @@ func (e *Engine) otherMenu(c *Character) (done bool) {
 	return
 }
 
-// guard = O0ED:2833 (char): end the turn on guard.
+// guard = O151:2E3B (char): end the turn on guard (not when turned to flee).
 func (e *Engine) guard(c *Character) bool {
 	r := e.endTurn(c)
-	c.Combat.Guarding = 1
-	e.printMessage("Guarding")
+	if c.Combat.Turned == 0 {
+		c.Combat.Guarding = 1
+		e.printMessage("Guarding")
+	}
 	return r
 }
 
-// bandage = O0ED:335F (doIt): is a party member dying? With doIt the
+// bandage = O151:35CB (doIt): is a party member dying? With doIt the
 // first one is bandaged.
 func (e *Engine) bandage(doIt bool) bool {
 	found := false
@@ -637,7 +646,7 @@ func (e *Engine) quickOne(c *Character) {
 	}
 }
 
-// Combat side panel cells (O0ED:0A2D): right of the 7-square view.
+// Combat side panel cells (O151:0C8F): right of the 7-square view.
 const (
 	sidePanelX1    = 23
 	sidePanelX2    = 38
@@ -647,8 +656,9 @@ const (
 	sidePanelAC    = 26 // armour class column
 )
 
-// combatPanel = O0ED:0A2D (char): the combatant's name, hit points, armour
-// class, readied weapon and (when out of action) status in the side panel.
+// combatPanel = O151:0C8F (char): the combatant's name, hit points, armour
+// class, readied weapon and its state (out of action, helpless or casting)
+// in the side panel.
 func (e *Engine) combatPanel(c *Character) {
 	if !e.panelDirty {
 		return
@@ -660,7 +670,7 @@ func (e *Engine) combatPanel(c *Character) {
 	e.combatName(c, " ", row, false)
 	row++
 	e.DisplayString(sidePanelX1, row+1, colourGreen, "Hitpoints")
-	e.displayHP(c, sidePanelValue, row+1, false)
+	e.displayHP(c, sidePanelValue, row+1, false, false)
 	row += 2
 	e.DisplayString(sidePanelX1, row+1, colourGreen, "AC")
 	e.displayAC(c, sidePanelAC, row+1)
@@ -676,10 +686,12 @@ func (e *Engine) combatPanel(c *Character) {
 		e.DisplayString(sidePanelX1, row+1, colourWhite, statusNames[c.Status])
 	case e.isHelpless(c):
 		e.DisplayString(sidePanelX1, row+1, colourWhite, "(Helpless)")
+	case c.Combat.Spell > 0:
+		e.DisplayString(sidePanelX1, row+1, colourWhite, "(Casting)")
 	}
 }
 
-// combatName = O0ED:1788 (char, text, row, wait): in combat the name and
+// combatName = O151:173F (char, text, row, wait): in combat the name and
 // the text go in the side panel from row on; elsewhere under the view.
 func (e *Engine) combatName(c *Character, text string, row int, wait bool) {
 	if e.gameState == stateCombat {
@@ -701,7 +713,7 @@ func (e *Engine) combatName(c *Character, text string, row int, wait bool) {
 	}
 }
 
-// clearCombatText = O0ED:186F: clears the message part of the panel.
+// clearCombatText = O151:1827: clears the message part of the panel.
 func (e *Engine) clearCombatText() {
 	if e.gameState == stateCombat {
 		e.ClearCells(sidePanelX1, 10, sidePanelX2, sidePanelBot)
@@ -713,7 +725,7 @@ func (e *Engine) clearCombatText() {
 // combatMsgRow is the side panel row combat messages start on.
 const combatMsgRow = 10
 
-// combatUseHook = O0ED:2DC0: redraw the combat screen: the map frame
+// combatUseHook = O151:3430: redraw the combat screen: the map frame
 // (extra: full width, no panel frame), rows 23-24 cleared, the map centred on the view.
 func (e *Engine) combatUseHook() {
 	e.combatViewLeave() // O121:00F2: the combat palette

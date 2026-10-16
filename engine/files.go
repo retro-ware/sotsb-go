@@ -152,7 +152,7 @@ func (e *Engine) fileExists(path string) bool { // Pool 0802:02EB
 	return err == nil && !st.IsDir()
 }
 
-// removeSubstr = R5BD:054B; makeFileName = R5BD:061A.
+// removeSubstr = R640:057B; makeFileName = R5BD:061A.
 // The scan runs over the original length and does not recheck the position
 // after a deletion, so adjacent copies leave every second one (original quirk).
 func removeSubstr(s, sub string) string {

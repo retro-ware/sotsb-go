@@ -1,7 +1,7 @@
 package engine
 
 // The adventuring screen: the view frame (R133:0137), the party summary
-// (O0ED:0798), the status line (O0ED:2B67), redrawing the view (O10D:00BA),
+// (O0ED:0798), the status line (O0ED:2B67), redrawing the view (O174:0034),
 // the command bar (O099:08DF) and stepping through doors (O099).
 
 // View frame layout.
@@ -21,10 +21,12 @@ const (
 // clearViewArea is drawAdventureFrame under the name the scripts use.
 func (e *Engine) clearViewArea() { e.drawAdventureFrame() }
 
-// playerSummary = O0ED:0798 Player_Summary (selected): the party with AC
-// and HP; the selected member's name in white.
+// playerSummary = O151:07C4 (selected): the party with AC and HP; the
+// selected member's name in white. Not on the wilderness map (unless the
+// area shows the party there) or while a picture holds the screen. The
+// rows it fills are the box the mouse picks members from.
 func (e *Engine) playerSummary(sel *Character) {
-	if e.gameState == stateWilderness {
+	if e.gameState == stateWilderness && wordAt(e.area, 2*areaWordPartyOnMap) == 0 || e.fullPicture {
 		return
 	}
 	x := summaryLeftCol
@@ -32,37 +34,74 @@ func (e *Engine) playerSummary(sel *Character) {
 		x = 1
 	}
 	y := summaryTopRow
+	e.summaryBox = textBox{left: x, top: summaryTopRow + 2, right: summaryRight, bottom: summaryTopRow + 1}
 	e.displayStringBg(x, y, colourWhite, colourBlack, "Name")
 	e.displayStringBg(acColumn, y, colourWhite, colourBlack, "AC  HP")
 	y += 2
 	for _, c := range e.party {
+		e.summaryBox.bottom++
 		e.ClearCells(x, y, summaryRight, y)
 		if c == sel {
 			e.displayStringBg(x, y, colourWhite, colourBlack, c.Name())
 		} else {
 			e.displayName(c, x, y, false)
 		}
-		dx := 0
-		switch ac := c.AC[0]; {
-		case ac <= 50:
-			dx = 1
-		case ac <= 60:
-			dx = 2
-		case ac <= 69:
-			dx = 1
-		}
-		e.displayAC(c, acColumn-1+dx, y)
-		dx = 0
-		switch {
-		case c.HP <= 9:
-			dx = 2
-		case c.HP <= 99:
-			dx = 1
-		}
-		e.displayHP(c, hpColumn+dx, y, false)
+		e.displayAC(c, acColumn-1+acShift(c), y)
+		e.displayHP(c, hpColumn+hpShift(c), y, false, false)
 		y++
 	}
 	e.ClearCells(x, y, summaryRight, y)
+}
+
+// summaryRow = O151:0987 (char, selected): only the character's row of
+// the party summary is drawn again (white when it is the selected one).
+func (e *Engine) summaryRow(c *Character, sel bool) {
+	if e.gameState == stateWilderness && wordAt(e.area, 2*areaWordPartyOnMap) == 0 || e.fullPicture {
+		return
+	}
+	x := summaryLeftCol
+	if e.gameState == stateStartMenu {
+		x = 1
+	}
+	e.summaryBox = textBox{left: x, top: summaryTopRow + 2, right: summaryRight, bottom: summaryTopRow + 1}
+	y := summaryTopRow + 2
+	for _, p := range e.party {
+		e.summaryBox.bottom++
+		if p == c {
+			if sel {
+				e.displayStringBg(x, y, colourWhite, colourBlack, p.Name())
+			} else {
+				e.displayName(p, x, y, false)
+			}
+			e.displayAC(p, acColumn-1+acShift(p), y)
+			e.displayHP(p, hpColumn+hpShift(p), y, false, false)
+		}
+		y++
+	}
+	e.ClearCells(x, y, summaryRight, y)
+}
+
+// acShift and hpShift right-align the summary's numbers.
+func acShift(c *Character) int {
+	switch ac := c.AC[0]; {
+	case ac <= 50:
+		return 1
+	case ac <= 60:
+		return 2
+	case ac <= 69:
+		return 1
+	}
+	return 0
+}
+
+func hpShift(c *Character) int {
+	switch {
+	case c.HP <= 9:
+		return 2
+	case c.HP <= 99:
+		return 1
+	}
+	return 0
 }
 
 // Columns of the party summary.
@@ -84,13 +123,19 @@ func (e *Engine) selectMember(c *Character) {
 // freeSelected = O0A7:3A25 free_players (0, 1).
 func (e *Engine) freeSelected() { e.freePlayers(false, true) }
 
-// statusLine = O0ED:2B67 camping_search: position, facing, time and
-// "camping" / "search" under the view.
+// statusLine = O151:316A camping_search: position, facing, time and
+// "camping" / "search" under the view. An area may show a fixed
+// position and turn the compass.
 func (e *Engine) statusLine() {
 	if e.gameState == stateWilderness {
 		return
 	}
 	s := &e.sc
+	x, y := int(s.posX), int(s.posY)
+	if wordAt(e.area, 2*areaWordShownX) != positionNotOverridden {
+		x = int(byte(wordAt(e.area, 2*areaWordShownX)))
+		y = int(byte(wordAt(e.area, 2*areaWordShownY)))
+	}
 	hours := itoa(int(wordAt(e.area, 2*areaWordHours)))
 	if len(hours) < 2 {
 		hours = "0" + hours
@@ -99,11 +144,13 @@ func (e *Engine) statusLine() {
 	if len(minutes) < 2 {
 		minutes = "0" + minutes
 	}
-	t := ""
-	if wordAt(e.area, 2*areaWordNoMap) == 0 {
-		t = itoa(int(s.posX)) + "," + itoa(int(s.posY)) + " "
+	turn := int(wordAt(e.area, 2*areaWordCompassTurn))
+	if wordAt(e.area, 2*areaWordDoubleTurn) != 0 {
+		turn *= 2
 	}
-	t += directionNames[s.facing] + " "
+	facing := (int(s.facing) + turn) % 8
+	t := itoa(x) + "," + itoa(y) + " "
+	t += directionNames[facing] + " "
 	t += hours + ":" + minutes
 	if e.debug {
 		t += "*"
@@ -117,6 +164,15 @@ func (e *Engine) statusLine() {
 	e.displayStringBg(summaryLeftCol, statusLineRow, colourGreen, colourBlack, cut(t, screenLastCol+1))
 }
 
+// Area words that change what the status line shows.
+const (
+	areaWordShownX        = 509 // position shown instead of the party's
+	areaWordShownY        = 510
+	areaWordCompassTurn   = 511 // added to the facing shown
+	areaWordDoubleTurn    = 230 // the compass turn counts double
+	positionNotOverridden = 255
+)
+
 // Area words of the clock and the map.
 const (
 	areaWordMinutes       = 199
@@ -126,12 +182,13 @@ const (
 	areaWordWallsetB      = 254
 	areaWordNoMap         = 251 // the overhead map is not allowed here
 	areaWordMapShown      = 197
+	areaWordPartyOnMap    = 312 // the wilderness map still shows the party summary
 )
 
 // mapPicture: the value of mapMode while a picture is up instead of the view.
 const mapPicture = 'P'
 
-// drawView = O10D:00BA: draw the 3D view (or the overhead map) in a
+// drawView = O174:0034: draw the 3D view (or the overhead map) in a
 // dungeon, or the wilderness picture.
 func (e *Engine) drawView() {
 	s := &e.sc
@@ -410,7 +467,7 @@ func memorizedSlot(spell byte, c *Character) byte {
 	return 255
 }
 
-// memorizedBy = O099:06C6 (spell): the first member with it memorized.
+// memorizedBy = O0D6:0682 (spell): the first member with it memorized.
 func (e *Engine) memorizedBy(spell byte) *Character {
 	for _, c := range e.party {
 		if memorizedSlot(spell, c) != 255 {
@@ -420,7 +477,7 @@ func (e *Engine) memorizedBy(spell byte) *Character {
 	return nil
 }
 
-// castKnock = O099:0720 find_knock_spell: spend a memorized Knock.
+// castKnock = O0D6:06D6 find_knock_spell: spend a memorized Knock.
 func (e *Engine) castKnock() bool {
 	if c := e.memorizedBy(knockSpell); c != nil {
 		c.Memorized[memorizedSlot(knockSpell, c)] = 0
@@ -587,7 +644,7 @@ const (
 // keyEnter is the Enter key's code.
 const keyEnter = 13
 
-// flashMessage = R4CE:0ABF (text, fg, bg): the text on the bottom row for
+// flashMessage = R540:0B9D (text, fg, bg): the text on the bottom row for
 // a moment.
 func (e *Engine) flashMessage(text string, fg, bg int) {
 	e.ClearRow24()

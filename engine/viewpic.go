@@ -138,23 +138,20 @@ func (e *Engine) drawBigPic() {
 	}
 }
 
-// loadPicture = O0ED:2A29 load_pic: put back what belongs in the view
-// window for the game state.
+// loadPicture = O151:3031 load_pic: put back what belongs in the view
+// window for the game state. While the wilderness map shows the party the
+// view is left alone.
 func (e *Engine) loadPicture() {
 	e.viewReset = true
+	mapUp := wordAt(e.area, 2*areaWordPartyOnMap) != 0
 	switch e.gameState {
 	case stateStartMenu:
 		e.drawScreenFrame()
-	case stateShop:
+	case stateShop, stateEndGame:
 		if e.shopFrame {
 			e.drawAdventureFrame()
 		}
-		if e.mapMode == mapPicture {
-			e.drawViewPicture(viewPicX, viewPicY, true, 0)
-		} else {
-			e.loadPortrait(e.shopHead, e.shopBody)
-			e.drawPortrait(viewPicX, viewPicY, true)
-		}
+		e.drawViewPicture(viewPicX, viewPicY, true, 0)
 		e.playerSummary(e.selected())
 		e.statusLine()
 	case stateCamp:
@@ -164,20 +161,25 @@ func (e *Engine) loadPicture() {
 		e.statusLine()
 	case stateDungeon:
 		e.drawAdventureFrame()
-		e.drawView()
+		if !mapUp {
+			e.drawView()
+		}
 		e.playerSummary(e.selected())
 		e.statusLine()
 		e.sc.firstLoad = false
 	case stateWilderness:
-		if e.mapMode != mapPicture {
+		if e.mapMode != mapPicture && !mapUp {
 			e.drawView()
 		}
 	case stateAfterCombat:
 		e.drawAdventureFrame()
-		e.loadViewPicture("PIC", 1, 0)
+		e.loadViewPicture("PIC", afterCombatPicture, 0)
 		e.playerSummary(e.selected())
 	}
 }
 
 // campPicture: the camp fire.
-const campPicture = 29
+const (
+	campPicture        = 59
+	afterCombatPicture = 60
+)

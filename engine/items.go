@@ -16,7 +16,7 @@ func (it *Item) setName(s string) {
 	copy(it.PName[1:41], s)
 }
 
-// AddItemCopy = O0ED:1690 (char, item): a copy of the item at the end of
+// AddItemCopy = O151:164E (char, item): a copy of the item at the end of
 // the character's list.
 func (e *Engine) AddItemCopy(c *Character, it *Item) *Item {
 	n := *it

@@ -47,7 +47,7 @@ var (
 	partY    = [10]int{4, 3, 3, 3, 1, 1, 1, 0, 0, 4}
 )
 
-// onMap = O116:0542.
+// onMap = O17E:0537.
 func onMap(x, y int) bool { return x >= 0 && x <= 15 && y >= 0 && y <= 15 }
 
 // wrap brings an off-map coordinate back in like O116 does (>15 → 0, <0 → 15).
@@ -119,7 +119,7 @@ func (e *Engine) MapCell(x, y int) byte {
 	return e.gs.geo[0x200+wrap(y)<<4+wrap(x)]
 }
 
-// SetSkyColours = O116:0165 (sky, horizon, band, ground).
+// SetSkyColours = O17E:015A (sky, horizon, band, ground).
 func (e *Engine) SetSkyColours(a, b, c, d byte) { e.gs.sky = [4]byte{a, b, c, d} }
 
 // drawSky = O116:0184: the four colour bands behind the walls (R226:1D67

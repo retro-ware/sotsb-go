@@ -277,7 +277,7 @@ func (e *Engine) iconToSprite(slot, pose, frame int, flip bool) {
 	copy(e.spr.Frame(frame), im.Frame(0))
 }
 
-// hitColours = O0ED:1A59 (slot): the four frames of the sprite from an icon.
+// hitColours = O151:1A11 (slot): the four frames of the sprite from an icon.
 func (e *Engine) hitColours(slot int) {
 	e.iconToSprite(slot, 0, 0, false)
 	e.iconToSprite(slot, 0, 1, true)
@@ -401,7 +401,7 @@ func (e *Engine) combatClearIcon(sx, sy, idx int) {
 	}
 }
 
-// combatInView = O121:0730 (x, y): a screen square inside the view.
+// combatInView = O18B:06AC (x, y): a screen square inside the view.
 func combatInView(x, y int) bool { return x >= 0 && x < viewW && y >= 0 && y < viewH }
 
 func (e *Engine) combatInView(x, y int) bool { return combatInView(x, y) }
@@ -702,7 +702,7 @@ func (e *Engine) lineOfSight(rng *int, tx, ty *int, x, y int) bool {
 	}
 }
 
-// inArc = O11C:054A (x1, y1, x2, y2, dir): (x2,y2) lies in the quarter
+// inArc = O186:0543 (x1, y1, x2, y2, dir): (x2,y2) lies in the quarter
 // facing dir from (x1,y1) (dir 8: anywhere).
 func (e *Engine) inArc(x1, y1, x2, y2, dir int) bool {
 	if x1 < 0 || x1 > 0x31 || y1 < 0 || y1 > 0x18 || x2 < 0 || x2 > 0x31 || y2 < 0 || y2 > 0x18 {

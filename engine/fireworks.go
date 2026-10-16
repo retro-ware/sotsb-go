@@ -187,7 +187,7 @@ func (e *Engine) sparkSetup(f *fireworksState, x, y, cx, cy int16, colours [spar
 // stageLimit is the record byte +17+stage the step is compared with.
 func (p *spark) stageLimit() byte { return p.stageEnd[p.stage] }
 
-// burst = O0AC:079B: the sparks fly, cool and go out.
+// burst = R540:04B9: the sparks fly, cool and go out.
 func (e *Engine) burst(f *fireworksState) {
 	for step := 1; step <= int(f.steps)+1; step++ {
 		e.sparkStep(f, byte(step))

@@ -53,11 +53,15 @@ func (e *Engine) robItems(chance byte, c *Character) {
 	}
 }
 
-// loseItem = O0ED:159C (c, item): the item leaves the character's list.
+// loseItem = O151:151B (c, item): the item leaves the character's list; a
+// bag goes with all it holds.
 func (e *Engine) loseItem(c *Character, it *Item) {
 	if it == nil {
 		e.displayAndWait(colourYellow, colourBlack, "Nil Item pointer...")
 		return
+	}
+	if it.Type == itemTypeBag {
+		it.Contents = nil
 	}
 	for i, x := range c.Items {
 		if x == it {

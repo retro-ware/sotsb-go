@@ -48,7 +48,7 @@ func (c *listMenuCtx) nth(i int) *ListNode {
 }
 
 // drawRows = O104:0897: full redraw of the list area from node first.
-// (lastHeaderBefore, O104:0804, is computed there but never used.)
+// (lastHeaderBefore, O16B:0D20, is computed there but never used.)
 func (e *Engine) lmDrawRows(c *listMenuCtx, first int) {
 	e.ClearCells(c.x1, c.y1, c.x2, c.y2)
 	y := c.y1
@@ -66,7 +66,7 @@ func (e *Engine) lmDrawRows(c *listMenuCtx, first int) {
 	}
 }
 
-// firstNonSpace = O104:09D3, lastNonSpace = O104:0A1F (1-based).
+// firstNonSpace = O16B:0F22, lastNonSpace = O16B:0F6E (1-based).
 func firstNonSpace(s string) int {
 	i := 1
 	for i < len(s) && s[i-1] == ' ' {

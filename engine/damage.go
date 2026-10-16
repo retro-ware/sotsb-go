@@ -2,7 +2,7 @@ package engine
 
 // The DAMAGE command (O03C:2958) and its helpers: the trap's hit roll
 // (O0E3:11DD), damage with its message (O04C:2200) and damage_player
-// (O0ED:23D5).
+// (O151:2953).
 
 // DAMAGE's first operand: the count of random targets, or flags.
 const (
@@ -65,7 +65,7 @@ const (
 	statusDead        = 6
 )
 
-// damagePlayer = O0ED:23D5 damage_player (target, damage): hit points down
+// damagePlayer = O151:2953 damage_player (target, damage): hit points down
 // to 0, then unconscious, dying (bleeding rounds) or dead at 10 below.
 func (e *Engine) damagePlayer(c *Character, dmg byte) {
 	var over, left byte

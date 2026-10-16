@@ -302,7 +302,7 @@ func (e *Engine) cmdPrint() {
 	e.slowText = false
 }
 
-// cmdReturn = O03C:0AB8: back from a GOSUB, or EXIT when there is none.
+// cmdReturn = O050:0AFF: back from a GOSUB, or EXIT when there is none.
 func (e *Engine) cmdReturn() {
 	s := &e.sc
 	s.pc++
@@ -326,7 +326,7 @@ func (e *Engine) cmdCompareAnd() {
 	e.sc.flags[1] = true
 }
 
-// cmdIf = O03C:0B71: skip the next command unless the flag holds.
+// cmdIf = O050:0BB4: skip the next command unless the flag holds.
 func (e *Engine) cmdIf() {
 	e.sc.pc++
 	if !e.sc.flags[e.sc.command-cmdIfEqual] {

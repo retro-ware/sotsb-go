@@ -21,7 +21,7 @@ func (e *Engine) combatant(i byte) *Character {
 	return e.combatants[i-1]
 }
 
-// sign = O11C:0005.
+// sign = O186:0000.
 func sign(n int) int {
 	switch {
 	case n < 0:
@@ -187,11 +187,13 @@ func (e *Engine) flyMissile(x1, y1, x2, y2, frames, delay int) {
 	e.Flip()
 }
 
-// isParty = O0ED:2564 (char): true for the party side.
+// isParty = O151:2AF8 (char): true for the party side.
 func isParty(c *Character) bool { return c.Side == 0 }
 
-// nearEnemies = O0ED:25E0 (char, range): combatants of the other side
-// within range; the near list keeps only them, copied to DS:6DE4.
+// nearEnemies = O151:2B70 (char, range): combatants of the other side
+// within range; the near list keeps only them, copied to DS:8DC8. A
+// cloudkill caster swaps an empty combatant slot (DS:8E23, never set, is
+// nil) into the list's spare entry DS:8DC9.
 func (e *Engine) nearEnemies(c *Character, r int) int {
 	e.nearCombatants(c, e.combatX(c), e.combatY(c), r)
 	kept := e.near.list[:0]
@@ -208,10 +210,18 @@ func (e *Engine) nearEnemies(c *Character, r int) int {
 	for i, n := range kept {
 		e.targets[i+1] = n.index
 	}
+	if e.FindAffect(c, affectCloudkill) != nil {
+		for i := 1; i <= len(kept); i++ {
+			if e.combatant(e.targets[i]) == nil {
+				e.targets[0], e.targets[i] = e.targets[i], e.targets[0]
+				break
+			}
+		}
+	}
 	return len(kept)
 }
 
-// rangeTo = O0ED:2708 (char, target): distance in squares (list distance
+// rangeTo = O151:2D10 (char, target): distance in squares (list distance
 // halved) from char to target, the near list left as it was.
 func (e *Engine) rangeTo(c, t *Character) int {
 	saved := e.near
@@ -235,20 +245,20 @@ func (e *Engine) rangeTo(c, t *Character) int {
 
 // Spell classes beyond spellids.go's: a monster's innate power.
 
-// Levels at which paladins and rangers cast: their level less these.
+// Levels at which rangers cast: their level less these.
 const (
-	paladinClericOffset = 8
-	rangerDruidOffset   = 7
-	rangerMageOffset    = 8
-	innateCasterLevel   = 12
-	itemCasterLevel     = 6
-	paladinFirstCasting = 9
-	rangerFirstCasting  = 8
+	rangerDruidOffset  = 7
+	rangerMageOffset   = 8
+	innateCasterLevel  = 12
+	itemCasterLevel    = 6
+	rangerFirstCasting = 8
 )
 
-// casterLevel = O0ED:286F (spell): the level the selected character casts
-// the spell at. Paladins cast cleric spells, rangers druid and mage ones,
-// from a few levels on; who casts none (and items, DS:757D) cast at 6.
+// casterLevel = O151:2E86 (spell): the level the selected character casts
+// the spell at. Paladins cast cleric spells at their full level, rangers
+// druid and mage ones from a few levels on; who casts none (and items,
+// DS:8D99) cast at 6. A spell of no listed class leaves the result unset
+// in the asm; the port gives 0.
 func (e *Engine) casterLevel(spell int) int {
 	c := e.selected()
 	level := func(k int) int8 {
@@ -258,21 +268,21 @@ func (e *Engine) casterLevel(spell int) int {
 		}
 		return l
 	}
-	if c.Levels[clsCleric] == 0 && c.Levels[clsMage] == 0 &&
-		int8(c.Levels[clsPaladin]) < paladinFirstCasting && int8(c.Levels[clsRanger]) < rangerFirstCasting {
-		return itemCasterLevel
-	}
-	class := spellTable[spell&127].class()
 	var lvl int8
-	switch class {
-	case spellClassCleric:
-		lvl = max(level(clsCleric), level(clsPaladin)-paladinClericOffset)
-	case spellClassDruid:
-		lvl = max(level(clsRanger)-rangerDruidOffset, 0)
-	case spellClassMage:
-		lvl = max(level(clsMage), level(clsRanger)-rangerMageOffset)
-	case spellClassInnate:
-		lvl = innateCasterLevel
+	class := spellTable[spell&127].class()
+	if c.Levels[clsCleric] == 0 && c.Levels[clsMage] == 0 && int8(c.Levels[clsRanger]) < rangerFirstCasting {
+		lvl = itemCasterLevel
+	} else {
+		switch class {
+		case spellClassCleric:
+			lvl = max(level(clsCleric), level(clsPaladin))
+		case spellClassDruid:
+			lvl = max(level(clsRanger)-rangerDruidOffset, 0)
+		case spellClassMage:
+			lvl = max(level(clsMage), level(clsRanger)-rangerMageOffset)
+		case spellClassInnate:
+			lvl = innateCasterLevel
+		}
 	}
 	if e.usingItem && class != spellClassInnate {
 		return itemCasterLevel

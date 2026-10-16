@@ -27,7 +27,7 @@ const (
 	specialReadBase  = 49227 // reads above it: position, direction, ...
 )
 
-// Address kinds (O04C:0723).
+// Address kinds (O07D:0701).
 const (
 	addrArea = iota
 	addrArea2
@@ -104,7 +104,7 @@ func (s *script) setCodeByte(a uint16, v byte) {
 	s.code[uint16(a-scriptCodeFirst)%scriptCodeSize] = v
 }
 
-// addrKindOf = O04C:0723.
+// addrKindOf = O07D:0701.
 func addrKindOf(a uint16) int {
 	switch {
 	case a >= scriptAreaFirst && a <= scriptAreaLast:
@@ -172,7 +172,7 @@ func (e *Engine) arg(k int) uint16 {
 // varAddr = O04C:06D7 (lo, hi).
 func varAddr(lo, hi byte) uint16 { return uint16(hi)<<8 | uint16(lo) }
 
-// letterOf = O04C:06FB: a 6-bit text code as a character (1..31 are letters).
+// letterOf = O07D:06D9: a 6-bit text code as a character (1..31 are letters).
 func letterOf(c byte) byte {
 	if c > 31 {
 		return c

@@ -61,7 +61,7 @@ func (e *Engine) DisplaySpaces(x, y, colour, count int) {
 	e.displayCharN(x, y, colour, count, ' ', true)
 }
 
-// ClearRow24 = O104:07EE redraw_screen: blank the message/menu row.
+// ClearRow24 = O16B:0D08 redraw_screen: blank the message/menu row.
 func (e *Engine) ClearRow24() { e.DisplaySpaces(0, 24, 0, 40) }
 
 // InputString = R4CE:0716 (prompt, colour, maxlen): line editor on row 24.

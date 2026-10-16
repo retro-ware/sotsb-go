@@ -57,7 +57,7 @@ func (e *Engine) drawPartyList() {
 		case hp <= 0x63:
 			dx = 1
 		}
-		e.displayHP(c, 0x24+dx, y, false)
+		e.displayHP(c, 0x24+dx, y, false, false)
 		y++
 	}
 	e.ClearCells(x, y, 0x26, y)
