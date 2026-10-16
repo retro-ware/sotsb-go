@@ -368,7 +368,7 @@ func main() {
 	g := &game{scr: scr, eng: eng, img: ebiten.NewImage(ega.W, ega.H), buf: make([]byte, ega.W*ega.H*4), dsf: 1}
 	ebiten.SetWindowSize(ega.W*(*scale), ega.H*(*scale)*6/5) // 4:3 like a CRT
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
-	ebiten.SetWindowTitle("Curse of the Azure Bonds")
+	ebiten.SetWindowTitle("Secret of the Silver Blades")
 	ebiten.SetTPS(tps)
 	if err := ebiten.RunGame(g); err != nil {
 		log.Fatal(err)

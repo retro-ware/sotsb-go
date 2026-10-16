@@ -15,9 +15,9 @@ import (
 	"sotsb/internal/gameimport"
 )
 
-// markerFiles: a folder holding all of these is a Curse of the Azure Bonds install.
-// Pool of Radiance has neither the big pictures nor the sky archive.
-var markerFiles = []string{"BIGPIC1.DAX", "SKY.DAX", "GAME.OVR"}
+// markerFiles: a folder holding all of these is a Secret of the Silver Blades install.
+// Pool of Radiance and Secret of the Silver Blades have no BLADES.CFG.
+var markerFiles = []string{"BLADES.CFG", "TITLE.DAX", "GAME.OVR"}
 
 // isMarker tells whether name is one of markerFiles.
 func isMarker(name string) bool {
@@ -37,7 +37,7 @@ func gameFile(name string) bool {
 	switch {
 	case strings.HasSuffix(base, ".DAX"):
 		return true
-	case base == "ITEMS" || base == "CURSE.CFG":
+	case base == "ITEMS" || base == "BLADES.CFG":
 		return true
 	case strings.HasPrefix(base, "SAVGAM") || strings.HasPrefix(base, "CHRDAT"):
 		return true // saved games and saved characters
@@ -45,7 +45,7 @@ func gameFile(name string) bool {
 	return false
 }
 
-// importGame (-import, for goplay) finds a Curse of the Azure Bonds install in
+// importGame (-import, for goplay) finds a Secret of the Silver Blades install in
 // whatever src is (folders, zips, CD images, the GOG installer), copies the files
 // the engine reads into dst and writes dst/COVER.PNG from the title picture.
 func importGame(src, dst string) error {
@@ -76,7 +76,7 @@ func importGame(src, dst string) error {
 		}
 	}
 	if game == nil {
-		return fmt.Errorf("no Curse of the Azure Bonds found in %s", src)
+		return fmt.Errorf("no Secret of the Silver Blades found in %s", src)
 	}
 	if err := os.MkdirAll(dst, 0o755); err != nil {
 		return err
@@ -93,10 +93,10 @@ func importGame(src, dst string) error {
 }
 
 // The cover is the title screen as the game first shows it (engine/title.go):
-// the painting with the Curse logo over it.
+// the painting with the Silver Blades logo over it.
 const (
 	coverPainting  = 2 // TITLE.DAX's full-screen painting
-	coverLogo      = 3 // the "Curse of the Azure Bonds" logo
+	coverLogo      = 4 // the "Secret of the Silver Blades" logo
 	coverLogoCol   = 6 // where the logo goes, in 8-pixel cells
 	coverLogoRow   = 11
 	coverCellPixel = 8

@@ -115,3 +115,17 @@ func LoadCurse(path string) (*Image, error) {
 	im.DS = cotabDataSegment * 16
 	return im, nil
 }
+
+// bladesDataSegment is the paragraph of Secret of the Silver Blades' data segment
+// in the unpacked START.EXE (where the first typed constant, DS:0002, lies).
+const bladesDataSegment = 3554
+
+// LoadBlades reads Silver Blades' START.EXE with its data segment.
+func LoadBlades(path string) (*Image, error) {
+	im, err := Load(path)
+	if err != nil {
+		return nil, err
+	}
+	im.DS = bladesDataSegment * 16
+	return im, nil
+}
