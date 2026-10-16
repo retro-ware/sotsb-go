@@ -80,8 +80,19 @@ func (e *Engine) buildTurnOrder() {
 // delayTurn: c (at the current place in the turn order) moves to the end
 // of the order and acts again there, last.
 func (e *Engine) delayTurn(c *Character) {
+	e.requeueTurn(c, func(*Character) bool { return true })
+}
+
+// requeueTurn takes c from the current place in the turn order and puts it
+// back after the following turns for which passes holds, then steps back
+// so the turn now at the current place is taken next.
+func (e *Engine) requeueTurn(c *Character, passes func(next *Character) bool) {
 	i := e.turnIndex
-	e.turnOrder = append(append(e.turnOrder[:i:i], e.turnOrder[i+1:]...), c)
+	for i+1 < len(e.turnOrder) && passes(e.turnOrder[i+1]) {
+		e.turnOrder[i] = e.turnOrder[i+1]
+		i++
+	}
+	e.turnOrder[i] = c
 	e.turnIndex--
 }
 

@@ -48,11 +48,10 @@ func (e *Engine) healTarget(c *Character, who **Character) bool {
 					best, bestHP = t, t.HP
 				}
 			}
-		} else if ground == groundBody {
+		} else if ground == groundBody || ground == groundStoneBody {
 			for b := 1; b <= e.nbodies; b++ {
 				bd := e.bodies[b]
-				// ponytail: the set [6,7,8] is the dead, stoned and gone
-				if bd.c != nil && (bd.c.Status < 6 || bd.c.Status > 8) && bd.x == x && bd.y == y {
+				if bd.c != nil && (bd.c.Status < statusDead || bd.c.Status > statusDisintegrated) && bd.x == x && bd.y == y {
 					body = b
 				}
 			}
@@ -149,7 +148,8 @@ func hitDiceWeight(spell int, c *Character) int {
 }
 
 // chooseSpellTargets = O0C9:1FA1 (spell, silent): the targets of the spell into
-// DS:744B+4i (count DS:744E). False when none was chosen.
+// DS:8C63+4i (count DS:8C66). False when none was chosen. The hit dice
+// spells and the hold spells cannot take their caster.
 func (e *Engine) chooseSpellTargets(spell, silent int) (ok bool) {
 	var t aimTarget
 	ok = true
@@ -191,7 +191,7 @@ func (e *Engine) chooseSpellTargets(spell, silent int) (ok bool) {
 				done = true
 				continue
 			}
-			if !already(n) {
+			if !already(n) && t.c != sel {
 				n++
 				e.setTgt(n, t.c)
 				e.tgtX, e.tgtY = e.combatX(t.c), e.combatY(t.c)
@@ -202,8 +202,10 @@ func (e *Engine) chooseSpellTargets(spell, silent int) (ok bool) {
 				}
 			} else if silent != 0 {
 				budget = int(byte(budget - 1))
-			} else {
+			} else if t.c != sel {
 				e.printMessage("Already been targeted")
+			} else {
+				e.printMessage("Cannot target yourself")
 			}
 			e.eraseCursor(int(t.x), int(t.y))
 		}
@@ -230,13 +232,18 @@ func (e *Engine) chooseSpellTargets(spell, silent int) (ok bool) {
 				left = 0
 				continue
 			}
-			if !already(n) {
+			holdSelf := (spell == spellHoldPersonCleric || spell == spellHoldPersonMU || spell == spellHoldMonsters) && t.c == sel
+			if !already(n) && !holdSelf {
 				n++
 				e.setTgt(n, t.c)
 				left--
 				e.tgtX, e.tgtY = e.combatX(t.c), e.combatY(t.c)
 			} else if silent == 0 {
-				e.printMessage("Already been targeted")
+				if t.c == sel {
+					e.printMessage("Cannot target yourself")
+				} else {
+					e.printMessage("Already been targeted")
+				}
 			} else {
 				left--
 			}
@@ -253,8 +260,9 @@ func (e *Engine) chooseSpellTargets(spell, silent int) (ok bool) {
 }
 
 // spellMenuTargets = O0C9:2558 spell_menu3 (spell, a, var quit): the selected character picks
-// (spell 0: from his memorised spells) and casts a spell. Spells with a
-// casting time of 3 or more only begin and are cast in a later round.
+// (spell 0: from the memorised spells) and casts a spell. Spells with a
+// casting time of 3 or more only begin; the caster's turn comes again
+// later in the round, at its lowered initiative, and the spell goes off.
 func (e *Engine) spellMenuTargets(spell, a int, quit *bool) {
 	sel := e.selected()
 	have, idx := true, -1 // bp-6 = 1, bp-5 = 0xFFFF
@@ -288,6 +296,12 @@ func (e *Engine) spellMenuTargets(spell, a int, quit *bool) {
 			} else {
 				sel.Combat.Delay = 1
 			}
+			// the caster acts again once its initiative comes round
+			mine := int8(sel.Combat.Delay)
+			e.requeueTurn(sel, func(next *Character) bool {
+				theirs := int8(next.Combat.Delay)
+				return theirs > mine || theirs == mine && e.Dice(1, 2) == 1
+			})
 		}
 	}
 }
@@ -469,8 +483,14 @@ func (e *Engine) maxPartyMove(c *Character) int {
 	return int(best)
 }
 
+// gameWordAttackedAlly is set for the scripts when the party turned on a
+// friend.
+const gameWordAttackedAlly = 819
+
 // mayAttack = O0C9:2B73 (c, target): may c attack the target? Attacking
-// a friend asks first; yes turns every sane character of the party hostile.
+// a friend asks first; yes turns every sane character of the party (but
+// the charmed) hostile.
+
 func (e *Engine) mayAttack(c, target *Character) bool {
 	if b2i(isParty(target)) == int(c.Side) || c.Auto != 0 {
 		return true
@@ -478,10 +498,9 @@ func (e *Engine) mayAttack(c, target *Character) bool {
 	if e.YesNo(0xD, 0xA, 0xF, "Attack Ally: ") != 'Y' {
 		return false
 	}
-	e.v6DE2 = 1
-	putWord(e.game, 0x666, 1)
+	putWord(e.game, 2*gameWordAttackedAlly, 1) // (DS:8DC6 is set too, never read)
 	for _, m := range e.party {
-		if m.Status == 0 && m.Control > 0x7F {
+		if m.Status == statusOkay && m.Control != controlCharmed && m.Control > controlHired {
 			m.Side = 1
 			if m.Combat != nil {
 				m.Combat.Target = nil

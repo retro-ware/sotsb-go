@@ -204,7 +204,6 @@ type Engine struct {
 	shots6E2C              [3]byte                 // DS:6E2C+i, i = 1..2 attack slots
 	lastStep               int                     // b59C6 the computer's last step direction
 	stuckCount, stuckSteps byte                    // b59C7, b59C8 its steps that went back
-	v6DE2                  byte                    // DS:6DE2
 	partyMorale            byte                    // b8E13 the party's morale this round
 	aiEngaged              bool                    // DS:75FE the computer's combatant has a target in reach
 

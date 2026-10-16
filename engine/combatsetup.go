@@ -16,7 +16,7 @@ func (e *Engine) combatSetup() {
 	e.stinkingClouds, e.poisonClouds, e.delayedBlasts = nil, nil, nil
 	e.thrownItem = nil
 	e.bodies = [10]body{}
-	putWord(e.game, 0x666, 0)
+	putWord(e.game, 2*gameWordAttackedAlly, 0)
 	e.combatMapSetup()
 	e.flushKey()
 	e.combatBlocks()
