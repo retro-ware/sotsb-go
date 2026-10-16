@@ -7,7 +7,7 @@ const (
 	statusDelayStep = 100 // milliseconds per game speed step
 )
 
-// pauseForMessage = R4CE:0B19: wait game speed × 100 ms.
+// pauseForMessage = R540:0BF7: wait game speed × 100 ms.
 func (e *Engine) pauseForMessage() { e.Delay(int(e.gameSpeed) * statusDelayStep) }
 
 // statusMessage = R540:0B9D: show text on the bottom row in the given
@@ -24,7 +24,7 @@ func (e *Engine) printMessage(text string) {
 	e.statusMessage(cut(text, screenLastCol+1), colourGreen, colourBlack)
 }
 
-// displayStringBg = R4CE:0349 (x, y, fg, bg, text): the characters on a
+// displayStringBg = R540:035D (x, y, fg, bg, text): the characters on a
 // background colour, upcased, cut at the right edge.
 func (e *Engine) displayStringBg(x, y, fg, bg int, text string) {
 	if x > screenLastCol || y > screenLastCol {
@@ -35,7 +35,7 @@ func (e *Engine) displayStringBg(x, y, fg, bg int, text string) {
 	}
 }
 
-// displayCharsBg = R4CE:01DF display_char01 (x, y, fg, bg, count, ch, upcase):
+// displayCharsBg = R540:01E7 display_char01 (x, y, fg, bg, count, ch, upcase):
 // the character count times from x on, upcased (the font has 64 glyphs).
 func (e *Engine) displayCharsBg(x, y, fg, bg, count int, ch byte) {
 	if x > screenLastCol || y > statusRow {

@@ -50,7 +50,7 @@ type Engine struct {
 	Trace     TraceFunc              // nil in normal play; see trace.go
 	tr        *traceState            // trace mode clock and key script
 
-	font   []byte        // DS:5E20 -> 8X8D1 block 201, 8 bytes per glyph
+	font   []byte        // DS:7DC8 -> 8X8D5 block 201, 8 bytes per glyph
 	sym    [5]*dax.Image // DS:5E3A symbol sets
 	symDAX string        // "8X8D" + DS:5376 digit
 	start  time.Time

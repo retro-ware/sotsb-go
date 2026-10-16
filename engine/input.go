@@ -50,10 +50,10 @@ func (e *Engine) ReadKeyByte() byte {
 	return k
 }
 
-// DisplaySpaces = R4CE:030A (x, y, colour, count): count blank cells.
+// DisplaySpaces = R540:0312 (x, y, colour, count): count blank cells.
 func (e *Engine) DisplaySpaces(x, y, colour, count int) {
 	if e.Trace != nil {
-		e.Trace("R4CE:030A", "DisplaySpaces", x, y, colour, count)
+		e.Trace("R540:0312", "DisplaySpaces", x, y, colour, count)
 	}
 	if x > 0x27 || y > 0x18 {
 		return
@@ -64,10 +64,11 @@ func (e *Engine) DisplaySpaces(x, y, colour, count int) {
 // ClearRow24 = O16B:0D08 redraw_screen: blank the message/menu row.
 func (e *Engine) ClearRow24() { e.DisplaySpaces(0, 24, 0, 40) }
 
-// InputString = R4CE:0716 (prompt, colour, maxlen): line editor on row 24.
-// Characters 0x20..0x7A are accepted while len < maxlen and echoed in white
-// one cell right of the last; backspace erases; Enter or Esc ends; the
-// result is upcased.
+// InputString = R540:0748 (prompt, colour, maxlen): line editor on row 24.
+// Letters and signs ('!'..'z') are taken while len < maxlen, a space only
+// after the first character (and past maxlen); each is echoed in white one
+// cell right of the last; backspace erases; extended keys are ignored;
+// Enter or Esc ends. The result loses its trailing spaces and is upcased.
 func (e *Engine) InputString(prompt string, colour, maxlen int) string {
 	if len(prompt) > 40 {
 		prompt = prompt[:40]
@@ -81,24 +82,35 @@ func (e *Engine) InputString(prompt string, colour, maxlen int) string {
 	for {
 		k := e.ReadKeyByte()
 		switch {
-		case k >= 0x20 && k <= 0x7A:
+		case k == ' ':
+			if len(s) > 0 {
+				s = append(s, k)
+				x++
+				e.DisplayString(x, 24, colourWhite, " ")
+			}
+		case k > ' ' && k <= 'z':
 			if len(s) < maxlen {
 				s = append(s, k)
 				x++
-				e.DisplayString(x, 24, 0xF, string(k))
+				e.DisplayString(x, 24, colourWhite, string(k))
 			}
-		case k == 8:
+		case k == keyBackspace:
 			if len(s) > 0 {
 				s = s[:len(s)-1]
 				e.DisplaySpaces(x, 24, 0, 1)
 				x--
 			}
+		case k == 0:
+			k = e.ReadKeyByte() // the extended key's scan code
 		}
-		if k == 13 || k == 27 || e.demo {
+		if k == keyEnter || k == keyEsc || e.demo {
 			break
 		}
 	}
 	e.ClearRow24()
+	for len(s) > 0 && s[len(s)-1] == ' ' {
+		s = s[:len(s)-1]
+	}
 	for i := range s {
 		s[i] = upper(s[i])
 	}

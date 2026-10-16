@@ -27,7 +27,7 @@ func (e *Engine) Init() {
 	e.symPrev = e.symDAX                  // DS:5377
 	e.newGameState()
 
-	e.font = e.daxBlock(e.symDAX, 201) // R4CE:017C
+	e.loadGameFont()
 	e.ClearRow24()
 	e.DisplayString(0, 24, 0xA, "Loading...Please Wait")
 	e.LoadSymbolSet(4, 202) // Pool ovr35:003B
@@ -65,7 +65,7 @@ func (e *Engine) readItems() []byte {
 // InitGraphics loads the font and symbol sets 4 and 0 the way Init does
 // (for tools that skip Init).
 func (e *Engine) InitGraphics() {
-	e.font = e.daxBlock(e.symDAX, 201)
+	e.loadGameFont()
 	e.LoadSymbolSet(4, 202)
 	e.LoadSymbolSet(0, 203)
 }
@@ -132,3 +132,14 @@ const (
 	lookStart1       = 219
 	lookStart2       = 232
 )
+
+// The game's font: block 201 of 8X8D5.DAX, 8 bytes per glyph.
+const (
+	gameFontDAX   = "8X8D5"
+	gameFontBlock = 201
+)
+
+// loadGameFont = R540:0184.
+func (e *Engine) loadGameFont() {
+	e.font = e.daxBlock(gameFontDAX, gameFontBlock)
+}
