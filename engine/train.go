@@ -72,7 +72,7 @@ func (e *Engine) ModifyCharacter() {
 	}
 	savedStr00, savedMax, savedName := c.Str00.Value, c.MaxHP, c.PName
 	race, class, sex := int(c.Race), int(c.Class), int(c.Sex)
-	limits := raceStatLimits[race]
+	limits := raceAbilityLimits[race]
 	restore := func() {
 		for i := range saved {
 			c.Stats[i].Value = saved[i]
@@ -311,7 +311,7 @@ func (e *Engine) modifyRaise(c *Character, i int, limits [16]byte, sex int) {
 	}
 }
 
-// statLimitMin: in a raceStatLimits row, the minimum of ability i (int ..
+// statLimitMin: in a raceAbilityLimits row, the minimum of ability i (int ..
 // cha) is at statLimitMin+2*i, its maximum one after.
 const statLimitMin = 4
 

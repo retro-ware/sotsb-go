@@ -118,18 +118,6 @@ var raceAbilityLimits = [8][16]byte{
 // Entries 1..10: the spells a new cleric knows (0 ends the list).
 var clericStartSpells = [11]byte{7, 1, 2, 3, 4, 5, 6, 7, 8, 0, 0}
 
-// Per race: strength min/max by gender, exceptional strength max by gender, then min/max of int wis dex con cha.
-var raceStatLimits = [8][16]byte{
-	{0, 5, 10, 0, 5, 5, 10, 15, 5, 10, 10, 15, 20, 10, 12, 12},
-	{8, 8, 18, 17, 99, 0, 3, 18, 3, 18, 3, 17, 12, 19, 3, 16},
-	{3, 3, 18, 16, 75, 0, 8, 18, 3, 18, 7, 19, 6, 18, 8, 18},
-	{6, 6, 18, 15, 50, 0, 7, 18, 3, 18, 3, 18, 8, 18, 3, 18},
-	{3, 3, 18, 17, 90, 0, 4, 18, 3, 18, 6, 18, 6, 18, 3, 18},
-	{6, 6, 17, 14, 0, 0, 6, 18, 3, 17, 8, 18, 10, 19, 3, 18},
-	{6, 6, 18, 18, 99, 75, 3, 17, 3, 14, 3, 17, 13, 19, 3, 12},
-	{3, 3, 18, 18, 100, 50, 3, 18, 3, 18, 3, 18, 3, 18, 3, 18},
-}
-
 // Per class: the minimum of each ability (str int wis dex con cha).
 var classStatMinimum = [17][6]byte{
 	{6, 6, 9, 0, 0, 0},
