@@ -40,8 +40,9 @@ data segment by content.
   - [x] money and item creation O13C (coins 259..271, pool gold rounds down, "How Many" gems, overload pause on taking coins, SotSB item types/weights/prices, +1..+3 bonus, scroll spells from the level tables)
   - [x] combat setup O097 (no wilderness battle map, DungCom tiles only, no pause before "A battle begins...", downed starters lie as body or statue tiles)
   - [x] menus O16B (Left/Right and keypad 4/6 move through the menu, extended keys always returned — letter-only menus pass over them; keys typed ahead dropped; no map cursor; Yes preselected where SotSB asks for it; list menu cursor on Up/Down; the mouse is not supported)
-- [ ] M8 sound
-- [ ] M9 goplay: games.js, deploy.sh build rule, README tables, wasm build
+  - [x] party menu O0EF:01A1 (13 entries, Initialize Mouse/Joystick writes BLADES.CFG) and adventure entry O050:3DB9 (ECL2 block 17): 24 screens of load + story match DOS (pointer only)
+- [x] M8 sound (R7E4: notes, envelopes, 13 songs; Tandy and speaker)
+- [x] M9 goplay: games.js, deploy.sh build rule, README tables, wasm build
 - [ ] M10 publish (public deploy: only with the user's go-ahead)
 
 ## Parity method
