@@ -589,7 +589,7 @@ func (e *Engine) placeAt(idx, x, y, ox, oy, team int) bool {
 	}
 	e.cpos[idx].x = byte(x + ox*6 + oy*5 + 0x16)
 	e.cpos[idx].y = byte(oy*5 + y + 0xA)
-	who, g, _, _ := e.groundAt(e.combatants[idx-1], 8)
+	who, g, _, _ := e.groundAt(e.combatants[idx-1], dirHere)
 	if who == 0 && g > 0 && e.groundInfo(g)[0] < 0xFF {
 		p.slots[p.side][team][y][x] = 0
 		return true

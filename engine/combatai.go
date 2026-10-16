@@ -528,7 +528,7 @@ func (e *Engine) aiFleeCheck(c *Character) bool {
 	e.rv.morale = e.partyMorale
 	e.affectGroup(c, grpMorale)
 	if int(e.rv.morale) < 100-int(wordAt(e.game, 2*gameWordPartyMorale)) || e.rv.morale == 0 || c.Side == sideParty {
-		if e.maxPartyMove(c) <= e.turnMoveRate(c)/2 {
+		if e.maxPartyMove(c) <= e.moveRate(c)/2 {
 			ci.Fleeing = 1
 			return false
 		}

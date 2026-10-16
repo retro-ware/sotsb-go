@@ -192,8 +192,8 @@ func isParty(c *Character) bool { return c.Side == 0 }
 
 // nearEnemies = O151:2B70 (char, range): combatants of the other side
 // within range; the near list keeps only them, copied to DS:8DC8. A
-// cloudkill caster swaps an empty combatant slot (DS:8E23, never set, is
-// nil) into the list's spare entry DS:8DC9.
+// cloudkill caster swaps the first empty combatant slot (DS:8E23, never
+// set, is nil) to the front of the list.
 func (e *Engine) nearEnemies(c *Character, r int) int {
 	e.nearCombatants(c, e.combatX(c), e.combatY(c), r)
 	kept := e.near.list[:0]
@@ -213,7 +213,7 @@ func (e *Engine) nearEnemies(c *Character, r int) int {
 	if e.FindAffect(c, affectCloudkill) != nil {
 		for i := 1; i <= len(kept); i++ {
 			if e.combatant(e.targets[i]) == nil {
-				e.targets[0], e.targets[i] = e.targets[i], e.targets[0]
+				e.targets[1], e.targets[i] = e.targets[i], e.targets[1]
 				break
 			}
 		}

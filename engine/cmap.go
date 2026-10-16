@@ -628,7 +628,7 @@ func (e *Engine) combatSquareFree(c *Character, x, y int, uncover bool) bool {
 	p := &e.cpos[idx]
 	p.size = c.Size & 0x7F
 	p.x, p.y = byte(x), byte(y)
-	who, g, _, _ := e.groundAt(c, 8)
+	who, g, _, _ := e.groundAt(c, dirHere)
 	if who != 0 || g == 0 || e.groundInfo(g)[0] == 0xFF {
 		p.size = 0
 		return false

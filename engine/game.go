@@ -3,7 +3,7 @@ package engine
 // The adventuring loop: Pool ovr04:31B4/32F8 (game loop and area change),
 // ovr15 (command input, movement, doors) and ovr21 (clock).
 
-// normalizeClock = O0B6:0317: carry each unit into the next; a year
+// normalizeClock = O10C:0240: carry each unit into the next; a year
 // passing ages the party.
 func (e *Engine) normalizeClock(t *[7]int) {
 	for i := 0; i <= 6; i++ {
@@ -12,8 +12,10 @@ func (e *Engine) normalizeClock(t *[7]int) {
 		}
 		if i == 6 {
 			for _, c := range e.party {
-				c.Age = c.Age + 1
+				c.Age++
 			}
+			t[i] -= int(clockLimits[i])
+			e.ageCheckDue = true
 			continue
 		}
 		t[i+1]++

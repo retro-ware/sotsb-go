@@ -1,13 +1,14 @@
 package engine
 
-// The combat main loop and the player's command menus (O057).
+// The combat main loop and the player's command menus (O089).
 
-// Combat = O057:0100: set up the battle, then rounds until one side is
-// down (or the party stops fighting).
+// Combat = O089:011D: set up the battle, then rounds until one side is
+// down (or the party stops fighting). Each round everyone acts in the
+// order of their initiative.
 func (e *Engine) Combat() {
-	e.gameState = 5
+	e.gameState = stateCombat
 	e.ext.panel = nil
-	e.combatTargets = true // DS:6B84 = 0068:0066 (O08D:2231)
+	e.combatTargets = true // DS:8A8E = O0C9:1FA1
 	e.combatSetup()
 	done := e.rv.side[0] == 0 || e.rv.side[1] == 0
 	for !done {
@@ -16,45 +17,143 @@ func (e *Engine) Combat() {
 			e.turnSetup(c)
 		}
 		putWord(e.game, area2Surprise, 0) // the surprise lasts one round
-		for c := e.nextActor(); c != nil; c = e.nextActor() {
-			e.takeTurn(c)
+		e.buildTurnOrder()
+		for e.turnIndex = 0; e.turnIndex < len(e.turnOrder); e.turnIndex++ {
+			e.takeTurn(e.turnOrder[e.turnIndex])
 		}
 		done = e.endRound()
+	}
+	if e.ageCheckDue {
+		e.oldAgeDeaths()
 	}
 	e.combatEnd()
 }
 
-// combatEnd = O057:004B: free the clouds, the map and the sprite.
+// maxTurns is the length of the turn order (DS:8E2A, 72 entries).
+const maxTurns = 72
+
+// combatEnd = O089:0000: free the clouds and the map; a charmed party
+// member stays with the enemy if any are left, and the affects a fall
+// ends go.
 func (e *Engine) combatEnd() {
-	e.combatTargets = false // DS:72BA = O0C2:114D cast_spell_on
 	e.stinkingClouds, e.poisonClouds, e.delayedBlasts = nil, nil, nil
+	for _, c := range e.party {
+		if e.FindAffect(c, affectCharmed) != nil && c.Status == statusOkay {
+			if e.rv.side[1] > 1 {
+				c.Status = statusRunning
+			} else {
+				c.Status = statusOkay
+			}
+		}
+		e.downAffects(c)
+	}
 	e.cmap = nil
 	e.spr = nil
 	e.combatViewEnter()
+	e.combatTargets = false // DS:8A8E = O113:1253 cast_spell_on
 }
 
-// nextActor = O057:01BC (var char): the highest initiative left (combat
-// block +3); ties go to the higher d100. nil when nobody is left.
-func (e *Engine) nextActor() *Character {
-	var best, bestRoll byte
-	var who *Character
+// buildTurnOrder = O089:0741: everyone sorted by initiative (combat block
+// +3, signed), ties settled by a coin toss as each one is put in.
+func (e *Engine) buildTurnOrder() {
+	e.turnOrder = e.turnOrder[:0]
 	for _, c := range e.party {
-		r := byte(e.Dice(1, 100))
-		ini := c.Combat.Delay
-		if ini > best {
-			bestRoll = r
+		ini := int8(c.Combat.Delay)
+		at := 0
+		for at < len(e.turnOrder) {
+			other := int8(e.turnOrder[at].Combat.Delay)
+			if ini > other || ini == other && e.Dice(1, 2) == 1 {
+				break
+			}
+			at++
 		}
-		if ini >= best && r >= bestRoll {
-			bestRoll, best, who = r, ini, c
+		if at >= maxTurns {
+			continue
+		}
+		e.turnOrder = append(e.turnOrder[:at], append([]*Character{c}, e.turnOrder[at:]...)...)
+		if len(e.turnOrder) > maxTurns {
+			e.turnOrder = e.turnOrder[:maxTurns]
 		}
 	}
-	if best == 0 {
-		return nil
-	}
-	return who
 }
 
-// takeTurn = O057:0281 (char).
+// delayTurn: c (at the current place in the turn order) moves to the end
+// of the order and acts again there, last.
+func (e *Engine) delayTurn(c *Character) {
+	i := e.turnIndex
+	e.turnOrder = append(append(e.turnOrder[:i:i], e.turnOrder[i+1:]...), c)
+	e.turnIndex--
+}
+
+// oldAgeLimits are the ages from which a character of each race may die
+// of old age after a battle (O089:0387); ten years before it they look
+// very old.
+var oldAgeLimits = [...]uint16{
+	raceElf:      1600,
+	raceHalfElf:  325,
+	raceDwarf:    525,
+	raceGnome:    750,
+	raceHalfling: 199,
+	raceHuman:    120,
+}
+
+// oldAgeWarning is how many years before the limit a character looks old.
+const oldAgeWarning = 10
+
+// oldAgeDeaths = O089:0387: after a battle in which someone aged, those
+// past the age limit of their race die, and the others mourn them.
+func (e *Engine) oldAgeDeaths() {
+	const textTop, textLeft, textRight, textBottom = 14, 23, 38, 21
+	wait := func() { e.displayAndWait(colourLightMagenta, colourBlack, "press <enter>/<return> to continue") }
+	for _, c := range e.party {
+		if c.Status >= statusDead || int(c.Race) >= len(oldAgeLimits) || oldAgeLimits[c.Race] == 0 {
+			continue
+		}
+		limit := oldAgeLimits[c.Race]
+		if c.Age <= limit {
+			if c.Age > limit-oldAgeWarning {
+				e.combatName(c, "is looking very old", combatMsgRow, true)
+			}
+			continue
+		}
+		say := func(colour int, text string) {
+			e.ClearCells(textLeft, textTop, textRight, textBottom)
+			e.DisplayTextBlock(textLeft, textTop, textRight, textBottom, colour, false, text)
+		}
+		say(colourWhite, "The strain of this last battle has worn heavily on "+c.Name()+".  ")
+		wait()
+		pronoun := "He"
+		if c.Sex != 0 {
+			pronoun = "She"
+		}
+		say(colourWhite, pronoun+" breathes deeply one last time and crumples to the ground.")
+		wait()
+		e.ClearCells(textLeft, textTop, textRight, textBottom)
+		e.killWithMessage(c, statusDisintegrated, "dies from age")
+		mourners := 0
+		var mourner *Character
+		for _, m := range e.party {
+			if m.Okay == 1 && m.Status == statusOkay && m.Side != 1 {
+				mourners++
+				mourner = m
+			}
+		}
+		var text string
+		switch mourners {
+		case 0:
+			text = "Sadly, no party member witnesses the passing of the champion."
+		case 1:
+			text = mourner.Name() + " weeps at the loss of such a venerable companion."
+		default:
+			text = " The remaining party members are overcome with grief as they search " + c.Name() + "'s body for valuables."
+		}
+		say(colourYellow, text)
+		wait()
+	}
+	e.ageCheckDue = false
+}
+
+// takeTurn = O089:089E (char).
 func (e *Engine) takeTurn(c *Character) {
 	ci := c.Combat
 	ci.Attackers, ci.Flank, ci.Guarding = 0, 0, 0
@@ -104,13 +203,14 @@ func b2i(b bool) int {
 // Combat menu keys: the menu letters, and the extended keys (scan codes).
 const (
 	keyAltQ       = 16 // Alt+Q: the computer fights for the whole party
+	keyAltA       = 30 // Alt+A: the same as Alt+Q
 	keyAltX       = 45 // Alt+X: god_intervene
 	keyAlt2       = 50 // toggles whether the computer casts for the party
 	keyAltT       = 19
 	quickTurnWait = 200
 )
 
-// playerTurn = O057:03EC camp_menu (char): a spell being cast goes off,
+// playerTurn = O089:0A05 camp_menu (char): a spell being cast goes off,
 // otherwise the combat menu until the turn is used.
 func (e *Engine) playerTurn(c *Character) {
 	if c.Okay == 0 {
@@ -158,8 +258,7 @@ func (e *Engine) playerTurn(c *Character) {
 				}
 			case 'C':
 				e.spellMenuTargets(0, 0, &done)
-			case 'T':
-				e.turnUndead(c)
+			case 'Y': // not on the menu: end the turn
 				done = e.endTurn(c)
 			case 'D':
 				done = e.otherMenu(c)
@@ -172,8 +271,6 @@ func (e *Engine) playerTurn(c *Character) {
 			}
 		} else {
 			switch key {
-			case scanUp, scanPageUp, scanRight, scanPageDown, scanDown, scanEnd, scanLeft, scanHome:
-				done = e.moveAttack(c, key)
 			case keyAlt2:
 				e.computerMagic = !e.computerMagic
 				if e.computerMagic {
@@ -181,7 +278,8 @@ func (e *Engine) playerTurn(c *Character) {
 				} else {
 					e.printMessage("Magic Off")
 				}
-			case keyAltQ:
+			case keyAltQ, keyAltA:
+				e.turnIndex-- // this turn is taken again, by the computer
 				ci.Delay = 20
 				for _, p := range e.party {
 					e.quickOne(p)
@@ -206,7 +304,7 @@ func (e *Engine) playerTurn(c *Character) {
 	}
 }
 
-// combatMenu = O057:0788 combat_menu (char, var key): the main combat menu.
+// combatMenu = O089:0D63 combat_menu (char, var key): the main combat menu.
 func (e *Engine) combatMenu(c *Character) (byte, bool) {
 	ci := c.Combat
 	m := ""
@@ -226,10 +324,10 @@ func (e *Engine) combatMenu(c *Character) (byte, bool) {
 	if spells && ci.CanCast != 0 && wordAt(e.area, 2*areaWordNoMagic) == 0 {
 		m += "Cast "
 	}
-	if (int8(c.Levels[clsCleric]) > 0 || int8(c.OldLevels[clsCleric]) > 0 && oldClassUsable(c)) && ci.TurnUsed == 0 {
-		m += "Turn "
-	}
 	m += "Quick Done"
+	if e.debug {
+		m += "*"
+	}
 	for {
 		key, ext := e.DisplayInput("", m, 0xD, 0xA, 0xF, true, false)
 		if ext && !combatExtraKeys[key] {
@@ -242,13 +340,13 @@ func (e *Engine) combatMenu(c *Character) (byte, bool) {
 	}
 }
 
-// combatExtraKeys are the extended keys combat_menu keeps: Alt+Q, Alt+T,
-// Alt+X, Alt+2 and the keypad.
-var combatExtraKeys = keySet(keyAltQ, keyAltT, keyAltX, keyAlt2, scanHome, scanUp, scanPageUp, scanLeft, scanRight, scanEnd, scanDown, scanPageDown)
+// combatExtraKeys are the extended keys combat_menu keeps: Alt+Q, Alt+A,
+// Alt+T, Alt+X and Alt+2.
+var combatExtraKeys = keySet(keyAltQ, keyAltA, keyAltT, keyAltX, keyAlt2)
 
 // combatMenuKeys are the keys that leave combat_menu: the extended ones,
 // space and the menu letters.
-var combatMenuKeys = keySet(keyAltQ, keyAltT, ' ', keyAltX, keyAlt2, 'A', 'C', 'D', scanHome, scanUp, scanPageUp, scanLeft, scanRight, scanEnd, scanDown, scanPageDown, 'T', 'U', 'V')
+var combatMenuKeys = keySet(keyAltQ, keyAltT, keyAltA, ' ', keyAltX, keyAlt2, 'A', 'C', 'D', 'M', 'Q', 'T', 'U', 'V', 'Y')
 
 // keySet is a lookup table of key codes.
 func keySet(keys ...byte) (set [256]bool) {
@@ -262,7 +360,7 @@ func keySet(keys ...byte) (set [256]bool) {
 // an attack.
 const combatRoundsWithoutAttack = 15
 
-// endRound = O057:09B3 battle01 (var done): the clock, the dying, the end
+// endRound = O089:0F61 battle01 (var done): the clock, the dying, the end
 // check.
 func (e *Engine) endRound() (done bool) {
 	e.AdvanceClock(1, 1)
@@ -294,8 +392,8 @@ func (e *Engine) endRound() (done bool) {
 	return
 }
 
-// moveAttack = O057:0B26 (char, key, var done): step around with the keypad
-// (key: the first step, or space to ask);
+// moveAttack = O089:1194 (char, key, var done): step around with the keypad
+// (key: the first step, or space to ask) until Done or the turn is over;
 // stepping into someone attacks, off the map flees. Escape undoes the
 // moves of this menu.
 func (e *Engine) moveAttack(c *Character, key byte) (done bool) {
@@ -334,7 +432,7 @@ func (e *Engine) moveAttack(c *Character, key byte) (done bool) {
 			return 0
 		}})
 	}
-	for ci.Moves > 1 && key != 0 && key != 0xD {
+	for key != 0 && key != 0xD && key != 'D' && !done {
 		if len(path) > 0 { // walking to a clicked square: the next step, while it is still free
 			d := path[0]
 			path = path[1:]
@@ -348,7 +446,7 @@ func (e *Engine) moveAttack(c *Character, key byte) (done bool) {
 			reach = e.moveReach(c)
 			e.markReach(reach, true)
 			e.ClearCells(0x18, 0x18, 0x27, 0x18)
-			key, _ = e.DisplayInput("Move/Attack, Move Left = "+itoa(int(ci.Moves>>1))+" ", "", 0xA, 0xA, 0xF, true, false)
+			key, _ = e.DisplayInput("Move/Attack, Move Left = "+itoa(int(ci.Moves>>1)), " Done", 0xD, 0xA, 0xF, true, false)
 			e.markReach(reach, false)
 		}
 		d := 8
@@ -397,9 +495,11 @@ func (e *Engine) moveAttack(c *Character, key byte) (done bool) {
 			e.leaveAttacks(c, d)
 			if c.Okay == 0 {
 				done = e.endTurn(c)
-				continue
+				break
 			}
-			e.stepSquare(c, d)
+			if ci.Moves > 0 {
+				e.stepSquare(c, d)
+			}
 			if c.Okay == 0 {
 				done = e.endTurn(c)
 			}
@@ -408,7 +508,7 @@ func (e *Engine) moveAttack(c *Character, key byte) (done bool) {
 				done = e.endTurn(c)
 			}
 		}
-		if key != 0 && key != 0xD {
+		if key != 0 && key != 0xD && key != 'D' {
 			key = ' '
 		}
 	}
@@ -418,9 +518,12 @@ func (e *Engine) moveAttack(c *Character, key byte) (done bool) {
 	return
 }
 
-// stepCost = O057:0B26's price of a step onto ground of the given cost:
+// stepCost = O089:1194's price of a step onto ground of the given cost:
 // three times it diagonally, twice straight; 255 never passes.
 func stepCost(ground byte, dir int) int {
+	if ground == groundImpassable {
+		return groundImpassable
+	}
 	if dir&1 != 0 {
 		return int(byte(int(ground) * 3))
 	}
@@ -538,7 +641,7 @@ func (e *Engine) ammoFor(c *Character, it **Item) bool {
 	return *it != nil || f == 0xA
 }
 
-// attackTarget = O057:0F03 (char, target, var done).
+// attackTarget = O089:1515 (char, target, var done).
 // done passes through when no attack is made.
 func (e *Engine) attackTarget(c, t *Character, done bool) bool {
 	if e.rangedWeapon(c) && !e.throwable(c) {
@@ -556,7 +659,7 @@ func (e *Engine) attackTarget(c, t *Character, done bool) bool {
 	return e.fullAttack(c, t, 0, nil)
 }
 
-// otherMenu = O057:1003 delay_menu (char, var done): Done's submenu.
+// otherMenu = O089:1614 delay_menu (char, var done): Done's submenu.
 func (e *Engine) otherMenu(c *Character) (done bool) {
 	done = false
 	m := ""
@@ -575,6 +678,7 @@ func (e *Engine) otherMenu(c *Character) (done bool) {
 			done = e.guard(c)
 		case 'D':
 			c.Combat.Delay = 1
+			e.delayTurn(c)
 			done = true
 		case 'Q':
 			done = e.endTurn(c)
@@ -616,7 +720,7 @@ func (e *Engine) bandage(doIt bool) bool {
 	return found
 }
 
-// speedMenu = O057:11FA set_gamespeed: the game speed (DS:4FC2).
+// speedMenu = O089:188C set_gamespeed: the game speed (DS:4FC2).
 func (e *Engine) speedMenu() {
 	for key := byte(0x20); key != 0 && key != 'E'; {
 		m := " "
@@ -637,7 +741,7 @@ func (e *Engine) speedMenu() {
 	}
 }
 
-// quickOne = O057:132F (char): the computer fights for it; a target on
+// quickOne = O089:19C1 (char): the computer fights for it; a target on
 // its own side is dropped.
 func (e *Engine) quickOne(c *Character) {
 	c.Auto = 1

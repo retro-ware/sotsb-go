@@ -728,4 +728,4 @@ func (e *Engine) cmdCombat() {
 
 // The subsystems COMBAT opens (being ported: Pool of Radiance's for now).
 func (e *Engine) treasureMenu() { e.AfterCombat() } // O045:17A2
-func (e *Engine) fight()        { e.Combat() }      // O057:0100
+func (e *Engine) fight()        { e.Combat() }      // O089:011D

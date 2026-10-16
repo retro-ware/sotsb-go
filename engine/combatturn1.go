@@ -1,13 +1,17 @@
 package engine
 
-// Combat turn, first half (O08D:0000..1DFE): setting up a combatant's turn,
+// Combat turn, first half (O0C9:0000..1DFE): setting up a combatant's turn,
 // movement, attacks of opportunity, fleeing, sweeps, turning undead and the
 // attack itself. The second half (from 1DFE) is in combatturn2.go.
 
-// turnSetup = O08D:0000 (char): fill the combat block for a new round.
+// turnSetup = O0C9:0000 (char): fill the combat block for a new round. No
+// one can cast inside a stinking cloud.
 func (e *Engine) turnSetup(c *Character) {
 	cb := c.Combat
 	cb.Spell, cb.CanCast, cb.CanUse, cb.Attacked, cb.AttackSlot = 0, 1, 1, 0, 2
+	if _, _, stinking, _ := e.groundAt(c, dirHere); stinking {
+		cb.CanCast = 0
+	}
 	e.setSpeed(c)
 	e.rv.attacks = c.BaseAttack[1]
 	e.v681D = 0
@@ -28,27 +32,10 @@ func (e *Engine) turnSetup(c *Character) {
 	} else {
 		cb.Delay = 0
 	}
-	cb.Moves = byte(e.turnMoveRate(c))
+	cb.Moves = byte(e.moveRate(c))
 }
 
-// turnMoveRate = O08D:0124 (char): movement rate of the turn (half of it is kept in +0x113
-// by setSpeed); the affects of group 0x12 may change it.
-func (e *Engine) turnMoveRate(c *Character) int {
-	v := c.Move
-	if c.Side == 0 {
-		v += byte(wordAt(e.game, area2PartyMoveBonus))
-	}
-	e.v681D = 1
-	if v < 1 || v > 0x60 {
-		v = 1
-	}
-	e.rv.attacks = v << 1
-	e.affectGroup(c, grpSpeed)
-	e.v681D = 0
-	return int(e.rv.attacks)
-}
-
-// rollDamage = O08D:0192 (att, vic, slot): damage roll of the attack slot (1 or 2),
+// rollDamage = O0C9:014C (att, vic, slot): damage roll of the attack slot (1 or 2),
 // tripled-or-so for a backstab, then the
 // affects of groups 4 (attacker) and 5 (victim) may change DS:6818.
 func (e *Engine) rollDamage(a, b *Character, slot int) {
@@ -84,7 +71,7 @@ const (
 	attackTextLines  = 3
 )
 
-// attackText = O08D:0318 backstab (att, vic, kind, damage, shown, hit): the
+// attackText = O0C9:02D5 backstab (att, vic, kind, damage, shown, hit): the
 // attack text. kind: attackPlain .. attackSlay; damage is applied, shown
 // printed; hit 0 is a miss.
 func (e *Engine) attackText(a, b *Character, kind, damage, shown, hit int) {
@@ -130,8 +117,7 @@ func (e *Engine) attackText(a, b *Character, kind, damage, shown, hit int) {
 		if b.Combat.Spell > 0 {
 			e.gameDelay()
 			e.combatName(b, "lost a spell", combatMsgRow+2, true)
-			forgetSpellOf(b, b.Combat.Spell)
-			b.Combat.Spell = 0
+			forgetSpell(b, b.Combat.Spell) // the spell stays chosen
 		} else {
 			e.gameDelay()
 		}
@@ -148,7 +134,6 @@ func (e *Engine) attackText(a, b *Character, kind, damage, shown, hit int) {
 			e.combatName(b, "is killed", row, false)
 		}
 		e.downAffects(b)
-		e.affectGroup(b, grpDown)
 		if b.Okay == 0 {
 			e.combatRemoveFromMap(b)
 		} else {
@@ -158,7 +143,7 @@ func (e *Engine) attackText(a, b *Character, kind, damage, shown, hit int) {
 	e.clearCombatText()
 }
 
-// guardsStrike = O08D:065D (char): the enemies next to a mover that were waiting (+7) lose
+// guardsStrike = O0C9:060E (char): the enemies next to a mover that were waiting (+7) lose
 // their reaction, turn to it and attack it.
 func (e *Engine) guardsStrike(c *Character) {
 	n := e.nearEnemies(c, 1)
@@ -177,7 +162,7 @@ func (e *Engine) guardsStrike(c *Character) {
 	}
 }
 
-// stepSquare = O08D:0748 (char, dir): step one square, paying the ground's
+// stepSquare = O0C9:06F7 (char, dir): step one square, paying the ground's
 // step cost (stepCost) out of the moves left.
 func (e *Engine) stepSquare(c *Character, dir int) {
 	cb := c.Combat
@@ -289,7 +274,7 @@ func (e *Engine) fleeBattle(c *Character) bool {
 	if e.nearEnemies(c, 0xFF) == 0 {
 		away = true
 	} else {
-		a := byte(e.turnMoveRate(c)) >> 1
+		a := byte(e.moveRate(c)) >> 1
 		b := byte(e.maxPartyMove(c))
 		if b < a {
 			away = true
@@ -305,7 +290,7 @@ func (e *Engine) fleeBattle(c *Character) bool {
 	return e.endTurn(c)
 }
 
-// setSpeed = O08D:0DD4 (char): the character's speed in +0x113 from its movement base
+// setSpeed = O0C9:0DF9 (char): the character's speed in +0x113 from its movement base
 // (+0xA1) or the readied weapon's speed (DS:5582 record +5, at least 2).
 func (e *Engine) setSpeed(c *Character) {
 	flag := false
@@ -333,18 +318,18 @@ func (e *Engine) setSpeed(c *Character) {
 		if it.Count > w {
 			w = it.Count
 		}
-		if w < r {
+		if w < r && it.Count > 0 {
 			r = w
 		}
 	}
-	cb := c.Combat
-	if cb.Attacked != 0 && r >= old && (int(r) >= int(old)*2 || flag) {
-		return
+	if c.Combat.Attacked == 0 || r < old {
+		c.Attacks[0] = r
+	} else {
+		c.Attacks[0] = old
 	}
-	c.Attacks[0] = r
 }
 
-// halfUp = O08D:0F0D (v): half of v, rounded up when DS:6DE3 is odd.
+// halfUp = O0C9:0F12 (v): half of v, rounded up when DS:6DE3 is odd.
 func (e *Engine) halfUp(v byte) int {
 	if e.combatRound&1 != 0 {
 		v++
@@ -352,7 +337,7 @@ func (e *Engine) halfUp(v byte) int {
 	return int(v >> 1)
 }
 
-// sweepAttack = O08D:0F3D (att, vic) bool: a fighter with more attacks than... sweeps: the
+// sweepAttack = O0C9:0F46 (att, vic) bool: a fighter with more attacks than... sweeps: the
 // attacker (fewer attacks than +5 allows, victim not a "big" target) hits
 // several adjacent weak enemies, one attack each.
 func (e *Engine) sweepAttack(a, b *Character) bool {
@@ -397,8 +382,8 @@ func (e *Engine) sweepAttack(a, b *Character) bool {
 	return res
 }
 
-// mayAct = O08D:1143 (t, c) bool: may t act against c? Affect group 1 of c can veto
-// (DS:681E); then group 0 of t is run with c as its target.
+// mayAct = O0C9:1144 (t, c) bool: may t act against c? Affect group 1 of c
+// can veto (DS:681E).
 func (e *Engine) mayAct(t, c *Character) bool {
 	if c == nil {
 		return false
@@ -408,98 +393,10 @@ func (e *Engine) mayAct(t, c *Character) bool {
 	}
 	e.rv.unseen = 0
 	e.affectGroup(c, grpAttackerExtra)
-	if e.rv.unseen == 0 {
-		saved := t.Combat.Target
-		t.Combat.Target = c
-		e.affectGroup(t, grpNone)
-		t.Combat.Target = saved
-	}
 	return e.rv.unseen == 0
 }
 
-// turnUndead = O08D:1228 turn_undead (char): a cleric turns undead.
-func (e *Engine) turnUndead(c *Character) {
-	e.combatName(c, "turns undead...", combatMsgRow, false)
-	e.ClearRow24() // O104 redraw_screen
-	e.gameDelay()
-	any, stop := false, false
-	c.Combat.TurnUsed = 1
-	limit := 6
-	hd := e.Dice(1, 0xC)
-	roll := e.Dice(1, 0x14)
-	var cls int
-	usable := 0
-	if oldClassUsable(c) {
-		usable = 1
-	}
-	switch lv := int8(int(c.Levels[clsCleric]) + int(c.OldLevels[clsCleric])*usable); {
-	case lv >= 1 && lv <= 8:
-		cls = int(c.Levels[clsCleric]) // the original's column is the current level alone
-	case lv >= 9 && lv <= 13:
-		cls = 9
-	default:
-		cls = 10
-	}
-	var t *Character
-	for e.weakestFoe(c, &t) && hd > 0 && !stop {
-		x := int(turnUndeadRolls[int(t.Undead)-1][cls-1])
-		ax := x
-		if ax < 0 {
-			ax = -ax
-		}
-		if roll < ax {
-			stop = true
-			continue
-		}
-		any = true
-		e.combatRedrawChar(t, 3, 0)
-		e.panelDirty = true
-		e.combatPanel(t)
-		if x > 0 {
-			t.Combat.Turned = 1
-			e.hitMessage(t, true, "is turned")
-		} else {
-			e.combatName(t, "Is destroyed", combatMsgRow, false)
-			e.combatRemoveFromMap(t)
-			t.Status = statusDisintegrated
-			t.Okay = 0
-		}
-		if limit > 0 {
-			limit--
-		}
-		hd--
-		if hd == 0 && limit > 0 && x < 0 {
-			hd++
-		}
-		e.clearCombatText()
-	}
-	if !any {
-		e.printMessage("Nothing Happens...")
-	}
-	e.countSides()
-	e.endTurn(c)
-	e.clearCombatText()
-}
-
-// weakestFoe = O08D:1433 (var out, char) bool: the weakest (lowest +0x76 > 0) enemy not
-// yet turned, within reach.
-func (e *Engine) weakestFoe(c *Character, out **Character) bool {
-	best := int8(0xD)
-	*out = nil
-	n := e.nearEnemies(c, 0xFF)
-	found := false
-	for i := 1; i <= n; i++ {
-		t := e.combatant(e.targets[i])
-		if t.Combat.Turned == 0 && int8(t.Undead) > 0 && int8(t.Undead) < best {
-			best = int8(t.Undead)
-			*out = t
-			found = true
-		}
-	}
-	return found
-}
-
-// attackSlots = O08D:14EB (att, vic, w, var done): the attacker's attack slots against the
+// attackSlots = O0C9:11DD (att, vic, w, var done): the attacker's attack slots against the
 // victim; done is 1 when the attacker has used all its attacks.
 func (e *Engine) attackSlots(a, b *Character, w int, it *Item) (done bool) {
 	acb := a.Combat
@@ -564,21 +461,23 @@ func (e *Engine) attackSlots(a, b *Character, w int, it *Item) (done bool) {
 					e.PlaySound(sndBump)
 					any = true
 					e.rollDamage(a, b, s)
-					e.attackText(a, b, mode, int(e.rv.damage), int(e.rv.damage), 1)
 					if b.Okay != 0 {
+						e.attackText(a, b, mode, int(e.rv.damage), int(e.rv.damage), 1)
+					}
+					if b.Okay != 0 && e.rv.damage > 0 {
 						e.affectGroup(a, s+1)
 					}
 					if b.Okay == 0 {
 						stop = true
+						if a.Slots[0] != nil && a.Slots[0].Type == itemTypeOneKill {
+							a.Attacks[s-1] = 0
+						}
 					}
 					if a.Okay == 0 { // a fire shield or the like killed the attacker
 						a.Attacks[s-1] = 0
 					}
 				}
 			}
-		}
-		if it != nil && it.Count == 0 && it.Type == itemTypeThrownOnce {
-			a.Attacks[0], a.Attacks[1] = 0, 0
 		}
 		if !any {
 			e.PlaySound(sndMiss)
@@ -601,19 +500,17 @@ func (e *Engine) attackSlots(a, b *Character, w int, it *Item) (done bool) {
 	return
 }
 
-// Weapons that animate their attack, and the flag of a thrown weapon that
-// comes back.
+// Weapons that animate their attack.
 const (
-	itemTypeLightning  = 47
-	itemTypeShootsBolt = 101
-	itemReturns        = 137
+	itemTypeAnimatedA = 28
+	itemTypeAnimatedB = 29
 )
 
-// itemTypeThrownOnce: a thrown weapon of this type ends the attacks when
-// the last one is gone.
-const itemTypeThrownOnce = 100
+// itemTypeOneKill: a weapon of this type stops attacking once its victim
+// goes down.
+const itemTypeOneKill = 66
 
-// countAttack = O08D:194D (att, vic): the victim counts one more attack and turns towards
+// countAttack = O0C9:1638 (att, vic): the victim counts one more attack and turns towards
 // the attacker (the turned amount accumulates in +0x12).
 func (e *Engine) countAttack(att, vic *Character) {
 	cb := vic.Combat
@@ -625,7 +522,7 @@ func (e *Engine) countAttack(att, vic *Character) {
 	cb.Flank = byte((int(cb.Flank) + d) % 8)
 }
 
-// fullAttack = O08D:19DB (att, vic, flag, item, var done): a full attack of att on vic
+// fullAttack = O0C9:16C7 (att, vic, flag, item, var done): a full attack of att on vic
 // (turning both, then the slots of attackSlots). item is a thrown item that is
 // spent; done is set when the attacker's turn ends.
 func (e *Engine) fullAttack(a, b *Character, flag int, it *Item) (done bool) {
@@ -635,7 +532,7 @@ func (e *Engine) fullAttack(a, b *Character, flag int, it *Item) (done bool) {
 	var dir byte
 	if b.Combat.Attackers < 2 && flag == 0 {
 		dir = byte(e.directionTo(b, a))
-		b.Combat.Facing = (dir + 4) % 8
+		b.Combat.Facing = dir
 	} else if e.combatOnScreen(b, false) {
 		dir = b.Combat.Facing
 		if flag == 0 {
@@ -643,7 +540,8 @@ func (e *Engine) fullAttack(a, b *Character, flag int, it *Item) (done bool) {
 		}
 	}
 	if e.combatOnScreen(b, false) {
-		e.combatTurn(b, dir, 0, false)
+		e.combatTurn(b, dir, 0, true)
+		e.combatRedrawMap()
 	}
 	dir = byte(e.directionTo(a, b))
 	e.combatPanel(a)
@@ -653,7 +551,7 @@ func (e *Engine) fullAttack(a, b *Character, flag int, it *Item) (done bool) {
 	if it != nil {
 		e.attackAnimation(a, b, it)
 	}
-	if w := a.Slots[0]; w != nil && (w.Type == itemTypeLightning || w.Type == itemTypeShootsBolt) {
+	if w := a.Slots[0]; w != nil && (w.Type == itemTypeAnimatedA || w.Type == itemTypeAnimatedB) {
 		e.attackAnimation(a, b, w)
 	}
 	done = true
@@ -670,10 +568,18 @@ func (e *Engine) fullAttack(a, b *Character, flag int, it *Item) (done bool) {
 				it.Count -= e.shots6E2C[1]
 			}
 			if it.Count == 0 {
-				if e.throwable(a) && it.Spells[2] != itemReturns {
+				// a thrown weapon lands after the ones thrown before it
+				if e.throwable(a) && it.Spells[1] != affectSpiritualHammer {
 					cp := *it
 					n := &cp
-					e.treasureItems = append([]*Item{n}, e.treasureItems...)
+					at := len(e.treasureItems)
+					for i, t := range e.treasureItems {
+						if t == e.thrownItem {
+							at = i + 1
+							break
+						}
+					}
+					e.treasureItems = append(e.treasureItems[:at], append([]*Item{n}, e.treasureItems[at:]...)...)
 					n.Readied = 0
 					e.loseItem(a, it)
 					e.thrownItem = n
@@ -695,7 +601,7 @@ func (e *Engine) fullAttack(a, b *Character, flag int, it *Item) (done bool) {
 	return
 }
 
-// rangeBand = O08D:1CED (att, vic, var need): the attacker's range band: every full
+// rangeBand = O0C9:1A82 (att, vic, var need): the attacker's range band: every full
 // weapon range band beyond the first adds 2, then 3, to the number to hit.
 func (e *Engine) rangeBand(a, b *Character, need *int) {
 	d := e.rangeTo(a, b)

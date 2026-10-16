@@ -95,6 +95,8 @@ type Engine struct {
 	picFrame               byte                            // b729B
 	spriteFrame            byte                            // b72A5
 	textWaiting            bool                            // b5D0B
+	turnOrder              []*Character                    // DS:8E2A the order of this round's turns
+	turnIndex              int                             // b8F4A the turn being taken
 	ageCheckDue            bool                            // b7D44 someone aged: see who dies of old age
 	duelling               bool                            // b8B70: the duel instead of a fight
 	forcePicture           bool                            // b4FD9: the encounter picture shows even during ENCOUNTER
@@ -188,7 +190,7 @@ type Engine struct {
 	spellCaster            *Character              // DS:6DB5
 	curSpell               byte                    // DS:681B spell being cast
 	tgtX, tgtY             int                     // DS:6DB9/6DBA target square
-	combatTargets          bool                    // DS:72BA points at O08D:2231 (set by Combat), else O0C2:114D
+	combatTargets          bool                    // DS:72BA points at O0C9:1FA1 (set by Combat), else O0C2:114D
 	whoVar                 bool                    // SelectCharacter's who is DS:5D92 itself (opWho)
 	spellFx                [len(spellNames)]func() // DS:6B84 spell effect table (slot 0 unused)
 	v4844, v4845           byte                    // DS:4844/4845 spell scratch

@@ -28,7 +28,7 @@ const (
 // spellData returns field k of the spell's record.
 func (e *Engine) spellData(spell, k int) byte { return spellTable[spell&0xFF][k] }
 
-// healTarget = O08D:1DFE (c, var who): the friend to heal around c: the most
+// healTarget = O0C9:1B5D (c, var who): the friend to heal around c: the most
 // hurt of the same side on the nine squares round c (c itself only when
 // under half its hit points), or the first body lying there when no one
 // with fewer than 8 hit points is.
@@ -82,7 +82,7 @@ const (
 	hitDiceBudgetSides = 4
 )
 
-// chooseSpellTarget = O08D:201C (spell, silent, allowGround, var t): one
+// chooseSpellTarget = O0C9:1D7C (spell, silent, allowGround, var t): one
 // target for the selected character's spell. With silent 0 the player
 // aims; otherwise one is picked for him. The square goes to DS:7573/7574.
 func (e *Engine) chooseSpellTarget(spell, silent, allowGround int, t *aimTarget) bool {
@@ -148,7 +148,7 @@ func hitDiceWeight(spell int, c *Character) int {
 	return 8
 }
 
-// chooseSpellTargets = O08D:2231 (spell, silent): the targets of the spell into
+// chooseSpellTargets = O0C9:1FA1 (spell, silent): the targets of the spell into
 // DS:744B+4i (count DS:744E). False when none was chosen.
 func (e *Engine) chooseSpellTargets(spell, silent int) (ok bool) {
 	var t aimTarget
@@ -252,7 +252,7 @@ func (e *Engine) chooseSpellTargets(spell, silent int) (ok bool) {
 	return
 }
 
-// spellMenuTargets = O08D:spell_menu3 276D (spell, a, var quit): the selected character picks
+// spellMenuTargets = O0C9:2558 spell_menu3 (spell, a, var quit): the selected character picks
 // (spell 0: from his memorised spells) and casts a spell. Spells with a
 // casting time of 3 or more only begin and are cast in a later round.
 func (e *Engine) spellMenuTargets(spell, a int, quit *bool) {
@@ -324,8 +324,9 @@ const (
 	slopeScale   = 256
 )
 
-// directionTo = O08D:29BC (from, to): the direction 0..7 from one combatant
-// to the other (north first, clockwise).
+// directionTo = O151:38C8 (from, to): the direction 0..7 from one combatant
+// to the other (north first, clockwise); a diagonal needs both
+// coordinates to differ.
 func (e *Engine) directionTo(from, to *Character) int {
 	x1, y1 := e.combatX(from), e.combatY(from)
 	x2, y2 := e.combatX(to), e.combatY(to)
@@ -345,19 +346,19 @@ func (e *Engine) directionTo(from, to *Character) int {
 		case 0:
 			fits = y2 <= y1 && steep <= dy
 		case 1:
-			fits = y2 <= y1 && x2 >= x1 && diagonal
+			fits = y2 < y1 && x2 > x1 && diagonal
 		case 2:
 			fits = x2 >= x1 && shallow >= dy
 		case 3:
-			fits = y2 >= y1 && x2 >= x1 && diagonal
+			fits = y2 > y1 && x2 > x1 && diagonal
 		case 4:
 			fits = y2 >= y1 && steep <= dy
 		case 5:
-			fits = y2 >= y1 && x2 <= x1 && diagonal
+			fits = y2 > y1 && x2 < x1 && diagonal
 		case 6:
 			fits = x2 <= x1 && shallow >= dy
 		case 7:
-			fits = y2 <= y1 && x2 <= x1 && diagonal
+			fits = y2 < y1 && x2 < x1 && diagonal
 		}
 		if fits {
 			return dir
@@ -454,13 +455,13 @@ func (e *Engine) monsterHPPercent() {
 	}
 }
 
-// maxPartyMove = O08D:2E8F (c): the highest turnMoveRate / 2 over the living
+// maxPartyMove = O0C9:2AE2 (c): the highest moveRate / 2 over the living
 // combatants on the other side.
 func (e *Engine) maxPartyMove(c *Character) int {
 	best := byte(0)
 	for _, t := range e.party {
 		if b2i(isParty(c)) == int(t.Side) && t.Okay != 0 {
-			if v := byte(e.turnMoveRate(t)) >> 1; v > best {
+			if v := byte(e.moveRate(t)) >> 1; v > best {
 				best = v
 			}
 		}
@@ -468,7 +469,7 @@ func (e *Engine) maxPartyMove(c *Character) int {
 	return int(best)
 }
 
-// mayAttack = O08D:2F1F (c, target): may c attack the target? Attacking
+// mayAttack = O0C9:2B73 (c, target): may c attack the target? Attacking
 // a friend asks first; yes turns every sane character of the party hostile.
 func (e *Engine) mayAttack(c, target *Character) bool {
 	if b2i(isParty(target)) == int(c.Side) || c.Auto != 0 {
@@ -491,22 +492,25 @@ func (e *Engine) mayAttack(c, target *Character) bool {
 	return true
 }
 
-// aimPrompt = O08D:Aim_menu 3027 (c, cand, rng, showRange, allowCreature):
-// shows how far the candidate is and asks Next, Prev, Manual, Target,
-// Center or Exit. The arrow keys come back as extended keys.
-func (e *Engine) aimPrompt(c, cand *Character, rng, showRange, allowCreature int) (byte, bool) {
-	dist := e.rangeTo(c, cand)
+// aimPrompt = O0C9:2C85 Aim_menu (c, cand, rng, showRange, valid, x, y):
+// shows how far the aimed square (x,y) is and asks Next, Prev, Manual,
+// Target, Center or Exit. The arrow keys come back as extended keys.
+func (e *Engine) aimPrompt(c, cand *Character, rng, showRange int, valid bool, x, y int) (byte, bool) {
+	dist, tx, ty := 0xFF, x, y
+	saved := e.cmap.seeAll
+	e.cmap.seeAll = 1
+	e.lineOfSight(&dist, &tx, &ty, e.combatX(c), e.combatY(c))
+	e.cmap.seeAll = saved
+	dist /= 2
 	menu := ""
 	if showRange != 0 {
 		e.DisplayString(0, 0x17, 0xA, "Range = "+itoa(dist)+"  ")
 	}
-	if dist <= rng {
+	if rng >= dist && valid {
 		var tmp *Item
 		switch {
 		case showRange == 0:
-			if allowCreature != 0 {
-				menu = "Target "
-			}
+			menu = "Target "
 		case cand == c:
 		case !e.rangedWeapon(c):
 			menu = "Target "
@@ -517,9 +521,11 @@ func (e *Engine) aimPrompt(c, cand *Character, rng, showRange, allowCreature int
 		}
 	}
 	menu = cut("Next Prev Manual "+menu+"Center Exit", 0x28)
-	e.combatRedrawChar(cand, 3, 1)
-	e.panelDirty = true
-	e.combatPanel(cand)
+	if cand != nil {
+		e.combatRedrawChar(cand, 3, 1)
+		e.panelDirty = true
+		e.combatPanel(cand)
+	}
 	return e.combatInput("Aim:", menu, true)
 }
 
@@ -529,7 +535,7 @@ func (e *Engine) combatInput(prompt, menu string, allowExtra bool) (byte, bool) 
 	return e.DisplayInput(prompt, menu, 0xD, 0xA, 0xF, allowExtra, false)
 }
 
-// aimConfirm = O08D:31D8 (c, cand, mode, var found, var t): take cand as
+// aimConfirm = O0C9:2E7C (c, cand, mode, var found, var t): take cand as
 // the target. With mode 1 (a missile attack) the attack is made at once.
 func (e *Engine) aimConfirm(c, cand *Character, mode int, found *bool, t *aimTarget) {
 	var res *Item
@@ -558,41 +564,40 @@ func (e *Engine) aimConfirm(c, cand *Character, mode int, found *bool, t *aimTar
 	}
 }
 
-// aimManual = O08D:3395 (c, cand, rng, showRange, allowGround,
-// allowCreature, var found, var t): move a cursor over the map with the
-// arrow keys; Enter or T takes the square (and who stands on it), Esc or E
-// gives up.
-func (e *Engine) aimManual(c, cand *Character, rng, showRange, allowGround, allowCreature int, found *bool, t *aimTarget) {
+// aimManual = O0C9:302D (c, cand, rng, showRange, allowGround,
+// allowCreature, var valid, var confirmed, var t, x, y): move a cursor
+// over the map with the arrow keys from (x,y); Enter or T takes the square
+// (and who stands on it), Esc or E gives up and puts the cursor back.
+// valid tells whether the square taken may be targeted.
+func (e *Engine) aimManual(c *Character, rng, showRange, allowGround, allowCreature int, startX, startY byte) (valid, confirmed bool, t aimTarget) {
 	dxs, dys := stepBytes(stepX), stepBytes(stepY)
-	*t = aimTarget{}
-	x, y := int8(e.combatX(cand)), int8(e.combatY(cand))
+	x, y := int8(startX), int8(startY)
 	key, dir := byte(0x20), 8
-	*found = false
 	e.cmap.cursor, e.cmap.cursorSize = 1, 1
 	defer e.rawArrows("arrows, click=move the cursor|Enter, click it again=target|C=center|Esc=back")()
 	for !(key == 0 || key == 13 || key == 'E' || key == 'T') {
-		e.combatCentre(int(x), int(y), 3, dir)
+		e.combatCentre(int(x), int(y), 2, dir)
 		x += int8(dxs[dir])
 		y += int8(dys[dir])
 		x, y = min(max(x, 0), 0x31), min(max(y, 0), 0x18)
 		who, ground := e.mapAt(int(x), int(y))
 		e.ClearKeyboard()
-		ok := false
+		valid = false
 		dist, tx, ty := 0xFF, int(x), int(y)
 		if e.lineOfSight(&dist, &tx, &ty, e.combatX(c), e.combatY(c)) {
-			ok = true
+			valid = true
 			if showRange != 0 {
-				e.DisplayString(0, 0x17, 0xA, "Range = "+itoa(dist>>1)+"  ")
+				e.DisplayString(0, 0x17, 0xA, "Range = "+itoa(dist/2)+"  ")
 			}
 		} else if showRange != 0 {
 			e.ClearCells(0, 0x17, 0x27, 0x17)
 		}
-		dist >>= 1
-		cand = nil
-		if ok {
+		dist /= 2
+		var cand *Character
+		if valid {
 			if who > 0 {
 				cand = e.combatant(who)
-			} else if ground == groundBody {
+			} else if ground == groundBody || ground == groundStoneBody {
 				for b := 1; b <= e.nbodies; b++ {
 					if int8(e.bodies[b].x) == x && int8(e.bodies[b].y) == y {
 						cand = e.bodies[b].c
@@ -606,27 +611,27 @@ func (e *Engine) aimManual(c, cand *Character, rng, showRange, allowGround, allo
 		} else {
 			e.ClearCells(panelLeft, panelTop, panelRight, panelBottom)
 		}
-		if rng < dist || e.groundInfo(ground)[0] == 0xFF {
-			ok = false
+		if rng < dist || e.groundInfo(ground)[0] == groundImpassable {
+			valid = false
 		}
 		if cand != nil {
 			if !e.mayAct(c, cand) || allowCreature == 0 {
-				ok = false
+				valid = false
 			}
 			if showRange == 1 {
 				var ammo *Item
-				if cand == c || (who == 0 && ground == groundBody) {
-					ok = false
-				} else if e.rangedWeapon(c) && e.ammoFor(c, &ammo) && e.nearEnemies(c, 1) > 0 && !e.throwable(c) {
-					ok = false
+				if cand == c || (who == 0 && (ground == groundBody || ground == groundStoneBody)) {
+					valid = false
+				} else if e.rangedWeapon(c) && (!e.ammoFor(c, &ammo) || e.nearEnemies(c, 1) > 0 && !e.throwable(c)) {
+					valid = false
 				}
 			}
 		} else if allowGround == 0 {
-			ok = false
+			valid = false
 		}
-		menu := "Center Exit"
-		if ok {
-			menu = cut("Target "+menu, 0x28)
+		menu := "Exit"
+		if valid {
+			menu = "Target"
 		}
 		mark := e.regionMark()
 		{ // extra (nav.go): click a square to put the cursor there, again to target
@@ -636,7 +641,7 @@ func (e *Engine) aimManual(c, cand *Character, rng, showRange, allowGround, allo
 				case !in:
 					return 0
 				case sx == int(x) && sy == int(y):
-					if ok {
+					if valid {
 						return 'T'
 					}
 					return 0
@@ -654,21 +659,10 @@ func (e *Engine) aimManual(c, cand *Character, rng, showRange, allowGround, allo
 		}
 		switch key {
 		case 13, 'T':
+			confirmed = true
+			t = aimTarget{c: cand, x: byte(x), y: byte(y)}
 			e.cmap.cursor = 0
-			if ok {
-				t.x, t.y = byte(x), byte(y)
-				t.c = cand
-				if showRange == 1 {
-					e.aimConfirm(c, t.c, showRange, found, t)
-				} else {
-					*found = true
-				}
-			}
-			if !ok || !*found {
-				e.eraseCursor(int(x), int(y))
-				*found = false
-				*t = aimTarget{}
-			}
+			e.eraseCursor(int(x), int(y))
 		case scanUp:
 			dir = 0
 		case scanPageUp:
@@ -685,24 +679,27 @@ func (e *Engine) aimManual(c, cand *Character, rng, showRange, allowGround, allo
 			dir = 6
 		case scanHome:
 			dir = 7
-		case 0, 'E':
-			e.eraseCursor(int(x), int(y))
-			*t = aimTarget{}
-			*found = false
-		case 'C':
+		case ' ':
 			e.combatCentre(int(x), int(y), 0, 8)
 			dir = 8
+		case 0, 'E':
+			confirmed = false
+			e.eraseCursor(int(x), int(y))
+			t = aimTarget{x: startX, y: startY}
+			e.combatCentre(int(startX), int(startY), 0, 8)
+			e.cmap.cursor = 0
+			e.eraseCursor(int(startX), int(startY))
 		default:
 			dir = 8
 		}
 	}
+	return
 }
 
 // aimAt = O0C9:37DB (c, rng, showRange, allowGround, allowCreature, var
 // found, var t): the player aims for c. Candidates are walked through
-// nearest first (N next, P previous, M or an arrow key: manual cursor, T
-// take, C centre, Esc/E give up). rng 0xFF takes the range of the readied
-// weapon.
+// nearest first (N next, P previous, M: manual cursor, T take, C centre,
+// Esc/E give up). rng 0xFF takes the range of the readied weapon.
 func (e *Engine) aimAt(c *Character, rangeArg, showRange, allowGround, allowCreature int, found *bool, t *aimTarget) {
 	e.iconToSprite(0x19, 0, 0, false)
 	*t = aimTarget{}
@@ -718,21 +715,24 @@ func (e *Engine) aimAt(c *Character, rangeArg, showRange, allowGround, allowCrea
 	if rng == 0 || rng == 0xFF {
 		rng = 1
 	}
-	// nested O08D:388F and O08D:3932 work on the caller's locals
+	// the nested O0C9:353B and O0C9:3610 work on the caller's locals
 	var list []nearEntry
-	var cur, count, prevX, prevY byte
-	rebuild := func() { // O08D:388F
-		e.buildNear(e.combatX(c), e.combatY(c), 0x7F, 0xFF, e.combatSize(c))
-		list = append([]nearEntry(nil), e.near.list...)
-		count = byte(len(list))
-	}
-	step := func(by byte, show bool) *Character { // O08D:3932
-		ent := func(i byte) nearEntry {
-			if int(i) < 1 || int(i) > len(list) {
-				return nearEntry{}
-			}
-			return list[i-1]
+	var cur byte
+	var prevX, prevY byte
+	ent := func(i byte) nearEntry {
+		if int(i) < 1 || int(i) > len(list) {
+			return nearEntry{}
 		}
+		return list[i-1]
+	}
+	// O0C9:353B: the combatants in sight that c may act against
+	e.buildNear(e.combatX(c), e.combatY(c), 0x7F, 0xFF, e.combatSize(c))
+	for _, n := range e.near.list {
+		if e.mayAct(c, e.combatant(n.index)) {
+			list = append(list, n)
+		}
+	}
+	step := func(by byte, show bool) *Character { // O0C9:3610
 		if show {
 			prevX, prevY = e.cpos[ent(cur).index].x, e.cpos[ent(cur).index].y
 		} else {
@@ -740,57 +740,79 @@ func (e *Engine) aimAt(c *Character, rangeArg, showRange, allowGround, allowCrea
 		}
 		cur += by
 		if cur == 0 {
-			cur = count
+			cur = byte(len(list))
 		}
-		if cur > count {
+		if int(cur) > len(list) {
 			cur = 1
 		}
 		idx := ent(cur).index
-		res := e.combatant(idx)
 		nx, ny := e.cpos[idx].x, e.cpos[idx].y
 		if show {
 			e.flyMissile(int(prevX), int(prevY), int(nx), int(ny), 1, 0)
 			prevX, prevY = nx, ny
 		}
-		return res
+		return e.combatant(idx)
 	}
-	rebuild()
 	cur = 1
-	var by, showBy byte // showBy is uninitialised in the original until a key sets it
-	cand := step(by, true)
-	by = 1
+	cand := step(0, true)
+	x, y := byte(e.combatX(cand)), byte(e.combatY(cand))
+	startX, startY := x, y
+	valid := true
 	key := byte(' ')
-	for !*found && !(key == 0 || key == 'E') {
-		if !e.mayAct(c, cand) {
-			cand = step(by, false)
-			continue
-		}
+	for !(key == 0 || key == 13 || key == 'E' || key == 'T') {
 		var ext bool
-		key, ext = e.aimPrompt(c, cand, int(rng), showRange, allowCreature)
+		key, ext = e.aimPrompt(c, cand, int(rng), showRange, valid, int(x), int(y))
 		if ext {
 			key = aimExtendedKey(key)
 		}
+		take := func() {
+			*found = true
+			if showRange == 1 {
+				e.aimConfirm(c, t.c, showRange, found, t)
+			}
+			if !*found {
+				e.cmap.cursor = 0
+				e.combatCentre(int(x), int(y), 0, 8)
+			}
+		}
 		switch key {
 		case 'N':
-			by, showBy = 1, 1
+			valid = true
+			cand = step(1, true)
 		case 'P':
-			by, showBy = 0xFF, 0xFF
-		case 'M', scanUp, scanLeft, scanHome, scanEnd, scanPageDown, scanPageUp: // as in the original's case
-			e.aimManual(c, cand, int(rng), showRange, allowGround, allowCreature, found, t)
+			valid = true
+			cand = step(0xFF, true)
+		case 'M':
+			var confirmed bool
+			var mt aimTarget
+			valid, confirmed, mt = e.aimManual(c, int(rng), showRange, allowGround, allowCreature, x, y)
 			e.iconToSprite(0x19, 0, 0, false)
-			rebuild()
-			showBy = 0
+			cand, x, y = mt.c, mt.x, mt.y
+			if valid && confirmed {
+				key = 'T'
+				*t = mt
+				take()
+			}
 		case 'T':
-			e.aimConfirm(c, cand, showRange, found, t)
-			e.iconToSprite(0x19, 0, 0, false)
-			rebuild()
-			showBy = 0
+			*t = aimTarget{c: cand, x: x, y: y}
+			take()
 		case 'C':
-			e.combatCentre(e.combatX(cand), e.combatY(cand), 0, 8)
-			showBy = 0
+			e.cmap.cursor, e.cmap.cursorSize = 1, 1
+			e.combatCentre(int(x), int(y), 0, 8)
+			e.cmap.cursor = 0
+		case 'E':
+			e.cmap.cursor = 0
+			e.combatCentre(int(x), int(y), 0, 8)
+		case 0:
+			e.cmap.cursor = 0
+			e.eraseCursor(int(x), int(y))
+			e.combatCentre(int(startX), int(startY), 0, 8)
 		}
-		e.eraseCursor(e.combatX(cand), e.combatY(cand))
-		cand = step(showBy, !*found && !(key == 0 || key == 'E'))
+		if key == 'N' || key == 'P' || key == 'T' {
+			if cand != nil {
+				x, y = byte(e.combatX(cand)), byte(e.combatY(cand))
+			}
+		}
 	}
 	if showRange != 0 {
 		e.ClearCells(0, 0x17, 0x27, 0x17)
@@ -806,7 +828,7 @@ func aimExtendedKey(k byte) byte {
 	return 0xFF
 }
 
-// pickAttackTarget = O08D:3E44 (c, rng, a, b): a target for c's attack from the
+// pickAttackTarget = O0C9:3BF1 (c, rng, a, b): a target for c's attack from the
 // enemies within rng, kept in c's combat block. Up to two passes of 20
 // random picks; the second sees through walls (not with b set).
 func (e *Engine) pickAttackTarget(c *Character, rng, a, b int) bool {
@@ -827,7 +849,12 @@ func (e *Engine) pickAttackTarget(c *Character, rng, a, b int) bool {
 		n := e.nearEnemies(c, rng)
 		for tries > 0 && !found && n > 0 {
 			tries--
-			r := e.Dice(1, n)
+			var r int
+			if tries == 0x13 && e.FindAffect(c, affectCloudkill) != nil && e.combatant(e.targets[1]) == nil {
+				r = 1 // the cloudkill swap of nearEnemies: the first pick is fixed
+			} else {
+				r = e.Dice(1, n)
+			}
 			if e.targets[r] > 0 {
 				cand := e.combatant(e.targets[r])
 				if (a != 0 && e.cmap.seeAll != 0) || e.mayAct(c, cand) {
@@ -856,7 +883,7 @@ func (e *Engine) pickAttackTarget(c *Character, rng, a, b int) bool {
 	return found
 }
 
-// godIntervene = O08D:god_intervene: with the debug word (DS:8C94,
+// godIntervene = O0C9:3E2D god_intervene: with the debug word (DS:8C94,
 // "Wooden") as the second command line parameter, '-' kills every monster
 // ("The Gods intervene!"). True when it was given.
 func (e *Engine) godIntervene() bool {

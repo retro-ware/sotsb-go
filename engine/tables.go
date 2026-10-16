@@ -223,6 +223,9 @@ var skyColours = [16]byte{0, 15, 4, 11, 13, 2, 9, 14, 0, 15, 4, 11, 13, 2, 9, 14
 var directionNames = [8]string{"N", "NE", "E", "SE", "S", "SW", "W", "NW"}
 
 // Column step by facing 0..7 (8: none).
+// dirHere is the direction index of the square a combatant stands on.
+const dirHere = 8
+
 var stepX = [9]int8{0, 1, 1, 1, 0, -1, -1, -1, 0}
 
 // Row step by facing 0..7 (8: none).
@@ -472,23 +475,6 @@ var spellTableData = [118][16]byte{
 	{3, 7, 10, 4, 0, 0, 11, 0, 2, 4, 0, 1, 1, 9, 1, 0},
 	{3, 7, 0, 4, 0, 0, 10, 3, 0, 4, 25, 2, 7, 3, 0, 0},
 	{3, 7, 0, 2, 0, 0, 4, 0, 0, 4, 106, 1, 1, 3, 1, 0},
-}
-
-// turnUndeadRolls = DS:0369 + 10*undead + column: the d20 a cleric needs to
-// turn undead of each row (1..10), by cleric column (levels 1..8, 9..13,
-// 14 and up). 0: turned automatically, negative: destroyed (needing its
-// absolute value), 99: impossible.
-var turnUndeadRolls = [10][10]int8{
-	{10, 7, 4, 1, 1, 0, 0, -1, -1, -1},
-	{13, 10, 7, 1, 1, 0, 0, 0, -1, -1},
-	{16, 13, 10, 4, 1, 1, 0, 0, 0, -1},
-	{19, 16, 13, 7, 4, 1, 1, 0, 0, -1},
-	{20, 19, 16, 10, 7, 4, 1, 1, 0, 0},
-	{99, 20, 19, 13, 10, 7, 4, 1, 1, 0},
-	{99, 99, 20, 16, 13, 10, 7, 4, 1, 0},
-	{99, 99, 99, 20, 16, 13, 10, 7, 4, 1},
-	{99, 99, 99, 99, 20, 16, 13, 10, 7, 1},
-	{99, 99, 99, 99, 99, 20, 16, 13, 10, 4},
 }
 
 // wildTerrainFlags = DS:0354: the wilderness terrain flags (terrainSparse

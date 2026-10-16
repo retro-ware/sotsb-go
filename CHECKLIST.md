@@ -25,6 +25,10 @@ data segment by content.
   - [x] spell overlay O113: target setup, CastSpell, applySpell, all 117 handlers (incl. Death Spell,
     Disintegrate, Stone/Flesh, Delayed Blast, Mass Invisibility, Power Word Stun), scroll/bag use
   - [x] rules overlay O145, affect handlers and types moved to SotSB; training O0EF (hit points, levels)
+  - [x] item/character code O151 (weapon stats, item names, summary, movement rate, status line, pictures)
+  - [x] combat turn O0C9 (turn setup, attacks, thrown weapons, sweeps, aiming with the cursor-based menu);
+    no Turn Undead in Silver Blades
+  - [x] combat loop O089 (turn order queue, Delay moves to the end, Alt+A, old-age deaths after battle)
 - [ ] M8 sound
 - [ ] M9 goplay: games.js, deploy.sh build rule, README tables, wasm build
 - [ ] M10 publish (public deploy: only with the user's go-ahead)
