@@ -103,7 +103,7 @@ func (e *Engine) takeItemCopy(it *Item) bool {
 	return false
 }
 
-// shopBuy = O048:0474: buy goods until another key than Buy or Enter,
+// shopBuy = O079:0469: buy goods until another key than Buy or Enter,
 // paid from the buyer's coins or else from the pool.
 func (e *Engine) shopBuy() {
 	index := 0
@@ -118,13 +118,19 @@ func (e *Engine) shopBuy() {
 			continue
 		}
 		price := e.shopPrice(it)
+		buys := " buys a "
+		if it.Count > 0 {
+			buys = " buys "
+		}
 		if gold := uint16(goldWorth(e.selected())); price <= gold {
 			if !e.takeItemCopy(it) {
 				e.setGold(gold - price)
+				e.printMessage(e.selected().Name() + buys + it.Name())
 			}
 		} else if pool := poolGold(e.treasureCoins); int32(price) <= pool {
 			if !e.takeItemCopy(it) {
 				e.setPoolGold(uint16(pool - int32(price)))
+				e.printMessage(e.selected().Name() + buys + it.Name())
 			}
 		} else {
 			e.printMessage("Not enough Money.")

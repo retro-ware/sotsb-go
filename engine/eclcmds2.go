@@ -385,11 +385,11 @@ func (e *Engine) scaleToDifficulty(c *Character) {
 	}
 }
 
-// loadMonsterRecord = O0A1:329C (block): MON<area>CHA, SPC (affects) and
+// loadMonsterRecord = O0F8:22E6 (block): MON1CHA, SPC (affects) and
 // ITM (items) blocks.
 func (e *Engine) loadMonsterRecord(block byte) *Character {
 	c := &Character{}
-	name := "MON" + e.areaDigit()
+	name := "MON1" // every area's monsters (O0F8:22E6)
 	b := e.daxBlock(name+"CHA", int(block))
 	if b == nil {
 		e.displayAndWait(colourWhite, colourBlack, "Unable to load monster")
