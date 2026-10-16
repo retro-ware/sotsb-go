@@ -74,7 +74,7 @@ func spaces(n int) string {
 	return string(b)
 }
 
-// overloadedBy = O0AF:324B (c, item): sixteen items, or the item's weight
+// overloadedBy = O100:392A (c, item): sixteen items, or the item's weight
 // (times its count) would overload c.
 func (e *Engine) overloadedBy(c *Character, it *Item) bool {
 	e.ApplyItems(c)

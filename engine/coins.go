@@ -225,12 +225,12 @@ func (e *Engine) shareMoney() {
 	}
 }
 
-// dropCoins = O0BA:0A19 (c, amount, kind): coins leave the character; in
+// dropCoins = O13C:0A94 (c, amount, kind): coins leave the character; in
 // a shop or after a fight they go into the pool.
 func (e *Engine) dropCoins(c *Character, amount uint16, kind int) {
 	c.Coins[kind] -= amount
 	c.Weight -= amount
-	if e.gameState == stateAfterCombat || e.gameState == stateShop {
+	if e.gameState == stateAfterCombat || e.gameState == stateShop || e.gameState == stateVault {
 		e.treasureCoins[kind] += int32(amount)
 	}
 }

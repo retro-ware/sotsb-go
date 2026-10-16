@@ -79,20 +79,31 @@ func (e *Engine) viewPlayer() bool {
 	return done
 }
 
-// coinLines: the coin list of Trade and Drop, Jewelry first, names
-// right-aligned to 8 characters.
-func coinLines(c *Character) []*ListNode {
+// coinLines: the coin list of Trade and Drop, copper first, each name
+// padded to width (with the amount's length when alignRight).
+func coinLines(c *Character, width int, alignRight bool) []*ListNode {
 	var list []*ListNode
 	for k := 0; k < coinKinds; k++ {
 		if c.Coins[k] != 0 {
-			line := spaces(8-len(coinNames[k])) + coinNames[k] + " " + itoa(int(c.Coins[k]))
-			list = append([]*ListNode{{Text: line}}, list...)
+			amount := itoa(int(c.Coins[k]))
+			pad := width - len(coinNames[k])
+			if alignRight {
+				pad -= len(amount)
+			}
+			list = append(list, &ListNode{Text: coinNames[k] + spaces(pad) + amount})
 		}
 	}
 	return list
 }
 
-// tradeCoins = O0AF:2C3F tradeCoin: hand coins to another member.
+// Coin list widths: Trade puts the amounts in a column, Drop right-aligns
+// them in the coin area.
+const (
+	tradeCoinWidth = 14
+	dropCoinWidth  = 18
+)
+
+// tradeCoins = O100:328F tradeCoin: hand coins to another member.
 func (e *Engine) tradeCoins() {
 	for {
 		e.loadPicture()
@@ -104,11 +115,11 @@ func (e *Engine) tradeCoins() {
 		for {
 			e.showCoins()
 			e.viewStart = to
-			list := coinLines(e.selected())
+			list := coinLines(e.selected(), tradeCoinWidth, false)
 			index := 0
 			redraw := true
 			var sel *ListNode
-			e.ListMenu("Select type of coin ", " Select", colourLightMagenta, colourGreen, colourWhite, 12, 7, 25, 13,
+			e.ListMenu("Select type of coin ", " Select", colourLightMagenta, colourGreen, colourWhite, sheetRightColumn, sheetStatsRow, 38, 15,
 				list, true, &redraw, &index, &sel)
 			if sel == nil {
 				break
@@ -129,22 +140,26 @@ func (e *Engine) tradeCoins() {
 	}
 }
 
-// dropCoinsMenu = O0AF:2F97 drop_coin: coins are dropped (into the pool
-// in a shop or after a fight).
+// dropCoinsMenu = O100:3616 drop_coin: coins are dropped (into the pool
+// in a shop or after a fight, deposited in the vault).
 func (e *Engine) dropCoinsMenu() {
 	for {
 		e.showCoins()
-		list := coinLines(e.selected())
+		list := coinLines(e.selected(), dropCoinWidth, true)
 		index := 0
 		redraw := true
 		var sel *ListNode
-		e.ListMenu("Select type of coin ", " Select", colourLightMagenta, colourGreen, colourWhite, 12, 7, 25, 13,
+		e.ListMenu("Select type of coin ", " Select", colourLightMagenta, colourGreen, colourWhite, sheetRightColumn, sheetStatsRow, 38, 15,
 			list, true, &redraw, &index, &sel)
 		if sel == nil {
 			return
 		}
 		kind, name := coinKindOf(sel.Text)
-		amount := e.askAmount(e.selected().Coins[kind], "How much "+name+"will you drop? ", colourGreen)
+		verb := "will you drop? "
+		if e.gameState == stateVault {
+			verb = "will you deposit? "
+		}
+		amount := e.askAmount(e.selected().Coins[kind], "How much "+name+verb, colourGreen)
 		e.dropCoins(e.selected(), amount, kind)
 		left := false
 		for k := 0; k < coinKinds; k++ {
@@ -179,18 +194,18 @@ func isPaladin(c *Character) bool {
 	return c.Class == clsPaladinIndex || int8(c.OldLevels[clsPaladin]) > 0 && oldClassUsable(c)
 }
 
-// canLayOnHands = O0AF:35F0 (c): a paladin, not fighting, okay, who has
+// canLayOnHands = O100:3CDA (c): a paladin, not fighting, okay, who has
 // not healed today.
 func (e *Engine) canLayOnHands(c *Character) bool {
 	return isPaladin(c) && e.gameState != stateCombat && c.Status == statusOkay && e.FindAffect(c, affectLaidOnHands) == nil
 }
 
-// canCureDisease = O0AF:3655 (c): a paladin with cures left this week.
+// canCureDisease = O100:3D3F (c): a paladin with cures left this week.
 func (e *Engine) canCureDisease(c *Character) bool {
 	return isPaladin(c) && e.gameState != stateCombat && c.Status == statusOkay && c.PaladinCures > 0
 }
 
-// layOnHands = O0AF:36D7 (paladin): heal two points per level once a day.
+// layOnHands = O100:3DC0 (paladin): heal two points per level once a day.
 func (e *Engine) layOnHands(p *Character) {
 	e.loadPicture()
 	who := e.selectMemberMenu("Heal whom? ", true, e.party[0])
@@ -207,7 +222,7 @@ func (e *Engine) layOnHands(p *Character) {
 	e.CharacterSheet()
 }
 
-// paladinCure = O0AF:37EC (paladin): remove the diseases (asking first
+// paladinCure = O100:3EEA (paladin): remove the diseases (asking first
 // when there are none), once per cure left.
 func (e *Engine) paladinCure(p *Character) {
 	e.loadPicture()
@@ -240,7 +255,11 @@ func (e *Engine) paladinCure(p *Character) {
 		if e.FindAffect(p, affectCuredToday) == nil {
 			e.AddAffect(p, affectCuredToday, cureDiseaseTime, 0, 1)
 		}
-		e.printMessage(who.Name() + " is cured")
+		if sick {
+			e.printMessage(who.Name() + " is cured")
+		} else {
+			e.printMessage(p.Name() + " cures the healthy")
+		}
 	}
 	e.CharacterSheet()
 }

@@ -63,7 +63,7 @@ func (e *Engine) drawPartyList() {
 	e.ClearCells(x, y, 0x26, y)
 }
 
-// partyKeypad = O0AF:32CF (key): Home selects the previous character
+// partyKeypad = O100:39AE (key): Home selects the previous character
 // (wrapping to the last), End the next (wrapping to the first: the original
 // leaves its walker on the head when there is no next), anything else the first.
 func (e *Engine) partyKeypad(k byte) {

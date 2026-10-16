@@ -1,6 +1,6 @@
 package engine
 
-// O0AF: the View screen (character sheet, items, money, spell lists).
+// O100: the View screen (character sheet, items, money, spell lists).
 
 // ClearScreen = R4CE:0A02.
 func (e *Engine) ClearScreen() {
@@ -304,7 +304,7 @@ func (e *Engine) itemReadyEffect(it *Item, ready bool) {
 	}
 }
 
-// tradeItem = O0AF:211C (item).
+// tradeItem = O100:1E57 (item).
 func (e *Engine) tradeItem(it *Item) {
 	to := e.view.start
 	e.DrawMainScreen()
@@ -486,14 +486,14 @@ func (e *Engine) bundleScrolls(bag *Item) {
 	}
 }
 
-// Who can read a scroll (O0AF:2478): magic-users and clerics always, a
+// Who can read a scroll (O100:27B6): magic-users and clerics always, a
 // high-level thief now and then.
 const (
 	scrollThiefLevel  = 9  // above: a thief may try
 	scrollThiefChance = 75 // percent
 )
 
-// canReadScroll is the class test of O0AF:2478.
+// canReadScroll is the class test of O100:27B6.
 func (e *Engine) canReadScroll(c *Character) bool {
 	if activeClass(c) == clsMage || currentClass(c) == clsMage || activeClass(c) == clsCleric ||
 		currentClass(c) == clsCleric || int8(c.Levels[clsMage]) > 0 || int8(c.Levels[clsCleric]) > 0 {
@@ -502,7 +502,7 @@ func (e *Engine) canReadScroll(c *Character) bool {
 	return int8(c.Levels[clsThief]) > scrollThiefLevel && e.Dice(1, 100) <= scrollThiefChance
 }
 
-// useItem = O0AF:2478 (item, var done): cast the scroll's spell or the
+// useItem = O100:27B6 (item, var done): cast the scroll's spell or the
 // item's own (+0x3D & 127, charges +0x3C). Returns done: the spell was cast
 // and, in combat, the turn is over.
 func (e *Engine) useItem(it *Item) bool {

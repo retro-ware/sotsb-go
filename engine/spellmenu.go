@@ -348,7 +348,7 @@ func (e *Engine) spellMenu(mode int, index *int) byte {
 	return spell
 }
 
-// spellMenu2 = O0AF:347C (kind, mode, var index, var shown): frame the
+// spellMenu2 = O100:3B5A (kind, mode, var index, var shown): frame the
 // screen, title the list after its kind and run the menu; shown tells
 // whether there was anything to list.
 func (e *Engine) spellMenu2(kind, mode int, index *int, shown *bool) byte {

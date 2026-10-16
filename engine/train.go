@@ -569,14 +569,14 @@ func (e *Engine) levelHitPoints(c *Character, mask byte, classes int) {
 	c.HP = c.MaxHP - wounds
 }
 
-// goldWorth = O0AF:33AE getPlayerGold: the character's coins in gold
-// pieces (rounded by +100 copper).
+// goldWorth = O100:3A8E getPlayerGold: the character's coins in gold
+// pieces.
 func goldWorth(c *Character) int32 {
 	var copper int32
 	for k := range coinValues {
 		copper += coinValues[k] * int32(c.Coins[k])
 	}
-	return (copper + 100) / coinValues[coinGold]
+	return copper / coinValues[coinGold]
 }
 
 // payGold = O0A7:4AE0 (gold, c): take gold pieces' worth from the coins,

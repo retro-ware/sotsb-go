@@ -33,6 +33,8 @@ data segment by content.
   - [x] resting O10C (year carry ages the party, effect expiry via RemoveAffect, scribing from bags of scrolls)
   - [x] camp O0E1 (seven-level memorize table, bags of scrolls, Level menu for the difficulty, Fix with the mending spells; no rule-book check)
   - [x] ECL O050 (vault O066, difficulty scaling, GAIN EXPERIENCE, SotSB COMBAT/LOAD FILES/PROGRAM/SPELL; area restart, main loop entry and exit)
+  - [x] graphics R2BC (retags; no palette-register call)
+  - [x] View/items O100 (SotSB sheet layout, Deposit to the vault, bundles of scrolls: join, halve, use, identify refusal; sell prices and discard; Up/Down cycling waits for its callers; Pick Character 40C8 goes with O0EF)
 - [ ] M8 sound
 - [ ] M9 goplay: games.js, deploy.sh build rule, README tables, wasm build
 - [ ] M10 publish (public deploy: only with the user's go-ahead)
