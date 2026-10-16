@@ -181,6 +181,7 @@ const (
 	areaWordWallsetA      = 253
 	areaWordWallsetB      = 254
 	areaWordNoMap         = 251 // the overhead map is not allowed here
+	areaWordWallView      = 312 // a 3D view outside the dungeons
 	areaWordMapShown      = 197
 	areaWordPartyOnMap    = 312 // the wilderness map still shows the party summary
 )
@@ -199,26 +200,21 @@ func (e *Engine) drawView() {
 	if e.partyDead {
 		return
 	}
-	if wordAt(e.area, 2*areaWordFreeSteps) != 0 {
+	if wordAt(e.area, 2*areaWordFreeSteps) != 0 || wordAt(e.area, 2*areaWordWallView) != 0 {
 		s.cellHere = e.MapCell(int(s.posX), int(s.posY))
-		var sky byte
 		if s.cellHere > 127 {
-			sky = skyColours[wordAt(e.area, 2*areaWordWallsetB)%16]
+			e.gs.sky[0] = skyColours[wordAt(e.area, 2*areaWordWallsetB)%16]
 		} else {
-			sky = skyColours[wordAt(e.area, 2*areaWordWallsetA)%16]
+			e.gs.sky[0] = skyColours[wordAt(e.area, 2*areaWordWallsetA)%16]
 		}
-		horizon, band, ground := e.gs.sky[1], e.gs.sky[2], e.gs.sky[3]
-		if e.videoMode == 0 {
+		if !e.colourCard() {
 			if s.redraw {
-				horizon = lookHorizon(s.look2)
-				band = lookBand(s.look2)
-				ground = lookGround(s.look1)
+				e.SetSkyColours(e.gs.sky[0], lookHorizon(s.look2), 3, 3)
+			} else {
+				e.gs.sky[3] = 8
 			}
-		} else {
-			ground = 8
 		}
-		e.SetSkyColours(sky, horizon, band, ground)
-		if wordAt(e.area, 2*areaWordNoMap) != 0 {
+		if wordAt(e.area, 2*areaWordNoMap) != 0 || wordAt(e.area, 2*areaWordShownX) != positionNotOverridden {
 			e.gs.overhead = false
 		}
 		e.viewOrMap(int(s.posX), int(s.posY), int(s.facing))
@@ -228,29 +224,12 @@ func (e *Engine) drawView() {
 	e.viewReset = false
 }
 
-// lookHorizon, lookBand, lookGround = O10D:0014, 0048, 007C.
+// lookHorizon = O174:0000 (look): the horizon colour off a colour card.
 func lookHorizon(v byte) byte {
 	if v == 8 || v == 'A' {
 		return 0
 	}
 	return 15
-}
-
-func lookBand(v byte) byte {
-	if v == 8 {
-		return 8
-	}
-	return 7
-}
-
-func lookGround(v byte) byte {
-	switch v {
-	case 11:
-		return 8
-	case 6:
-		return 1
-	}
-	return 6
 }
 
 // viewOrMap = O116:0820: the 3D view, or the overhead map when it is on.

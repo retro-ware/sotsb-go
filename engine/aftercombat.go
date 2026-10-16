@@ -307,7 +307,7 @@ const (
 	lastMonsterOnlyItem  = 57
 )
 
-// hiredShare = O045:150E: hired NPCs take their shares (+0xF8 & 7) of
+// hiredShare = O072:152B: hired NPCs take their shares (+0xF8 & 7) of
 // every kind of coin before the party gets to the treasure.
 func (e *Engine) hiredShare() {
 	const shareMask = 7
@@ -323,7 +323,7 @@ func (e *Engine) hiredShare() {
 	taken := false
 	if shares > 0 {
 		for k, v := range e.treasureCoins {
-			if v > 0 {
+			if k > 0 && v > 0 { // coin kinds 1..6
 				each := byte(v / int32(byte(parts)))
 				e.treasureCoins[k] -= int32(int16(uint16(byte(shares)) * uint16(each)))
 				taken = true
@@ -424,7 +424,7 @@ func (e *Engine) lootTake() {
 	e.loadPicture()
 }
 
-// takeTreasure = O045:0F2E (var money, var items): Take, of money or items
+// takeTreasure = O072:0DEE (var money, var items): Take, of money or items
 // or both.
 func (e *Engine) takeTreasure(money, items *bool) {
 	if !*money {
@@ -442,18 +442,18 @@ func (e *Engine) takeTreasure(money, items *bool) {
 		case 'M':
 			e.takeMoney()
 			e.loadPicture()
+			*money, *items = e.treasureLeft()
+			done = !*money
 		case 'I':
 			e.lootTake()
+			*money, *items = e.treasureLeft()
+			done = !*items
 		case 'E', 0:
 			done = true
-		case 'G', 'O':
+		default:
 			e.cycleSelected(key)
 		}
 		e.playerSummary(e.selected())
-		*money, *items = e.treasureLeft()
-		if !*money || !*items {
-			done = true
-		}
 	}
 }
 

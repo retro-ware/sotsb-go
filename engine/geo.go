@@ -275,7 +275,7 @@ func (e *Engine) Draw3DView(x, y, dir int) {
 	}
 }
 
-// DrawOverheadMap = O116:000F (x, y, dir): the 11x11 top-down map around
+// DrawOverheadMap = O17E:0000 (x, y, dir): the 11x11 top-down map around
 // the party. Each cell is symbol 0x104 + walls (N 1, E 2, S 4, W 8); the
 // party is symbol 0x100 + dir/2.
 func (e *Engine) DrawOverheadMap(x, y, dir int) {
