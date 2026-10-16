@@ -63,31 +63,6 @@ func (e *Engine) drawPartyList() {
 	e.ClearCells(x, y, 0x26, y)
 }
 
-// partyKeypad = O100:39AE (key): Home selects the previous character
-// (wrapping to the last), End the next (wrapping to the first: the original
-// leaves its walker on the head when there is no next), anything else the first.
-func (e *Engine) partyKeypad(k byte) {
-	if len(e.party) == 0 {
-		return
-	}
-	switch k {
-	case 'G':
-		if e.partySel == 0 {
-			e.partySel = len(e.party) - 1
-		} else {
-			e.partySel--
-		}
-	case 'O':
-		if e.partySel+1 < len(e.party) {
-			e.partySel++
-		} else {
-			e.partySel = 0
-		}
-	default:
-		e.partySel = 0
-	}
-}
-
 // The party menu's entries (DS 06C0, 42-byte records: name, enabled flag).
 // Picking one gives its first letter.
 var partyMenuEntries = [...]string{

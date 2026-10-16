@@ -1,7 +1,5 @@
 package engine
 
-import "strconv"
-
 // The adventure screen: frames, the view window and the status line.
 // Ported from Pool 00BA:272A/27D9/290B and ovr27.
 
@@ -102,18 +100,6 @@ func (e *Engine) DrawMainScreen() {
 		e.LoadAnimPic("PIC", 1, false)
 		e.DisplayPartyList()
 	}
-}
-
-// pad2 pads a number string with "0" to two characters (O0ED:2B66).
-func pad2(n int) string {
-	s := strconv.Itoa(n & 0xFFFF)
-	if len(s) > 2 {
-		s = s[:2]
-	}
-	if len(s) < 2 {
-		s = "0" + s
-	}
-	return s
 }
 
 // StatusLine = O151:316A: see statusLine.

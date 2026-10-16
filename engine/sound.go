@@ -643,23 +643,6 @@ func (e *Engine) PlaySound(n int) {
 	}
 }
 
-// soundInit = R7E4:00CB: remember the card (DS:5C05), mark the driver
-// installed (DS:5C06) and, with a card, hook the timer interrupt (R699:12BF)
-// and start song 0 on both sets.
-func (e *Engine) soundInit() {
-	s := &e.snd
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.saved = s.typ
-	s.installed = true
-	if !s.on || s.typ == sndNone {
-		return
-	}
-	s.isr = true
-	s.start(&s.speaker, 0)
-	s.start(&s.tandySet, 0)
-}
-
 // unhook restores the timer interrupt: speaker off, all Tandy voices off.
 func (s *sound) unhook() {
 	s.isr, s.tone = false, false

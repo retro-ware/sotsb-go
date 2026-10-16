@@ -15,24 +15,6 @@ const (
 	itemPowerFlag    = 128
 )
 
-// readiedPower is the power of a readied magic item, or 0.
-func readiedPower(it *Item) byte {
-	if itemEffect(it) > itemPowerFlag && it.Readied != 0 {
-		return itemEffect(it) & (itemPowerFlag - 1)
-	}
-	return 0
-}
-
-// readiedEffect reports whether a readied item has the given power.
-func readiedEffect(c *Character, power byte) bool {
-	for _, it := range c.Items {
-		if readiedPower(it) == power {
-			return true
-		}
-	}
-	return false
-}
-
 // isHuman = O164:0D49: only humans change class.
 func isHuman(c *Character) bool { return c.Race == raceHuman }
 

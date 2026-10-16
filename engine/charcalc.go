@@ -444,29 +444,3 @@ func (e *Engine) isHelpless(c *Character) bool {
 	}
 	return found
 }
-
-// atRaceLimitAfterRestore = O0ED:3138 (char, class): the demihuman level limit is
-// reached (fighter limits depend on strength 17/18; race 4 clerics stop at 5).
-func atRaceLimitAfterRestore(c *Character, class int) bool {
-	lvl, str := int8(c.Levels[class]), c.Stats[statStr].Value
-	if lvl <= 0 {
-		return false
-	}
-	fighter := class == 2
-	switch c.Race {
-	case 1:
-		return fighter && (lvl == 8 && str == 0x11 || lvl == 7 && str < 0x11)
-	case 2:
-		return fighter && (lvl == 7 || lvl == 6 && str == 0x11 || lvl == 5 && str < 0x11)
-	case 3:
-		return fighter && (lvl == 6 || lvl == 5 && str < 0x12)
-	case 4:
-		if class == 0 {
-			return lvl == 5
-		}
-		return fighter && (lvl == 8 || lvl == 7 && str == 0x11 || lvl == 6 && str < 0x11)
-	case 5:
-		return fighter && (lvl == 6 || lvl == 5 && str == 0x11 || lvl == 4 && str < 0x11)
-	}
-	return false
-}

@@ -588,28 +588,6 @@ func goldWorth(c *Character) int32 {
 	return copper / coinValues[coinGold]
 }
 
-// payGold = O0A7:4AE0 (gold, c): take gold pieces' worth from the coins,
-// smallest coins first; change is given back from platinum down.
-func payGold(c *Character, gold int32) {
-	copper := gold * coinValues[coinGold]
-	k := 0
-	for copper > 0 {
-		n := uint16(copper/coinValues[k] + 1)
-		n = min(n, c.Coins[k])
-		copper -= int32(n) * coinValues[k]
-		c.Coins[k] -= n
-		k++
-	}
-	if copper < 0 {
-		copper = -copper
-		for k = coinPlatinum; copper > 0; k-- {
-			n := uint16(copper / coinValues[k])
-			copper -= int32(n) * coinValues[k]
-			c.Coins[k] += n
-		}
-	}
-}
-
 // Coin indexes.
 const (
 	coinCopper = iota

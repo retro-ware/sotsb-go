@@ -2,18 +2,8 @@ package engine
 
 // Human dual-classing (unit O164 of the reconstruction).
 
-// mayChangeClass tells whether the party menu offers "Human Change Classes"
-// for c: a human who has not changed class yet (O164:0D49 and 0C4D).
-func (e *Engine) mayChangeClass(c *Character) bool {
-	return c != nil && isHuman(c) && activeClass(c) == noClass
-}
-
 // NPC tells whether c is a non-player character (control value above 127).
 func (c *Character) NPC() bool { return c.Control >= 128 }
-
-// gameFinished: the end of the game was reached (area word 1018, set to 255
-// by the ending): the party may not begin adventuring again.
-func (e *Engine) gameFinished() bool { return wordAt(e.area, gameFinishedWord) != 0 }
 
 const gameFinishedWord = 1018
 

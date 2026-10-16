@@ -509,4 +509,3 @@ func menuHotkeys(menu string) (string, string) {
 	}
 	return string(b[1 : length+1]), string(hot)
 }
-

@@ -5,16 +5,6 @@ package engine
 // charMgmtState holds ovr17 state (filled in by the ovr17 port).
 type charMgmtState struct{}
 
-// freeCharacter = O0A7:003C (var c): disposes the combat block, the item
-// and affect lists and the record, then nils the pointer. Go's collector
-// does the freeing.
-func (e *Engine) freeCharacter(c **Character) {
-	if *c != nil {
-		(*c).Combat, (*c).Items, (*c).Affects = nil, nil, nil
-	}
-	*c = nil
-}
-
 // selectTemp makes c the selected character (DS:5D92 = c) although it is not
 // in the party; the returned func restores the old selection.
 func (e *Engine) selectTemp(c *Character) func() {
