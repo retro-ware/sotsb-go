@@ -65,7 +65,7 @@ type script struct {
 	look1, look2       byte // b7602, b7603
 
 	viewChanged   bool // b8B84: an area word the view depends on changed
-	justJoined    bool // b8B87: read once by the active-character value
+	noMember      bool // bA4D1: LOAD CHARACTER named no party member
 	nameCleared   bool // b8B6D
 	activeCleared bool // b8B6C
 

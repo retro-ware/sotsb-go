@@ -9,7 +9,7 @@ import (
 // load the always-resident assets. Everything the DOS code zeroed with
 // FillChar is zero-valued here.
 func (e *Engine) Init() {
-	e.Randomize() // O0A1:0027 seeds before anything else
+	e.Randomize()                // O0A1:0027 seeds before anything else
 	e.game = make([]byte, 0x800) // DS:49D6
 	e.area = make([]byte, 0x800) // DS:49D2
 	e.aux = make([]byte, 0x400)  // DS:49DA

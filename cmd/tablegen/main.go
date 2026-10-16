@@ -3,7 +3,10 @@
 // `go generate` time (engine/tables_spec.go), so the game itself never reads
 // the executable.
 //
-//	tablegen START.EXE > tables.go
+// Tables marked Curse are still read from Curse of the Azure Bonds'
+// START.EXE until the code using them is re-ported.
+//
+//	tablegen BLADES-START.EXE CURSE-START.EXE > tables.go
 package main
 
 import (
@@ -19,10 +22,14 @@ import (
 )
 
 func main() {
-	if len(os.Args) != 2 {
-		log.Fatal("usage: tablegen START.EXE")
+	if len(os.Args) != 3 {
+		log.Fatal("usage: tablegen BLADES-START.EXE CURSE-START.EXE")
 	}
-	img, err := exe.LoadCurse(os.Args[1])
+	blades, err := exe.LoadBlades(os.Args[1])
+	if err != nil {
+		log.Fatal(err)
+	}
+	curse, err := exe.LoadCurse(os.Args[2])
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -38,13 +45,22 @@ func main() {
 		if t.Cols > 0 {
 			n *= t.Cols
 		}
+		img := blades
+		if t.Curse {
+			img = curse
+		}
+		rowSize := t.Cols * t.Kind.Size()
+		if t.Stride > 0 {
+			rowSize = t.Stride
+		}
 		raw := img.Bytes(t.At, n*t.Kind.Size())
 		if t.Cols > 0 {
-			typ := map[tablespec.Kind]string{tablespec.Bytes: "byte", tablespec.Signed: "int8", tablespec.Words: "uint16", tablespec.SignedWords: "int16"}[t.Kind]
+			raw = img.Bytes(t.At, t.Len*rowSize)
+			typ := map[tablespec.Kind]string{tablespec.Bytes: "byte", tablespec.Signed: "int8", tablespec.Words: "uint16", tablespec.SignedWords: "int16", tablespec.Longs: "int32"}[t.Kind]
 			fmt.Fprintf(&b, "var %s = [%d][%d]%s{\n", t.Name, t.Len, t.Cols, typ)
 			for r := 0; r < t.Len; r++ {
-				row := raw[r*t.Cols*t.Kind.Size() : (r+1)*t.Cols*t.Kind.Size()]
-				fmt.Fprintf(&b, "{%s},\n", list(row, t.Kind.Size(), t.Kind == tablespec.Signed || t.Kind == tablespec.SignedWords))
+				row := raw[r*rowSize : r*rowSize+t.Cols*t.Kind.Size()]
+				fmt.Fprintf(&b, "{%s},\n", list(row, t.Kind.Size(), t.Kind == tablespec.Signed || t.Kind == tablespec.SignedWords || t.Kind == tablespec.Longs))
 			}
 			b.WriteString("}\n\n")
 			continue
@@ -64,6 +80,10 @@ func main() {
 			fmt.Fprintf(&b, "var %s = [%d]string{", t.Name, t.Len)
 			for i := 0; i < t.Len; i++ {
 				s := raw[i*t.Kind.Size():]
+				if int(s[0]) >= t.Kind.Size() { // not a string (an unused slot holding other data)
+					b.WriteString(`"", `)
+					continue
+				}
 				fmt.Fprintf(&b, "%q, ", string(s[1:1+int(s[0])]))
 			}
 			b.WriteString("}\n\n")

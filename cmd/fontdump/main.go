@@ -1,9 +1,9 @@
 package main
 
 import (
-	"sotsb/dax"
 	"fmt"
 	"os"
+	"sotsb/dax"
 	"strconv"
 )
 

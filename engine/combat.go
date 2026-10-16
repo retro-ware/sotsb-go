@@ -27,7 +27,7 @@ func (e *Engine) Combat() {
 // combatEnd = O057:004B: free the clouds, the map and the sprite.
 func (e *Engine) combatEnd() {
 	e.combatTargets = false // DS:72BA = O0C2:114D cast_spell_on
-	e.stinkingClouds, e.poisonClouds = nil, nil
+	e.stinkingClouds, e.poisonClouds, e.delayedBlasts = nil, nil, nil
 	e.cmap = nil
 	e.spr = nil
 	e.combatViewEnter()
@@ -77,7 +77,7 @@ func (e *Engine) takeTurn(c *Character) {
 	}
 	if int8(ci.Delay) > 0 {
 		if c.Auto != 0 {
-			e.o10_000F(c)
+			e.computerTurn(c)
 		} else {
 			e.playerTurn(c)
 		}
@@ -137,7 +137,7 @@ func (e *Engine) playerTurn(c *Character) {
 				e.ClearKeyboard()
 				e.Delay(quickTurnWait)
 				done = true
-				e.o10_000F(c)
+				e.computerTurn(c)
 			case 'M':
 				done = e.moveAttack(c, ' ')
 			case 'V':
@@ -175,8 +175,8 @@ func (e *Engine) playerTurn(c *Character) {
 			case scanUp, scanPageUp, scanRight, scanPageDown, scanDown, scanEnd, scanLeft, scanHome:
 				done = e.moveAttack(c, key)
 			case keyAlt2:
-				e.v6E30 ^= 1
-				if e.v6E30 != 0 {
+				e.computerMagic = !e.computerMagic
+				if e.computerMagic {
 					e.printMessage("Magic On")
 				} else {
 					e.printMessage("Magic Off")

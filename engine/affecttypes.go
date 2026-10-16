@@ -1,147 +1,120 @@
 package engine
 
 // Affect numbers: the type byte of an affect node, which is also the index
-// of its handler in the O064 table (affects.go). Named after what the
-// handler does. The racial and class ones are in create.go:
-// affectGnomeVsManSized 18, affectDwarfVsOrc 26, affectVsGiants 47,
-// affectGnomeExtra 48, affectConSavingBonus 97, affectElfResistSleep 107,
-// affectHalfElfResistance 124, affectRangerVsGiants 134.
+// of its handler in the O0A4:3969 table (affects.go). Named after the
+// affect names of DS:2227 where the game shows one, else after what the
+// handler does. Numbers without a name have an empty handler.
 const (
 	affectBless              = 1
 	affectCurse              = 2
 	affectSticksToSnakes     = 3
-	affectWardEnchanted      = 4 // attackers with creature flag 1 (enchanted) are hampered
-	affectKindBane           = 6 // to hit and damage by the target's kind
-	affectArmourBonus        = 7
+	affectDispellingEvil     = 4 // enchanted attackers are hampered
+	affectDetectMagic        = 5
+	affectElectricityImmune  = 6
+	affectGnomeVsFoes        = 7 // a gnome's bonus against its old foes
 	affectProtFromEvil       = 8
 	affectProtFromGood       = 9
 	affectResistCold         = 10
 	affectCharmed            = 11
 	affectEnlarge            = 12 // magical strength; its data keeps the strength it replaced
-	affectSuffocating        = 13
-	affectCharisma           = 14 // data: charisma bonus
-	affectPoisonDamage       = 15 // a point of damage now and then
+	affectBarkskin           = 13
+	affectFriendly           = 14 // data: charisma bonus
+	affectPoisonDamage       = 15 // slowed poison: a point of damage now and then
+	affectReadMagic          = 16
 	affectShield             = 17
+	affectHalfElfResistance  = 18
+	affectFindTraps          = 19
 	affectResistFire         = 20
 	affectSilenced           = 21
 	affectSlowPoison         = 22
 	affectSpiritualHammer    = 23
 	affectDetectInvisibility = 24
 	affectInvisible          = 25
-	affectStunned            = 27
-	affectMirrorImage        = 28 // data: images
-	affectQuarterLessDamage  = 29
+	affectDwarfVsFoes        = 26 // a dwarf's bonus against its old foes
+	affectBefuddled          = 27
+	affectMirrorImage        = 28 // data: images in the high nibble
+	affectEnfeebled          = 29 // a quarter less damage
 	affectCoughing           = 30
 	affectNausea             = 31
-	affectCollapse           = 32 // an animated creature: falls when the spell ends
-	affectDazzled            = 33
-	affectWeakAndWasting     = 34
+	affectDispelEvil         = 32
+	affectBlind              = 33
+	affectDiseased           = 34
 	affectConfused           = 35
-	affectHampered           = 36
-	affectStumbling          = 37
+	affectCursed             = 36
+	affectBlinking           = 37
 	affectStrengthSpell      = 38
 	affectHaste              = 39
 	affectStinkingCloud      = 40 // the caster's cloud; ending it clears the cloud
-	affectAvoidPlainWeapons  = 41
+	affectProtNormalMissiles = 41
 	affectSlow               = 42
 	affectWeakened           = 43
 	affectWasting            = 44
 	affectProtFromEvil10     = 45
 	affectProtFromGood10     = 46
+	affectDwarfDodges        = 47 // giant kin hit a dwarf less
+	affectGnomeDodges        = 48
 	affectPrayer             = 49
-	affectFireBody           = 50 // cold saves +2, unsaved fire doubles
-	affectSleep              = 51
-	affectParalyzed          = 52
-	affectHeld               = 53
-	affectIceBody            = 54 // fire saves +2, cold doubles
+	affectFireShieldHot      = 50
+	affectImmobile           = 51
+	affectHeld               = 52
+	affectAsleep             = 53
+	affectFireShieldCold     = 54
 	affectPoisoned           = 55
-	affectFlicker            = 56
-	affectEngulfs            = 57
-	affectEngulfed           = 58
-	affectRegenerating       = 59
-	affectMagicWeaponsOnly   = 60
-	affectFireDamageReduced  = 61
+	affectInvisibleRing      = 56
+	affectGlobe              = 57
+	affectStoningGaze        = 58
+	affectGazeReflectable    = 59 // the stoning gaze can be turned by a mirror
+	affectNeedsPlus3Weapon   = 60
+	affectFireResistRing     = 61
 	affectHealingOverTime    = 62
 	affectMinorGlobe         = 63
-	affectPoisonSting        = 64
-	affectPoisonSting4       = 65
-	affectPoisonSting2       = 66
-	affectParalysingTouch    = 67
+	affectPoisonSting        = 64 // data on a victim: extra save bonus
+	affectStoningTouch       = 65
+	affectSwallowsWhole      = 66
+	affectBreathFireClose    = 67
 	affectFeebleminded       = 68
-	affectHiddenFromKind19   = 69
-	affectPoisonStingMinus2  = 70
-	affectBlur               = 71
-	affectFlicker95          = 72
-	affectUnaffectedByType32 = 73
-	affectMiscasting         = 74 // half its spells fail; no free attacks as foes step away
-	affectVsKind3            = 75
-	affectVsKind8            = 76
+	affectInvisibleToAnimals = 69
+	affectConfusingGaze      = 70
+	affectHighlighted        = 71
+	affectMirror             = 72
+	affectDragonBreathImmune = 73
+	affectMagicalBoots       = 74
+	affectBaneWeapon         = 75
+	affectDiseaseImmune      = 76
 	affectBerserk            = 77
-	affectRecovering         = 78
-	affectBurningTouch       = 79
-	affectAcidTouch          = 80
-	affectHalfDamage         = 81
-	affectSaveVsElements     = 82
-	affectStoningGaze        = 83 // O0C2 handlers from here (setup_spells)
-	affectElectricityHeals   = 84
-	affectArrowsScratch      = 85
-	affectSpitAcid           = 86
-	affectRays               = 87
-	affectBreathLightning    = 88
-	affectFirstStrike        = 89
-	affectBreathAcid         = 90
+	affectMagicalStone       = 78
+	affectFireHeals          = 79
+	affectBreathFire         = 80
+	affectSpitAcid           = 81
+	affectFearAura           = 82
+	affectBreathWeapon       = 83 // handler set by the magic overlay (O113)
+	affectPoisonStingMinus2  = 86
+	affectParalysingTouch    = 88
+	affectMagicalCloak       = 89 // the first blow each round misses
+	affectBoltsHarmless      = 90
 	affectCloudkill          = 91 // the caster's cloud; ending it clears the cloud
-	affectFireHalved         = 93
-	affectRangedHalved       = 94
-	affectFallsDead          = 95
-	affectHugs               = 96
-	affectRegrowth           = 98
-	affectBacksUp            = 99
-	affectRegrows            = 100
-	affectRegenerates        = 101
-	affectRegrowing          = 102
-	affectBurns              = 103
-	affectAvoidRanged60      = 104
-	affectMagicResist50      = 105
-	affectMagicResist15      = 106
-	affectNoCharmHold        = 108
-	affectNoParalysis        = 109
-	affectColdImmune         = 110
-	affectNoPoisonParalysis  = 111
-	affectFireImmune         = 112
-	affectFireReduced        = 113
-	affectElectricityHalved  = 114
-	affectEdgedHalved        = 115
-	affectMagicWeaponsHalved = 116
-	affectSlingStones        = 117
-	affectColdHalved         = 118
-	affectNeedsMagicWeapon   = 119
-	affectAvoidsBows         = 120
-	affectSpitsAcid          = 121
-	affectParalysingGaze     = 122
-	affectFireTouch          = 123
-	affectNoCharmHoldSleep   = 125
-	affectGazeParalyse       = 126
-	affectGazeReflectable    = 127 // a mirror readied by the target turns the stoning gaze
-	affectBreathFire         = 128
-	affectMagicImmune        = 129
-	affectSlainByArrow       = 130
-	affectBreathFireClose    = 131
-	affectThrowLightning     = 132
-	affectNoMindAffects      = 133
-	affectElectricityImmune  = 135
-	affectRooted             = 136
-	affectBerserkFoe         = 137
-	affectAlwaysInvisible    = 138
-	affectEngulfing          = 139
-	affectPaladinCures       = 141
-	affectRunningAway        = 142
-	affectZapsAttackers      = 143
-	affectHugging            = 144
-	affectDispelEvil         = 145
-	affectGiantStrength      = 146 // magical strength like affectEnlarge
-	itemAffectHandler        = 147 // the table's last entry: a readied item's affect
-	affectHandlerCount       = 148
+	affectFearless           = 92
+	affectFireImmune         = 93
+	affectHardyAll           = 94 // constitution bonus against paralysis, rods and spells
+	affectElfResistance      = 95
+	affectNoCharmSleep       = 96
+	affectConSavingBonus     = 97 // constitution bonus against rods and spells
+	affectColdImmune         = 98
+	affectPoisonImmune       = 99
+	affectDelayedBlast       = 100
+	affectPlainWeaponsImmune = 103
+	affectBreathWeapon2      = 104 // handler set by the magic overlay (O113)
+	affectRangerVsGiants     = 105
+	affectStunned            = 106
+	affectBerserkFoe         = 107
+	affectAlwaysInvisible    = 108
+	affectLaidOnHands        = 109
+	affectPaladinCures       = 110 // the week's cures are used up
+	affectFrightened         = 111
+	affectZapsAttackers      = 112
+	affectGiantStrength      = 113 // magical strength like affectEnlarge
+	itemAffectHandler        = 120 // the table's last entry: a readied item's affect
+	affectHandlerCount       = 121
 )
 
 // Damage types (the dmgType bits).
@@ -151,7 +124,7 @@ const (
 	dmgElectricity = 4
 	dmgMagic       = 8
 	dmgAcid        = 16
-	dmgType32      = 32
+	dmgBreath      = 32
 	dmgType64      = 64
 )
 
@@ -164,12 +137,23 @@ const (
 	saveVsSpell     = 4
 )
 
-// Creature flags (Pad331).
+// Creature flags (CreatureFlags, byte 349): what kind of foe it is.
 const (
-	creatureEnchanted = 1
-	creatureGoblinoid = 2
-	creatureOrc       = 4
-	creatureGiant     = 8
+	creatureEnchanted   = 1
+	creatureCharmable   = 2  // Charm Monsters works on it
+	creatureGiantKin    = 4  // dwarves dodge it
+	creatureRangerFoe   = 8  // rangers do extra damage
+	creatureSnake       = 16 // Snake Charm works on it
+	creatureGnomeFoe    = 32 // gnomes dodge it
+	creatureDwarfFoe    = 128
+	creatureAnimalsSeen = 69 // the kinds invisibility to animals works for
+)
+
+// Monster flags (MonsterFlags, byte 350).
+const (
+	monsterBane       = 1 // a bane weapon does 6d6 against it
+	monsterPersonLike = 2 // Charm Person works on it
+	monsterGnomeFoe   = 4
 )
 
 // Control values.
@@ -181,3 +165,11 @@ const (
 
 // Character status values beyond damage.go's.
 const statusDisintegrated = 8
+
+// affectNameOf: the name the game shows for the affect, "" for none.
+func affectNameOf(typ byte) string {
+	if int(typ) < len(affectDisplayNames) {
+		return affectDisplayNames[typ]
+	}
+	return ""
+}

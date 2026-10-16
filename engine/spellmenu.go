@@ -29,7 +29,6 @@ const (
 	itemClassFirstScroll  = 11
 	itemClassClericScroll = 12
 	itemClassLastScroll   = 13
-	affectReadMagic       = 16
 )
 
 // spellList is the list a spell menu shows: menu lines (level headings
@@ -44,13 +43,15 @@ type spellList struct {
 	scrollItem *Item               // DS 29366: the scroll being read
 }
 
-// isScroll = O0C2:63B8 item_is_scroll.
+// Base item types that carry spells to read.
+const (
+	itemTypeMageScroll   = 39
+	itemTypeClericScroll = 40
+)
+
+// isScroll = O113:6440: a scroll, or a bag (of scrolls).
 func (e *Engine) isScroll(it *Item) bool {
-	if it == nil {
-		return false
-	}
-	class := e.baseItem(it.Type, 0)
-	return class > itemClassFirstScroll-1 && class < itemClassLastScroll+1
+	return it != nil && (it.Type == itemTypeMageScroll || it.Type == itemTypeClericScroll || it.Type == itemTypeBag)
 }
 
 // spellLineText is "  name" (" *name" for a spell still to memorise).

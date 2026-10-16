@@ -1,82 +1,131 @@
 package engine
 
 // Class-derived values of a character: THAC0, spell slots, saving throws,
-// thief skills (unit O0FE of the reconstruction).
+// thief skills, and the dual-class helpers (unit O164 of the reconstruction).
 
 // itemEffect is a magic item's special power (the last name word: 128 + power).
 func itemEffect(it *Item) byte { return it.Spells[2] }
 
 // Special item powers (128 + n in itemEffect).
 const (
-	effectFreeAction = 2  // gauntlets: thief skills as level 4 and +10
-	effectSaveBonus  = 6  // saving throw bonus as a dwarf or halfling
-	effectThievery   = 11 // thief skills as at least level 5 / 7
-	effectWizardry   = 1  // ring of wizardry: doubles the first magic-user slots
+	effectWizardry   = 1 // ring of wizardry: doubles the fifth-level magic-user spells
+	effectFreeAction = 2
+	effectSaveBonus  = 6 // a constitution bonus to the first saving throw
+	effectThievery   = 11
 	itemPowerFlag    = 128
 )
+
+// readiedPower is the power of a readied magic item, or 0.
+func readiedPower(it *Item) byte {
+	if itemEffect(it) > itemPowerFlag && it.Readied != 0 {
+		return itemEffect(it) & (itemPowerFlag - 1)
+	}
+	return 0
+}
 
 // readiedEffect reports whether a readied item has the given power.
 func readiedEffect(c *Character, power byte) bool {
 	for _, it := range c.Items {
-		if it.Readied != 0 && itemEffect(it) > itemPowerFlag && itemEffect(it)&(itemPowerFlag-1) == power {
+		if readiedPower(it) == power {
 			return true
 		}
 	}
 	return false
 }
 
-// firstClassLevel = O0FE:1362: a human's level in the first class with
+// isHuman = O164:0D49: only humans change class.
+func isHuman(c *Character) bool { return c.Race == raceHuman }
+
+// noClass: a dual-class helper found no class.
+const noClass = 17
+
+// lastSingleClass bounds the class searches of the dual-class helpers,
+// which never look past the thief.
+const lastSingleClass = clsThief
+
+// activeClass = O164:0C4D: a human's old class (the first with old
+// levels) if it has positive levels; noClass otherwise and for the other races.
+func activeClass(c *Character) int {
+	if !isHuman(c) {
+		return noClass
+	}
+	k := 0
+	for k < lastSingleClass && c.OldLevels[k] == 0 {
+		k++
+	}
+	if int8(c.OldLevels[k]) > 0 {
+		return k
+	}
+	return noClass
+}
+
+// currentClass = O164:0CA3: a human's class in progress (noClass for
+// others and for a human with no levels).
+func currentClass(c *Character) int {
+	if !isHuman(c) {
+		return noClass
+	}
+	k := 0
+	for k < lastSingleClass && c.Levels[k] == 0 {
+		k++
+	}
+	if int8(c.Levels[k]) > 0 {
+		return k
+	}
+	return noClass
+}
+
+// firstClassLevel = O164:0CF9: a human's level in the first class with
 // levels; 0 for the other races.
 func firstClassLevel(c *Character) int8 {
-	if c.Race != raceHuman {
+	if !isHuman(c) {
 		return 0
 	}
 	k := 0
-	for k < clsMonk && c.Levels[k] == 0 {
+	for k < lastSingleClass && c.Levels[k] == 0 {
 		k++
 	}
 	return int8(c.Levels[k])
 }
 
-// currentClass = O0FE:1306: a human's class in progress (noClass for
-// others and for a human with no levels).
-func currentClass(c *Character) int {
-	if c.Race != raceHuman {
-		return noClass
-	}
-	k := 0
-	for k < clsMonk && c.Levels[k] == 0 {
-		k++
-	}
-	if int8(c.Levels[k]) < 1 {
-		return noClass
-	}
-	return k
-}
-
-// oldClassUsable = O0FE:13D1: a dual-classed human whose new class has
+// oldClassUsable = O164:0D6B: a dual-classed human whose new class has
 // passed the old one may use the old class's abilities again.
 func oldClassUsable(c *Character) bool {
-	return int8(c.MulticlassLevel) < firstClassLevel(c)
+	return firstClassLevel(c) > int8(c.MulticlassLevel)
 }
 
-// Fighters, paladins (above 6) and rangers (above 7) attack 3 times per 2 rounds.
-const extraAttacks = 3
+// Attacks per two rounds of fighters, paladins and rangers of high level.
+const (
+	extraAttacks = 3
+	moreAttacks  = 4
+)
 
-// recalcClassBonuses = O0FE:03C6: THAC0, highest level and attacks from the
+// recalcClassBonuses = O164:0366: THAC0, highest level and attacks from the
 // class levels, then spell slots, saves, thief skills and the class mask;
 // readied items the classes may no longer use (and not cursed) are put away.
 func (e *Engine) recalcClassBonuses(c *Character) {
 	c.THAC0Base = 0
-	for k := 0; k <= clsMonk; k++ {
+	for k := 0; k < classCount; k++ {
 		lvl := int8(c.Levels[k])
 		c.THAC0Base = max(c.THAC0Base, thac0At(k, lvl))
 		if int8(c.MaxLevel) < lvl {
 			c.MaxLevel = byte(lvl)
 		}
-		switch {
-		case k == clsFighter && lvl > 6, k == clsRanger && lvl > 7, k == clsPaladin && lvl > 6:
-			c.BaseAttack[0] = extraAttacks
+		switch k {
+		case clsFighter, clsPaladin:
+			if lvl > 6 {
+				c.BaseAttack[0] = extraAttacks
+			}
+			if lvl > 12 {
+				c.BaseAttack[0] = moreAttacks
+			}
+		case clsRanger:
+			if lvl > 7 {
+				c.BaseAttack[0] = extraAttacks
+			}
+			if lvl > 14 {
+				c.BaseAttack[0] = moreAttacks
+			}
 		}
 	}
 	e.calcSpellSlots(c)
@@ -85,7 +134,7 @@ func (e *Engine) recalcClassBonuses(c *Character) {
 		e.thiefSkills(c)
 	}
 	c.ClassMask = 0
-	for k := 0; k <= clsMonk; k++ {
+	for k := 0; k < classCount; k++ {
 		old := int8(c.OldLevels[k])
 		if int8(c.Levels[k]) > 0 || old > 0 && old < int8(c.MaxLevel) {
 			c.ClassMask += classItemFlags[k]
@@ -96,21 +145,30 @@ func (e *Engine) recalcClassBonuses(c *Character) {
 			it.Readied = 0
 		}
 	}
-	if oldClassUsable(c) {
-		for k := 0; k <= clsMonk; k++ {
-			old := int8(c.OldLevels[k])
-			switch {
-			case (k == clsFighter || k == clsPaladin) && old > 6, k == clsRanger && old > 7:
+	if !oldClassUsable(c) {
+		return
+	}
+	for k := 0; k < classCount; k++ {
+		old := int8(c.OldLevels[k])
+		switch k {
+		case clsFighter, clsPaladin:
+			if old >= 13 {
+				c.BaseAttack[0] = moreAttacks
+			} else if old >= 7 {
 				c.BaseAttack[0] = extraAttacks
 			}
-			c.THAC0Base = max(c.THAC0Base, thac0At(k, old))
+		case clsRanger:
+			if old >= 15 {
+				c.BaseAttack[0] = moreAttacks
+			} else if old >= 8 {
+				c.BaseAttack[0] = extraAttacks
+			}
+		case clsThief:
+			if old > 0 {
+				e.thiefSkills(c)
+			}
 		}
-		if int8(c.OldLevels[clsFighter]) > 6 || int8(c.OldLevels[clsRanger]) > 7 || int8(c.OldLevels[clsPaladin]) > 6 {
-			c.BaseAttack[0] = extraAttacks
-		}
-		if int8(c.OldLevels[clsThief]) > 0 {
-			e.thiefSkills(c)
-		}
+		c.THAC0Base = max(c.THAC0Base, thac0At(k, old))
 	}
 }
 
@@ -118,128 +176,146 @@ func (e *Engine) recalcClassBonuses(c *Character) {
 const itemClassFlags = 13
 
 // thac0At reads the THAC0 table like the original: the flat table indexed
-// class*13 + level (levels past the row run into the next class's row).
+// class*19 + level (levels past the row run into the next class's row).
 func thac0At(class int, level int8) byte {
-	i := class*len(thac0Table[0]) + int(level)
-	return thac0Table[i/len(thac0Table[0])][i%len(thac0Table[0])]
+	width := len(thac0Table[0])
+	i := class*width + int(level)
+	return thac0Table[i/width][i%width]
 }
 
-// Spell slot indexes: cleric levels 1..5, druid 1..5, magic-user 1..5.
+// slotIndex is the SpellSlots entry of a spell class and level (1..7).
+func slotIndex(class, level int) int { return class*spellLevels + level - 1 }
+
+// slotsGained reads a per-level slot table: the spells of each spell level
+// a class gains at a class level.
+func slotsGained(table []byte, classLevel, spellLevel int) byte {
+	return table[classLevel*spellLevels+spellLevel]
+}
+
+// Class levels from which paladins and rangers cast spells.
 const (
-	slotsCleric = 0
-	slotsDruid  = 5
-	slotsMage   = 10
+	paladinFirstSpellLevel = 9
+	rangerFirstSpellLevel  = 8
+	rangerDruidLevels      = 3
+	rangerMageLevels       = 2
 )
 
-// calcSpellSlots = O0FE:000F: the spells per day of each spell class, and
-// the spells clerics and rangers know without learning them.
+// calcSpellSlots = O164:0000: the spells per day of each spell class, and
+// the spells clerics, paladins and rangers know without learning them.
 func (e *Engine) calcSpellSlots(c *Character) {
-	c.SpellSlots = [15]byte{}
-	for k := 0; k <= clsMonk; k++ {
-		lvl := int8(c.Levels[k])
+	c.SpellSlots = [len(c.SpellSlots)]byte{}
+	for k := 0; k < classCount; k++ {
+		lvl := int(int8(c.Levels[k]))
 		if oldClassUsable(c) && c.OldLevels[k] != 0 {
-			lvl = int8(c.OldLevels[k])
+			lvl = int(int8(c.OldLevels[k]))
 		}
 		if lvl <= 0 {
 			continue
 		}
 		switch k {
 		case clsCleric:
-			c.SpellSlots[slotsCleric]++
-			for l := int8(2); l <= lvl; l++ {
-				for s := 1; s <= 5; s++ {
-					c.SpellSlots[slotsCleric+s-1] += clericSlotData[int(l)*5+s]
-				}
-			}
-			e.wisdomSlots(c, false)
-			e.knowClassSpells(c, spellClassCleric, true)
+			e.clericSlots(c)
+			e.knowSpells(c, func(class, level int) bool {
+				return class == spellClassCleric && c.SpellSlots[slotIndex(spellClassCleric, level)] > 0
+			})
 		case clsPaladin:
-			if lvl > 8 {
-				for l := int8(9); l <= lvl; l++ {
-					for s := 1; s <= 5; s++ {
-						c.SpellSlots[slotsCleric+s-1] += paladinSlotData[int(l)*5+s]
-					}
-				}
-				e.knowClassSpells(c, spellClassCleric, false)
+			if lvl < paladinFirstSpellLevel {
+				continue
 			}
+			for l := paladinFirstSpellLevel; l <= lvl; l++ {
+				for s := 1; s <= spellLevels; s++ {
+					c.SpellSlots[slotIndex(spellClassCleric, s)] += slotsGained(paladinSlotData[:], l, s)
+				}
+			}
+			e.knowSpells(c, func(class, level int) bool {
+				return class == spellClassCleric && c.SpellSlots[slotIndex(spellClassCleric, level)] > 0
+			})
 		case clsRanger:
-			if lvl > 7 {
-				for l := int8(8); l <= lvl; l++ {
-					for s := 1; s <= 3; s++ {
-						c.SpellSlots[slotsDruid+s-1] += rangerSlotData[int(l)*5+s]
-					}
-					for s := 4; s <= 5; s++ {
-						c.SpellSlots[slotsMage+s-4] += rangerSlotData[int(l)*5+s]
-					}
+			if lvl < rangerFirstSpellLevel {
+				continue
+			}
+			for l := rangerFirstSpellLevel; l <= lvl; l++ {
+				for s := 1; s <= rangerDruidLevels; s++ {
+					c.SpellSlots[slotIndex(spellClassDruid, s)] += slotsGained(rangerSlotData[:], l, s)
 				}
-				for n := 1; n < len(spellTable); n++ {
-					if spellTable[n].class() == spellClassDruid {
-						c.SpellBook[n-1] = 1
-					}
+				for s := 1; s <= rangerMageLevels; s++ {
+					c.SpellSlots[slotIndex(spellClassMage, s)] += slotsGained(rangerSlotData[:], l, rangerDruidLevels+s)
 				}
 			}
+			e.knowSpells(c, func(class, level int) bool {
+				return class == spellClassDruid && c.SpellSlots[slotIndex(spellClassDruid, level)] > 0 ||
+					class == spellClassMage && c.SpellSlots[slotIndex(spellClassMage, level)] > 0
+			})
 		case clsMage:
-			c.SpellSlots[slotsMage]++
-			for l := int8(2); l <= lvl; l++ {
-				for s := 1; s <= 5; s++ {
-					c.SpellSlots[slotsMage+s-1] += mageSlotData[int(l)*5+s]
+			c.SpellSlots[slotIndex(spellClassMage, 1)]++
+			for l := 2; l <= lvl; l++ {
+				for s := 1; s <= spellLevels; s++ {
+					c.SpellSlots[slotIndex(spellClassMage, s)] += slotsGained(mageSlotData[:], l, s)
 				}
 			}
+			intelligenceSlots(c)
 		}
 	}
 	for _, it := range c.Items {
 		if itemEffect(it) == itemPowerFlag+effectWizardry && it.Readied != 0 {
-			for s := 0; s < 3; s++ {
-				c.SpellSlots[slotsMage+s] *= 2
-			}
+			c.SpellSlots[slotIndex(spellClassMage, 5)] *= 2
 		}
 	}
 }
 
-// knowClassSpells marks every cleric spell of a level the character has
-// slots for as known (clerics leave out animate dead).
-func (e *Engine) knowClassSpells(c *Character, class byte, skipAnimateDead bool) {
+// knowSpells marks every spell the test accepts (by spell class and level) as known.
+func (e *Engine) knowSpells(c *Character, known func(class, level int) bool) {
 	for n := 1; n < len(spellTable); n++ {
 		s := spellTable[n]
-		if s.class() != class || c.SpellSlots[slotsCleric+int(s.level())-1] == 0 {
-			continue
+		if level := int(int8(s.level())); level >= 1 && level <= spellLevels && known(int(s.class()), level) {
+			c.SpellBook[n-1] = 1
 		}
-		if skipAnimateDead && n == spellAnimateDead {
-			continue
-		}
-		c.SpellBook[n-1] = 1
 	}
 }
 
-// wisdomSlots = O0FE:0686 (reset, c): bonus cleric spells for wisdom 13..18.
-// With reset the slots are first rebuilt from the cleric level alone.
-func (e *Engine) wisdomSlots(c *Character, reset bool) {
-	lvl := int8(c.Levels[clsCleric])
-	if oldClassUsable(c) {
-		lvl += int8(c.OldLevels[clsCleric])
-	}
+// clericSlots = O164:062C: the cleric spells per day from the cleric level
+// (with the old class's when usable) and bonus spells for wisdom 13..18;
+// sixth- and seventh-level spells need wisdom 17 and 18.
+func (e *Engine) clericSlots(c *Character) {
+	lvl := int(int8(c.Levels[clsCleric]) + int8(c.OldLevels[clsCleric])*b2i8(oldClassUsable(c)))
 	if lvl <= 0 {
 		return
 	}
-	if reset {
-		for s := 1; s < 5; s++ {
-			c.SpellSlots[slotsCleric+s] = 0
-		}
-		c.SpellSlots[slotsCleric] = 1
-		for l := int8(2); l <= lvl; l++ {
-			for s := 1; s <= 5; s++ {
-				c.SpellSlots[slotsCleric+s-1] += clericSlotData[int(l)*5+s]
-			}
+	slot := func(level int) *byte { return &c.SpellSlots[slotIndex(spellClassCleric, level)] }
+	for s := 2; s <= spellLevels; s++ {
+		*slot(s) = 0
+	}
+	*slot(1) = 1
+	for l := 2; l <= lvl; l++ {
+		for s := 1; s <= spellLevels; s++ {
+			*slot(s) += slotsGained(clericSlotData[:], l, s)
 		}
 	}
 	wis := c.Stats[statWis].Value
 	for _, b := range []struct {
 		above byte
-		slot  int
-	}{{12, 0}, {13, 0}, {14, 1}, {15, 1}, {16, 2}, {17, 3}} {
-		if wis > b.above && c.SpellSlots[slotsCleric+b.slot] != 0 {
-			c.SpellSlots[slotsCleric+b.slot]++
+		level int
+	}{{12, 1}, {13, 1}, {14, 2}, {15, 2}, {16, 3}, {17, 4}} {
+		if wis > b.above && *slot(b.level) > 0 {
+			*slot(b.level)++
 		}
+	}
+	if wis < 17 {
+		*slot(6) = 0
+	}
+	if wis < 18 {
+		*slot(7) = 0
+	}
+}
+
+// intelligenceSlots = O164:07BE: sixth- and seventh-level magic-user
+// spells need intelligence 12 and 14.
+func intelligenceSlots(c *Character) {
+	if c.Stats[statInt].Value < 12 {
+		c.SpellSlots[slotIndex(spellClassMage, 6)] = 0
+	}
+	if c.Stats[statInt].Value < 14 {
+		c.SpellSlots[slotIndex(spellClassMage, 7)] = 0
 	}
 }
 
@@ -247,29 +323,43 @@ func (e *Engine) wisdomSlots(c *Character, reset bool) {
 const (
 	saveCount       = 5
 	saveWorst       = 20
-	saveClassStride = 60
+	saveClassLevels = 18
 )
 
-// savingThrows = O0FE:07FB: each save is the best of the class tables;
-// dwarves and halflings (or a readied item of the power) add a constitution
-// bonus to the first save, high constitution helps everybody.
+// saveTarget is the saving throw table entry of a class, level and save.
+func saveTarget(class, level, save int) byte {
+	return saveTableData[class*saveClassLevels*saveCount+level*saveCount+save]
+}
+
+// savingThrows = O164:07F9: each save is the best of the class tables;
+// a readied item of the save-bonus power adds a constitution bonus to the
+// first save, high constitution helps everybody.
 func (e *Engine) savingThrows(c *Character) {
-	conBonus := readiedEffect(c, effectSaveBonus)
+	conBonus := false
+	for _, it := range c.Items {
+		if conBonus {
+			break
+		}
+		if itemEffect(it) > itemPowerFlag && it.Readied != 0 {
+			conBonus = itemEffect(it)&(itemPowerFlag-1) == effectSaveBonus
+		}
+	}
 	con := c.Stats[statCon].Value
 	for s := 0; s < saveCount; s++ {
 		c.Saves[s] = saveWorst
-		for k := 0; k <= clsMonk; k++ {
+		for k := 0; k < classCount; k++ {
 			if lvl := int8(c.Levels[k]); lvl > 0 {
-				c.Saves[s] = min(c.Saves[s], saveTableData[k*saveClassStride+int(lvl)*saveCount+s])
+				c.Saves[s] = min(c.Saves[s], saveTarget(k, int(lvl), s))
 			}
 		}
-		if int8(c.OldLevels[clsMonk]) < int8(c.Levels[clsMonk]) {
-			c.Saves[s] = min(c.Saves[s], oldClassSaveData[int(int8(c.OldLevels[clsMonk]))*saveCount+s])
+		// The original reads the class loop's variable after the loop: the thief.
+		if old := int8(c.OldLevels[clsThief]); int8(c.Levels[clsThief]) > old {
+			c.Saves[s] = min(c.Saves[s], saveTarget(clsThief, int(old), s))
 		}
 		if s != 0 {
 			continue
 		}
-		if c.Race == raceDwarf || c.Race == raceHalfling || conBonus {
+		if conBonus {
 			switch {
 			case con >= 4 && con <= 6:
 				c.Saves[0]++
@@ -296,79 +386,38 @@ func (e *Engine) savingThrows(c *Character) {
 	}
 }
 
-// Thief skill count and the levels items lift them to.
+// Thief skills.
 const (
-	thiefSkillCount     = 8
-	thieveryFirstLevel  = 5
-	thieverySecondLevel = 7
-	thieveryBonus       = 5
-	freeActionLevel     = 4
-	freeActionBonus     = 10
+	thiefSkillCount = 8
+	dexteritySkills = 5 // the first five skills have a dexterity adjustment
 )
 
-// thiefSkills = O0FE:0AEA: each skill from the thief level, race and
-// dexterity tables; items of thievery and free action raise them.
+// thiefSkills = O164:0AC6: each skill from the thief level (with the old
+// class's when usable), race and dexterity tables; a skill a race penalty
+// would push below zero is 0.
 func (e *Engine) thiefSkills(c *Character) {
-	thievery, freeAction := false, false
-	for _, it := range c.Items {
-		if thievery || freeAction {
-			break
-		}
-		if itemEffect(it) > itemPowerFlag && it.Readied != 0 {
-			p := itemEffect(it) & (itemPowerFlag - 1)
-			thievery, freeAction = p == effectThievery, p == effectFreeAction
-		}
-	}
-	base := int8(c.Levels[clsThief])
-	if oldClassUsable(c) {
-		base += int8(c.OldLevels[clsThief])
-	}
-	if base < freeActionLevel && freeAction {
-		base, freeAction = freeActionLevel, false
-	}
-	race, dex := int(c.Race), int(c.Stats[statDex].Value)
+	lvl := int(int8(c.Levels[clsThief]) + int8(c.OldLevels[clsThief])*b2i8(oldClassUsable(c)))
+	race, dex := int(int8(c.Race)), int(c.Stats[statDex].Value)
 	for s := 1; s <= thiefSkillCount; s++ {
-		lvl := base
-		bonus := int8(0) // fix: the original leaves this uninitialised without an item of thievery
-		if thievery {
-			switch s {
-			case 1:
-				if lvl < thieveryFirstLevel {
-					lvl = thieveryFirstLevel
-				} else {
-					bonus = thieveryBonus
-				}
-			case 2:
-				if lvl < thieverySecondLevel {
-					lvl = thieverySecondLevel
-				} else {
-					bonus = thieveryBonus
-				}
-			}
-		}
-		raceAdj := thiefRaceData[race*thiefSkillCount+s]
-		levelBase := int(thiefBaseData[int(lvl)*thiefSkillCount+s])
-		if raceAdj < 0 && levelBase < int(-raceAdj)+int(bonus) {
+		raceAdj := int(thiefRaceData[race*thiefSkillCount+s])
+		levelBase := int(thiefBaseData[lvl*thiefSkillCount+s])
+		if raceAdj < 0 && levelBase < -raceAdj {
 			c.Thief[s-1] = 0
-		} else {
-			v := bonus + int8(levelBase) + raceAdj
-			if s < 6 {
-				v += thiefDexData[dex*5+s]
-			}
-			c.Thief[s-1] = byte(v)
+			continue
 		}
-		if freeAction {
-			c.Thief[s-1] += freeActionBonus
+		v := levelBase + raceAdj
+		if s <= dexteritySkills {
+			v += int(thiefDexData[dex*dexteritySkills+s])
 		}
+		c.Thief[s-1] = byte(v)
 	}
 }
 
-// Readied-item slots at char+0xCC (13 far pointers). Slot numbers come
-// from the base item record; 9 and 10 are the two rings, 11 arrows
-// (type 0x49), 12 quarrels (type 0x1C).
+// Readied-item slots (13 pointers from +357). Slot numbers come from the
+// base item record; 9 and 10 are the two rings, 11 arrows, 12 quarrels.
 const (
 	slotWeapon = 0
-	slotArmour = 2 // +345
+	slotArmour = 2
 	slotRing1  = 9
 	slotRing2  = 10
 	slotArrows = 11

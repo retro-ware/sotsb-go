@@ -12,29 +12,82 @@ import (
 // original SAVE files load and save byte for byte.
 
 const (
-	itemRecSize   = 0x3F
-	affectRecSize = 9
-	gsPartyCount  = 0x67C // game-state word
-	gsSymbolSet   = 0x624
+	itemRecSize     = 63 // an item in ITEM*.DAX and MON*ITM
+	itemFileRecSize = 67 // an item in a character's .stf file: the record and a pointer
+	affectRecSize   = 9
+	gsPartyCount    = 1660 // game-state word
+	gsSymbolSet     = 1572
 )
 
-// Item and Affect are the raw list nodes (next pointers live in the slices).
-// Item is the 0x3F-byte DOS item record, in its file layout (encoding/binary).
+// Item is a carried item: its record and, for a bag, what is in it.
 type Item struct {
-	PName   [0x29]byte // 0x00 shown name, Pascal string (built by ItemName)
-	Pad29   byte       // 0x29
-	_       [4]byte    // 0x2A next pointer
-	Type    byte       // 0x2E base item type (index into the DS:5582 records)
-	Words   [3]byte    // 0x2F name word ids into DS:10A7
-	Plus    byte       // 0x32 signed
-	Plus2   byte       // 0x33
-	Readied byte       // 0x34
-	Hidden  byte       // 0x35 bit 3-i: word i not known yet
-	Cursed  byte       // 0x36
-	Weight  uint16     // 0x37
-	Count   byte       // 0x39
-	Price   uint16     // 0x3A
-	Spells  [3]byte    // 0x3C a scroll's spells, +0x80 = being scribed
+	itemRecord
+	Contents []*Item // a bag's items (O100: the list at +63)
+}
+
+// itemRecord is the 63-byte DOS item record, in its file layout
+// (encoding/binary).
+type itemRecord struct {
+	PName   [41]byte // 0 shown name, Pascal string (built by ItemName)
+	Pad41   byte     // 41
+	_       [4]byte  // 42 next pointer
+	Type    byte     // 46 base item type (index into the item type records)
+	Words   [3]byte  // 47 name word ids into itemWords
+	Plus    byte     // 50 signed
+	Plus2   byte     // 51
+	Readied byte     // 52
+	Hidden  byte     // 53 bit 3-i: word i not known yet
+	Cursed  byte     // 54
+	Weight  uint16   // 55
+	Count   byte     // 57 a bag: the items in it
+	Price   uint16   // 58
+	Spells  [3]byte  // 60 a scroll's spells, +128 = being scribed
+}
+
+// itemTypeBag: the base item type that holds other items.
+const itemTypeBag = 73
+
+// readItems reads items of n bytes each (63 or 67); a bag's Count items
+// follow it in a character's .stf file.
+func readItems(b []byte, n int) []*Item {
+	var out []*Item
+	for _, r := range readRecords[itemRecord](b, n) {
+		out = append(out, &Item{itemRecord: *r})
+	}
+	if n != itemFileRecSize {
+		return out
+	}
+	var list []*Item
+	for i := 0; i < len(out); i++ {
+		it := out[i]
+		list = append(list, it)
+		if it.Type == itemTypeBag {
+			end := min(len(out), i+1+int(it.Count))
+			it.Contents = out[i+1 : end]
+			i = end - 1
+		}
+	}
+	return list
+}
+
+// writeItems = the item part of O0F8:0DA0: each item as a 67-byte record,
+// a bag followed by its contents.
+func writeItems(list []*Item) []byte {
+	var buf bytes.Buffer
+	pointer := make([]byte, itemFileRecSize-itemRecSize)
+	write := func(it *Item) {
+		binary.Write(&buf, binary.LittleEndian, &it.itemRecord)
+		buf.Write(pointer)
+	}
+	for _, it := range list {
+		write(it)
+		if it.Type == itemTypeBag {
+			for _, in := range it.Contents {
+				write(in)
+			}
+		}
+	}
+	return buf.Bytes()
 }
 
 // Affect is a spell effect or condition on a character.

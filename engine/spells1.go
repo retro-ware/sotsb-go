@@ -1,6 +1,6 @@
 package engine
 
-// O0C2 (spells): targeting, casting and the spell effects not in spells2.go.
+// O113 (spells): targeting, casting and the spell effects not in spells2.go.
 // The spell effects between are in spells2.go. The spell record is
 // DS:31FA + 16*spell (see spellRec): [0] class (casterLevel), [1] list
 // group, [2]/[3] duration base/per level, [4]/[5] amount base/per level,
@@ -24,15 +24,16 @@ func (e *Engine) setTgt(i int, c *Character) {
 	}
 }
 
-// spellRange = O0C2:0DE5 (spell): the duration of the spell in rounds (or
-// turns); never 0 when the record says so.
+// spellRange = O113:0EE1 (spell): the range of the spell, a quarter of the
+// per-level part for each caster level (an item counts six levels); never
+// 0 when the record says so.
 func (e *Engine) spellRange(spell int) int {
 	s := byte(spell)
 	var v byte
 	if !e.usingItem {
-		v = e.spellRec(s, spellFieldRange) + byte(int(e.spellRec(s, spellFieldRangePerLevel))*e.casterLevel(spell))
+		v = e.spellRec(s, spellFieldRange) + byte(int(e.spellRec(s, spellFieldRangePerLevel))*e.casterLevel(spell)/4)
 	} else {
-		v = e.spellRec(s, spellFieldRange) + byte(int(e.spellRec(s, spellFieldRangePerLevel))*6)
+		v = e.spellRec(s, spellFieldRangePerLevel)/4*6 + e.spellRec(s, spellFieldRange)
 	}
 	if v == 0 && e.spellRec(s, spellFieldLasts) != 0 {
 		v = 1
@@ -43,32 +44,31 @@ func (e *Engine) spellRange(spell int) int {
 	return int(v)
 }
 
-// spellAmount = O0C2:0E92 (spell): the amount (damage or rounds) of the
-// spell; a near procedure of the overlay.
+// Spell amounts not taken from the spell record.
+const (
+	slowPoisonRounds = 3780
+)
+
+// spellAmount = O113:0F97 (spell): the amount (damage or rounds) of the
+// spell.
 func (e *Engine) spellAmount(spell int) int {
 	var v int
 	switch spell {
-	case 0x28:
+	case spellSlowPoison:
+		v = slowPoisonRounds
+	case spellCauseDisease:
 		v = e.Dice(1, 6) * 10
-	case 0x39, 0x3D:
+	case spellSpell57, spellSpell61:
 		v = e.Dice(5, 4)
-	case 0x3B:
-		v = e.Dice(1, 4)*10 + 0x28
-	case 0x3F:
-		if e.gameState == 5 {
-			v = e.Dice(2, 10) * 10
-		} else {
-			v = (e.Dice(1, 10) + 10) * 10
-		}
-	case 0x43:
-		v = 0x5A0
+	case spellSpell59:
+		v = e.Dice(1, 4)*10 + 40
 	default:
 		v = int(e.spellRec(byte(spell), spellFieldAmount)) + int(e.spellRec(byte(spell), spellFieldAmountPerLvl))*e.casterLevel(spell)
 	}
-	return int(int16(v))
+	return int(uint16(v))
 }
 
-// applySpell = O0C2:0F7F (spell, level, call, dmg, dmgType, msg): applies
+// applySpell = O113:1046 (spell, level, call, dmg, dmgType, msg): applies
 // the spell record to every target: saving throw, damage and affect.
 // level 0 means the caster level; dmg is also the flag that sets the damage
 // type (DS:6819); dmg is cleared for the rest when an attack misses.
@@ -122,9 +122,9 @@ func (e *Engine) spellTargetHook(spell, mode int) bool {
 	return e.spellTargetSetup(spell, mode)
 }
 
-// spellTargetSetup = O0C2:114D cast_spell_on (spell, mode, var ok): fills the target
+// spellTargetSetup = O113:1253 (spell, mode, var ok): fills the target
 // list by the targeting kind of the spell (1 the caster, 2 a chosen member,
-// 4 the whole party); ok is false for any other kind or when the choice is
+// 3 the whole party); ok is false for any other kind or when the choice is
 // cancelled. This is slot 0 of the DS:6B84 table; mode is not used.
 func (e *Engine) spellTargetSetup(spell, mode int) (ok bool) {
 	if e.spellCaster == nil {
@@ -145,7 +145,7 @@ func (e *Engine) spellTargetSetup(spell, mode int) (ok bool) {
 		} else {
 			e.spellTarget = e.spellCaster
 		}
-	case 4:
+	case 3:
 		for i, c := range e.party {
 			e.setTgt(i+1, c)
 		}
@@ -158,7 +158,7 @@ func (e *Engine) spellTargetSetup(spell, mode int) (ok bool) {
 	return
 }
 
-// applySpellToSide = O0C2:1CA0 (side, msg): drops the targets of the other side
+// applySpellToSide = O113:1E58 (side, msg): drops the targets of the other side
 // (and, for spell 1 in combat, those with an enemy next to them), then
 // applies the spell record to the rest.
 func (e *Engine) applySpellToSide(side int, msg string) {
@@ -174,7 +174,7 @@ func (e *Engine) applySpellToSide(side int, msg string) {
 	e.applySpell(int(e.curSpell), 0, 0, 0, 0, msg)
 }
 
-// CastSpell = O0C2:12E1 (spell, mode, announce, var quit): casts the spell
+// CastSpell = O113:1403 (spell, mode, announce, var quit): casts the spell
 // of the selected character. announce prints "casts"; quit is set when a
 // combat-only item was used up. A combat-only spell or item outside a fight
 // asks to lose it / use it.
@@ -189,8 +189,13 @@ func (e *Engine) CastSpell(spell, mode, b byte, quit *bool) {
 				e.forgetSpell(spell)
 			}
 		} else {
+			e.ClearCells(1, 17, 38, 22)
 			e.DisplayString(1, 0x13, colourGreen, "That Item")
-			e.DisplayString(1, 0x14, colourGreen, "is a combat-only item...")
+			if spell == spellKnock {
+				e.DisplayString(1, 0x14, colourGreen, "is only useful on locked doors.")
+			} else {
+				e.DisplayString(1, 0x14, colourGreen, "is a combat-only item...")
+			}
 			if e.YesNo(0xD, 0xA, 0xF, "Use it? ") == 'Y' {
 				*quit = true
 			}
@@ -198,8 +203,8 @@ func (e *Engine) CastSpell(spell, mode, b byte, quit *bool) {
 		b = 0
 		ok = false
 	}
-	if e.FindAffect(caster, affectMiscasting) != nil && e.Dice(1, 2) == 1 {
-		e.castMessage(caster, "miscasts", int(spell))
+	// a feebleminded caster loses the spell without a word
+	if e.FindAffect(caster, affectFeebleminded) != nil && !e.usingItem {
 		b = 0
 		ok = false
 	}
@@ -259,12 +264,12 @@ func (e *Engine) CastSpell(spell, mode, b byte, quit *bool) {
 	}
 }
 
-// spellRemoveCurse = O0C2:3605 uncurse: the first target loses the curse
+// spellRemoveCurse = O113:376B: the first target loses the curse
 // affect, or else its first cursed item is put away; an item with a
 // magic property takes it back and the scores are worked out again.
 func (e *Engine) spellRemoveCurse() {
 	t := e.tgt(1)
-	if e.CureAffect(t, affectHampered) {
+	if e.CureAffect(t, affectCursed) {
 		e.hitMessage(t, true, "is un-cursed")
 		return
 	}
@@ -292,18 +297,18 @@ func (e *Engine) spellRemoveCurse() {
 	}
 }
 
-// fxCursed = O0C2:371B curse.
+// fxCursed = O113:3881.
 func (e *Engine) fxCursed() { e.applySpell(int(e.curSpell), 0, 0, 0, 0, "has been cursed!") }
 
-// fxBlinking = O0C2:3754 spell_blinking.
-func (e *Engine) fxBlinking() { e.applySpell(int(e.curSpell), 0, 0, 0, 0, "is blinking") }
+// fxBlinking = O113:38AE: "is Blinking".
+func (e *Engine) fxBlinking() { e.applySpell(int(e.curSpell), 0, 0, 0, 0, "is Blinking") }
 
-// fxFireball = O0C2:3782: a burst of radius 2 round the target square,
+// fxFireball = O113:38E8: a burst of radius 2 round the target square,
 // level d6 of fire (spell 0x40 rolls its own level); the near list only
 // becomes the target list when the area holds no word at +0x1CC.
 func (e *Engine) fxFireball() {
 	var lvl int
-	if e.curSpell == 0x40 {
+	if e.curSpell == spellSpell64 {
 		lvl = int(byte(e.Dice(1, 3)*2 + 1))
 	} else {
 		lvl = e.casterLevel(int(e.curSpell))
@@ -319,9 +324,10 @@ func (e *Engine) fxFireball() {
 	e.applySpell(int(e.curSpell), 0, 0, e.RollDice(lvl, 6), 9, "")
 }
 
-// removeAffectFromSide = O0C2:387B (type, side, msg): the first casterLevel
+// removeAffectFromSide = O113:39DE (type, side, msg): the first casterLevel
 // targets of that side lose the affect; the others are dropped. A nil
-// target (garbage in the asm) is dropped as well.
+// target (garbage in the asm) is dropped as well. The ones left get the
+// haste group's handlers.
 func (e *Engine) removeAffectFromSide(typ, side int, msg string) {
 	msg = cut(msg, 0x28)
 	e.rv.areaSpell = 1
@@ -338,10 +344,17 @@ func (e *Engine) removeAffectFromSide(typ, side int, msg string) {
 		}
 	}
 	e.applySpell(int(e.curSpell), 0, 0, 0, 0, msg)
+	for i := 1; i <= e.nSpellTargets; i++ {
+		if t := e.tgt(i); t != nil {
+			e.affectGroup(t, grpSpeed)
+		}
+	}
 }
 
-// fxHaste = O0C2:395C cast_haste: slow is removed from the caster's side.
-func (e *Engine) fxHaste() { e.removeAffectFromSide(0x2A, int(e.selected().Side), "is Hasted") }
+// fxHaste = O113:3B00: slow is removed from the caster's side.
+func (e *Engine) fxHaste() {
+	e.removeAffectFromSide(affectSlow, int(e.selected().Side), "is Hastened")
+}
 
 // Ground kinds by groundInfo's first byte.
 const (
@@ -349,9 +362,9 @@ const (
 	groundStopper = 255 // a wall: a bolt bounces off it, in a dungeon
 )
 
-// strikeSquare = O0C2:3986 (x, y, dmg, saveType, prevWho, var bounced):
+// strikeSquare = O113:3B36 (x, y, dmg, saveType, prevWho, var bounced):
 // whoever stands on the square, unless it was the one struck last, takes
-// dmg (half on a save, DS:6FAF = 12). bounced is set when the ground stops
+// dmg (half on a save) of the spell's damage type. bounced is set when the ground stops
 // a bolt in a dungeon and it had not just bounced, else cleared.
 func (e *Engine) strikeSquare(x, y, dmg, saveType int, prevWho byte, bounced *bool) {
 	who, ground := e.mapAt(x, y)
@@ -359,14 +372,12 @@ func (e *Engine) strikeSquare(x, y, dmg, saveType int, prevWho byte, bounced *bo
 		wordAt(e.area, 2*areaWordInside) == 1 && !*bounced
 	if who > 0 && who != prevWho {
 		t := e.combatant(who)
-		e.rv.dmgType = 0xC
 		e.damagePerson(t, int(byte(dmg)), 2, e.SavingThrow(t, saveType, 0))
 		e.hitColours(0x13)
-		e.rv.dmgType = 0
 	}
 }
 
-// boltPath = O0C2:3A44 (reach, dmg, saveType, bounce): the bolt goes on
+// boltPath = O113:3BE8 (reach, dmg, saveType, bounce): the bolt goes on
 // past the target square, away from the caster, for reach*2 steps, hitting
 // each square; where it bounces it comes back the other way (once, when
 // bounce is set and the caster is near, those squares count 8 more).
@@ -438,71 +449,37 @@ func (e *Engine) boltPath(reach, dmg, saveType, bounce int) {
 	e.rv.areaSpell = 0
 }
 
-// fxLightning = O0C2:3CD9: level d6 down a line of 7, bouncing.
+// fxLightning = O113:3E77: level d6 of electricity down a line of 7, bouncing.
 func (e *Engine) fxLightning() {
 	d := byte(e.Dice(e.casterLevel(int(e.curSpell)), 6))
-	var bounced bool // an unset local in 3CD9
-	e.strikeSquare(e.tgtX, e.tgtY, int(d), 4, 0, &bounced)
-	e.boltPath(7, int(d), 4, 1)
+	e.rv.dmgType = dmgElectricity | dmgMagic
+	var bounced bool // an unset local in the asm
+	e.strikeSquare(e.tgtX, e.tgtY, int(d), saveVsSpell, 0, &bounced)
+	e.boltPath(7, int(d), saveVsSpell, 1)
 }
 
-// fxSlow = O0C2:3D2E.
+// fxSlow = O113:3EC7: haste is removed from the other side.
 func (e *Engine) fxSlow() {
-	e.removeAffectFromSide(0x27, b2i(isParty(e.selected())), "is Slowed")
+	e.removeAffectFromSide(affectHaste, b2i(isParty(e.selected())), "is Slowed")
 }
 
-// Restore's search: classes up to level 13, below 10,000,000 points.
-const (
-	maxRestoredLevel  = 13
-	restoreExpCeiling = 10000000
-)
-
-// fxRestore = O0C2:3D68 cast_restore: gives back one drained level (the class that
-// needs the fewest experience points) and the points lost with it.
-func (e *Engine) fxRestore() {
+// fxHarm = O113:3F02: Harm leaves the target diseased with 1d4 hit points.
+func (e *Engine) fxHarm() {
 	t := e.tgt(1)
-	if t.Drained == 0 {
-		return
-	}
-	q := t.DrainedHP / t.Drained
-	t.MaxHP += q
-	t.HP += q
-	t.HPRoll += q
-	t.DrainedHP -= q
-	t.Drained--
-	best := int8(maxRestoredLevel)
-	bestXP := int32(restoreExpCeiling)
-	var bestClass int // uninitialised in the asm when nothing qualifies
-	for k := 0; k <= 7; k++ {
-		lvl := int8(t.Levels[k])
-		if lvl <= 0 || lvl > best {
-			continue
-		}
-		xp := expThreshold(k, int(lvl))
-		if xp <= 0 || xp >= bestXP {
-			continue
-		}
-		if atRaceLimitAfterRestore(t, k) {
-			continue
-		}
-		best, bestClass, bestXP = lvl, k, xp
-	}
-	t.Levels[bestClass]++
-	if int32(t.Exp) < bestXP {
-		t.Exp = uint32(bestXP)
-	}
-	e.recalcClassBonuses(t)
-	e.combatName(t, "is restored", 0xA, true)
+	e.rv.dmgType = dmgMagic
+	e.isUnaffected(t, affectDiseased, 0, 0, 0, 0, false, "")
+	e.combatName(t, "is Diseased", combatMsgRow, true)
+	e.damagePerson(t, int(t.HP-byte(e.Dice(1, 4))), 0, false)
 }
 
-// fxSpeedy = O0C2:3F2C cast_speed.
+// fxSpeedy = O113:3FA2: haste, unless it only cures a slow.
 func (e *Engine) fxSpeedy() {
 	if !e.CureAffect(e.tgt(1), affectSlow) {
-		e.applySpell(int(e.curSpell), 0, 0, 0, 0, "is Speedy")
+		e.applySpell(int(e.curSpell), 0, 0, 0, 0, "is Hastened")
 	}
 }
 
-// fxCureSerious = O0C2:3F6D: heals 2d8+1.
+// fxCureSerious = O113:3FEF: heals 2d8+1.
 func (e *Engine) fxCureSerious() {
 	if e.nSpellTargets == 0 {
 		return
@@ -513,29 +490,30 @@ func (e *Engine) fxCureSerious() {
 	}
 }
 
-// fxStronger = O0C2:3FB7 cast_strength: giant strength 21 for 1d4*10+40 rounds.
+// fxStronger = O113:402F: giant strength 21 for 1d4*10+40 rounds.
 func (e *Engine) fxStronger() {
 	t := e.tgt(1)
 	out, ok := strongerThan(t, giantStrength21, 0)
 	if ok {
-		e.combatName(t, "is stronger", combatMsgRow, true)
+		e.combatName(t, "gains Giant Strength", combatMsgRow, true)
 	}
 	e.AddAffect(t, affectGiantStrength, e.Dice(1, 4)*10+40, out, 1)
 	e.statAffects(t, statStr)
 }
 
-// fxBolt = O0C2:403C: Dice(1,6)+0x14 on the target square, then a fixed
-// 0x14 along the line.
+// fxBolt = O113:40C0: 1d6+20 of electricity on the target square, then a
+// fixed 20 along the line.
 func (e *Engine) fxBolt() {
+	e.rv.dmgType = dmgElectricity
 	var bounced bool
-	e.strikeSquare(e.tgtX, e.tgtY, e.Dice(1, 6)+0x14, 4, 0, &bounced)
-	e.boltPath(3, 0x14, 4, 0)
+	e.strikeSquare(e.tgtX, e.tgtY, e.Dice(1, 6)+20, saveVsSpell, 0, &bounced)
+	e.boltPath(3, 20, saveVsSpell, 0)
 }
 
-// fxParalyzed = O0C2:408B cast_paralyzed.
+// fxParalyzed = O113:4111.
 func (e *Engine) fxParalyzed() { e.applySpell(int(e.curSpell), 0, 0, 0, 0, "is paralyzed") }
 
-// fxHeal2d4 = O0C2:40C2 cast_heal.
+// fxHeal2d4 = O113:414A.
 func (e *Engine) fxHeal2d4() {
 	t := e.tgt(1)
 	if e.Heal(t, e.Dice(2, 4)+2, false) {
@@ -543,73 +521,85 @@ func (e *Engine) fxHeal2d4() {
 	}
 }
 
-// fxInvisible = O0C2:411C cast_invisible.
-func (e *Engine) fxInvisible() { e.applySpell(int(e.curSpell), 0, 0, 0, 0, "is invisible") }
+// Youth's floor.
+const youngestAge = 18
 
-// fxDamage2d4 = O0C2:414A: 2d4+2 of damage type 8.
+// fxYounger = O113:41C8: the caster gets 1d4+1 years younger, down to 18.
+func (e *Engine) fxYounger() {
+	c := e.selected()
+	c.Age -= uint16(e.Dice(1, 4) + 1)
+	if c.Age < youngestAge {
+		c.Age = youngestAge
+		e.combatName(c, "is now 18 years old", combatMsgRow, true)
+		return
+	}
+	e.combatName(c, "becomes younger", combatMsgRow, true)
+}
+
+// fxDamage2d4 = O113:4254: 2d4+2 of damage type 8.
 func (e *Engine) fxDamage2d4() {
 	e.applySpell(int(e.curSpell), 0, 0, e.RollDice(2, 4)+2, 8, "")
 }
 
-// fxDamage2d8 = O0C2:4185: 2d8+1 of damage type 8.
+// fxDamage2d8 = O113:4290: 2d8+1 of damage type 8.
 func (e *Engine) fxDamage2d8() {
 	e.applySpell(int(e.curSpell), 0, 0, e.RollDice(2, 8)+1, 8, "")
 }
 
-// breathLightningHandler = O0C2:5A5D cast_breath (char, affect, flag): the lightning
-// breath (affect 88). After the first round, half the time nothing
-// happens; the monster breathes at the target square with its hit points
-// as damage.
-func (e *Engine) breathLightningHandler(c *Character, a *Affect, flag int) {
-	if e.combatRound != 0 && e.Dice(1, 100) <= 0x32 {
-		return
-	}
-	e.rv.dmgType = dmgElectricity | dmgType32
-	cx, cy := e.combatX(c), e.combatY(c)
-	e.combatName(c, "Breathes!", 0xA, true)
-	e.spellTargetHook(0x33, 1) // the result (DS:70C6) is not used
-	e.tgtX = cx + sign(e.tgtX-cx)
-	e.tgtY = cy + sign(e.tgtY-cy)
-	if cx+1 == e.tgtX {
-		e.tgtX++
-	}
-	if cy+1 == e.tgtY {
-		e.tgtY++
-	}
-	e.removeInvisibility(c)
-	e.hitColours(0x13)
-	e.flyMissile(cx, cy, e.tgtX, e.tgtY, 4, 0x32)
-	var bounced bool
-	e.strikeSquare(e.tgtX, e.tgtY, int(c.MaxHP), 3, 0, &bounced)
-	e.boltPath(0xA, int(c.MaxHP), 3, 0)
-	if a.Data > 0xFD {
-		a.Data--
-	} else {
-		e.RemoveAffect(c, affectBreathLightning, a)
-	}
-	e.endTurn(c)
-}
+// A scroll is used up when its first word id falls under this.
+const scrollUsedUp = 100
 
-// scrollUsed = O0C2:63FF (char, item, spell): the spell is wiped from the
-// scroll; the scroll goes when the item byte +0x30 falls under 0xD2.
-func (e *Engine) scrollUsed(c *Character, it *Item, spell byte) {
-	idx := 0
-	for i := 1; i <= 3; i++ {
-		if it.Spells[i-1]&0x7F == spell {
+// spellMask strips the "being scribed" bit off a scroll spell.
+const spellMask = 127
+
+// wipeScrollSpell: clears the spell from the scroll, reporting whether the
+// scroll held it.
+func wipeScrollSpell(it *Item, spell byte) bool {
+	idx := -1
+	for i, s := range it.Spells {
+		if s&spellMask == spell {
 			idx = i
 		}
 	}
-	if idx == 0 {
+	if idx < 0 {
+		return false
+	}
+	it.Spells[idx] = 0
+	it.Words[0]--
+	return true
+}
+
+// scrollUsed = O113:647F (char, item, spell): the spell is wiped from the
+// scroll (in a bag, from the first scroll in it that holds it); a scroll
+// goes when its first word id falls under 100. A bag left with one item
+// becomes that item.
+func (e *Engine) scrollUsed(c *Character, it *Item, spell byte) {
+	if it.Type != itemTypeBag {
+		if wipeScrollSpell(it, spell) && it.Words[0] < scrollUsedUp {
+			e.loseItem(c, it)
+		}
 		return
 	}
-	it.Spells[idx-1] = 0
-	it.Words[1]--
-	if it.Words[1] < 0xD2 {
-		e.loseItem(c, it)
+	for k, inner := range it.Contents {
+		if !wipeScrollSpell(inner, spell) {
+			continue
+		}
+		if inner.Words[0] < scrollUsedUp {
+			it.Contents = append(it.Contents[:k], it.Contents[k+1:]...)
+			it.Count--
+			if it.Count == 1 {
+				for n, held := range c.Items {
+					if held == it {
+						c.Items[n] = it.Contents[0]
+					}
+				}
+			}
+		}
+		return
 	}
 }
 
-// castMessage = O0C2:648D cast_a_spell (char, msg, spell): announces the
+// castMessage = O113:6628 (char, msg, spell): announces the
 // cast, in the side panel in combat, else in the message box.
 func (e *Engine) castMessage(c *Character, msg string, spell int) {
 	msg = cut(msg, 0x28)
@@ -627,7 +617,7 @@ func (e *Engine) castMessage(c *Character, msg string, spell int) {
 	e.clearCombatText()
 }
 
-// spellTableInit = O0C2:6592 setup_spells: the DS:6B84 table of spell effects (indexed
+// spellTableInit = O113:67A1: the DS:6B84 table of spell effects (indexed
 // by spell, slot 0 is spellTargetSetup), the breath affect handler (type
 // 0x58, DS:6988) and the spell globals.
 func (e *Engine) spellTableInit() {
@@ -635,15 +625,6 @@ func (e *Engine) spellTableInit() {
 	e.usingItem = false
 	e.spellCaster = nil
 	e.itemsRedraw = true // DS:6821
-	h := &affectHandlers
-	h[affectStoningGaze] = (*Engine).stoningGazeHandler
-	h[affectSpitAcid] = (*Engine).spitAcidHandler
-	h[affectBreathLightning] = func(e *Engine, c *Character, a *Affect, flag byte) { e.breathLightningHandler(c, a, int(flag)) }
-	h[affectBreathAcid] = (*Engine).breathAcidHandler
-	h[affectGazeParalyse] = (*Engine).gazeParalyseHandler
-	h[affectBreathFire] = (*Engine).breathFireHandler
-	h[affectBreathFireClose] = (*Engine).breathFireCloseHandler
-	h[affectThrowLightning] = (*Engine).throwLightningHandler
 	e.spellFx[1] = e.fxBless
 	e.spellFx[2] = e.fxBane
 	e.spellFx[3] = e.fxCureLight
@@ -679,7 +660,7 @@ func (e *Engine) spellTableInit() {
 	e.spellFx[33] = e.fxRayOfEnfeeblement
 	e.spellFx[34] = e.fxStinkingCloud
 	e.spellFx[35] = e.spellStrength
-	e.spellFx[36] = e.fxAnimateDead
+	e.spellFx[36] = e.fxHeal
 	e.spellFx[37] = e.fxCureBlindness
 	e.spellFx[38] = e.fxBlindness
 	e.spellFx[39] = e.fxCureDisease
@@ -699,14 +680,14 @@ func (e *Engine) spellTableInit() {
 	e.spellFx[53] = e.fxProtected
 	e.spellFx[54] = e.fxProtected
 	e.spellFx[55] = e.fxSlow
-	e.spellFx[56] = e.fxRestore
+	e.spellFx[56] = e.fxHarm
 	e.spellFx[57] = e.fxSpeedy
 	e.spellFx[58] = e.fxCureSerious
 	e.spellFx[59] = e.fxStronger
 	e.spellFx[60] = e.fxBolt
 	e.spellFx[61] = e.fxParalyzed
 	e.spellFx[62] = e.fxHeal2d4
-	e.spellFx[63] = e.fxInvisible
+	e.spellFx[63] = e.fxYounger
 	e.spellFx[64] = e.fxFireball
 	e.spellFx[65] = e.fxDamage2d4
 	e.spellFx[66] = e.fxDamage2d8
@@ -721,7 +702,7 @@ func (e *Engine) spellTableInit() {
 	e.spellFx[75] = e.fxRaiseDead
 	e.spellFx[76] = e.fxSlayLiving
 	e.spellFx[77] = e.fxAffected
-	e.spellFx[78] = e.fxEntangle
+	e.spellFx[78] = e.fxNothing
 	e.spellFx[79] = e.fxFaerieFire
 	e.spellFx[80] = e.fxInvisibleToAnimals
 	e.spellFx[81] = e.fxCharmMonsters
@@ -733,15 +714,32 @@ func (e *Engine) spellTableInit() {
 	e.spellFx[87] = e.fxIceStorm
 	e.spellFx[88] = e.fxMinorGlobe
 	e.spellFx[89] = e.spellRemoveCurse
-	e.spellFx[90] = e.fxAnimateDead
+	e.spellFx[90] = e.fxHeal
 	e.spellFx[91] = e.fxCloudkill
 	e.spellFx[92] = e.fxConeOfCold
 	e.spellFx[93] = e.fxFeeblemind
 	e.spellFx[94] = e.fxHold
-	e.spellFx[95] = e.fxPlain
-	e.spellFx[96] = e.fxPlain
+	e.spellFx[95] = e.fxMinorGlobe
+	e.spellFx[96] = e.fxCharmMammal
 	e.spellFx[97] = e.fxPlain
-	e.spellFx[98] = e.fxSpell98
+	e.spellFx[98] = e.fxCureLight
 	e.spellFx[99] = e.fxHeal2d4
-	e.spellFx[100] = e.fxCursed
+	e.spellFx[100] = e.fxPlain
+	e.spellFx[101] = e.fxNothing
+	e.spellFx[102] = e.fxNothing
+	e.spellFx[103] = e.fxNothing
+	e.spellFx[104] = e.fxNothing
+	e.spellFx[105] = e.fxNothing
+	e.spellFx[106] = e.fxNothing
+	e.spellFx[107] = e.fxNothing
+	e.spellFx[108] = e.fxNothing
+	e.spellFx[109] = e.fxNothing
+	e.spellFx[110] = e.fxDeathSpell
+	e.spellFx[111] = e.fxDisintegrate
+	e.spellFx[112] = e.fxMinorGlobe
+	e.spellFx[113] = e.fxStoneToFlesh
+	e.spellFx[114] = e.fxFleshToStone
+	e.spellFx[115] = e.fxDelayedBlast
+	e.spellFx[116] = e.fxMassInvisibility
+	e.spellFx[117] = e.fxPowerWordStun
 }

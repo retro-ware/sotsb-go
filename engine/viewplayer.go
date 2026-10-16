@@ -156,11 +156,10 @@ func (e *Engine) dropCoinsMenu() {
 
 // Affects that mark a paladin's healing and curing as used.
 const (
-	affectLaidOnHands = 140
-	affectCuredToday  = 141
-	layOnHandsTime    = 1440
-	cureDiseaseTime   = 10080
-	clsPaladinIndex   = 3
+	affectCuredToday = affectPaladinCures
+	layOnHandsTime   = 1440
+	cureDiseaseTime  = 10080
+	clsPaladinIndex  = 3
 )
 
 // paladinLevel: the paladin levels that count (old ones when usable).
@@ -214,7 +213,7 @@ func (e *Engine) paladinCure(p *Character) {
 		return
 	}
 	sick := false
-	for _, a := range diseaseAffects {
+	for _, a := range diseaseAffects[1:] {
 		if e.FindAffect(who, a) != nil {
 			sick = true
 		}
@@ -227,7 +226,7 @@ func (e *Engine) paladinCure(p *Character) {
 	}
 	if answer == 'Y' {
 		e.curingDisease = true
-		for _, a := range diseaseAffects {
+		for _, a := range diseaseAffects[1:] {
 			e.RemoveAffect(who, a, nil)
 		}
 		e.curingDisease = false

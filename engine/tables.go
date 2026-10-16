@@ -2,21 +2,6 @@
 
 package engine
 
-// Frame symbols along the top row (y 0), one per column.
-var frameTop = [40]byte{0, 6, 1, 1, 1, 1, 1, 1, 6, 1, 1, 1, 1, 4, 1, 1, 1, 6, 1, 1, 1, 1, 1, 1, 1, 8, 1, 1, 1, 1, 1, 1, 1, 4, 1, 1, 1, 6, 1, 2}
-
-// Frame symbols of the separator rows of the credits and the 3D view frame.
-var frameMiddleRow = [40]byte{0, 8, 1, 1, 1, 1, 1, 1, 1, 1, 1, 6, 1, 1, 1, 8, 4, 1, 1, 1, 6, 1, 1, 1, 1, 1, 1, 1, 1, 1, 4, 1, 6, 1, 1, 1, 1, 1, 8, 2}
-
-// Frame symbols along row 23.
-var frameBottom = [40]byte{1, 8, 6, 1, 1, 1, 1, 1, 1, 1, 1, 4, 1, 1, 1, 1, 1, 6, 8, 1, 1, 1, 4, 1, 1, 1, 1, 1, 1, 6, 1, 1, 1, 1, 1, 1, 1, 1, 4, 3}
-
-// Frame symbols down the left column (x 0).
-var frameLeft = [24]byte{0, 2, 9, 5, 2, 2, 2, 2, 2, 2, 5, 7, 2, 2, 2, 2, 2, 9, 7, 2, 2, 2, 7, 1}
-
-// Frame symbols down the right column (x 39).
-var frameRight = [24]byte{2, 2, 9, 7, 2, 2, 2, 5, 2, 2, 2, 2, 2, 2, 2, 2, 2, 7, 2, 2, 2, 2, 5, 2}
-
 // The colours recolouring maps from (identity).
 var recolourFrom = [16]byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}
 
@@ -32,8 +17,8 @@ var wildMapCursorX = [32]byte{4, 12, 21, 11, 29, 20, 38, 21, 30, 31, 25, 37, 28,
 // Wilderness map cursor rows (8-pixel cells), by place.
 var wildMapCursorY = [32]byte{15, 8, 11, 4, 10, 4, 1, 2, 13, 15, 3, 5, 2, 8, 12, 13, 10, 12, 9, 9, 8, 6, 6, 3, 2, 2, 3, 2, 3, 4, 2, 1}
 
-// Race names: monster, dwarf, elf, gnome, half-elf, halfling, half-orc, human.
-var raceNames = [8]string{"Monster", "Dwarf", "Elf", "Gnome", "Half-Elf", "Halfling", "Half-Orc", "Human"}
+// Race names (raceTribble, raceElf ...).
+var raceNames = [8]string{"Tribble", "Elf", "Half-Elf", "Dwarf", "Gnome", "Halfling", "Human", "Monster"}
 
 // Gender names.
 var genderNames = [2]string{"Male", "Female"}
@@ -48,24 +33,24 @@ var alignmentNames = [9]string{"Lawful Good", "Lawful Neutral", "Lawful Evil", "
 var coinNames = [7]string{"Copper", "Silver", "Electrum", "Gold", "Platinum", "Gems", "Jewelry"}
 
 // Character status names (Status).
-var statusNames = [9]string{"Okay", "Animated", "tempgone", "Running", "Unconscious", "Dying", "Dead", "Stoned", "Gone"}
+var statusNames = [9]string{"Okay", "Animated", "tempgone", "Running", "Unconscious", "Dying", "Dead", "Petrified", "Gone"}
 
-// The words item names are made of (entry 0 unused).
-var itemWords = [252]string{"d\x00\x00\x00\x00\x00\x00\x04Gone\x00\x00\x00\x00\x00\x00\x00\x00\nBattle Axe\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\bHand Axe\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\bBardiche\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\rBec De Corbin\x00\x00\x00\x00", "Battle Axe", "Hand Axe", "Bardiche", "Bec De Corbin", "Bill-Guisarme", "Bo Stick", "Club", "Dagger", "Dart", "Fauchard", "Fauchard-Fork", "Flail", "Military Fork", "Glaive", "Glaive-Guisarme", "Guisarme", "Guisarme-Voulge", "Halberd", "Lucern Hammer", "Hammer", "Javelin", "Jo Stick", "Mace", "Morning Star", "Partisan", "Military Pick", "Awl Pike", "Quarrel", "Ranseur", "Scimitar", "Spear", "Spetum", "Quarter Staff", "Bastard Sword", "Broad Sword", "Long Sword", "Short Sword", "Two-Handed Sword", "Trident", "Voulge", "Composite Long Bow", "Composite Short Bow", "Long Bow", "Short Bow", "Heavy Crossbow", "Light Crossbow", "Sling", "Mail", "Armor", "Leather", "Padded", "Studded", "Ring", "Scale", "Chain", "Splint", "Banded", "Plate", "Shield", "Woods", "Arrow", "", "", "Potion", "Scroll", "Ring", "Rod", "Stave", "Wand", "Jug", "Amulet", "Dragon Breath", "Bag", "Defoliation", "Ice Storm", "Book", "Boots", "Hornets Nest", "Bracers", "Piercing", "Brooch", "Elfin Chain", "Wizardry", "ac10", "Dexterity", "Fumbling", "Chime", "Cloak", "Crystal", "Cube", "Cubic", "The Dwarves", "Decanter", "Gloves", "Drums", "Dust", "Thievery", "Hat", "Flask", "Gauntlets", "Gem", "Girdle", "Helm", "Horn", "Stupidity", "Incense", "Stone", "Ioun Stone", "Javelin", "Jewel", "Ointment", "Pale Blue", "Scarlet And", "Manual", "Incandescent", "Deep Red", "Pink", "Mirror", "Necklace", "And Green", "Blue", "Pearl", "Powerlessness", "Vermin", "Pipes", "Hole", "Dragon Slayer", "Robe", "Rope", "Frost Brand", "Berserker", "Scarab", "Spade", "Sphere", "Blessed", "Talisman", "Tome", "Trident", "Grimoire", "Well", "Wings", "Vial", "Lantern", "", "Flask of Oil", "10 ft. Pole", "50 ft. Rope", "Iron", "Thf Prickly Tools", "Iron Rations", "Standard Rations", "Holy Symbol", "Holy Water vial", "Unholy Water vial", "Barding", "Dragon", "Lightning", "Saddle", "Staff", "Drow", "Wagon", "+1", "+2", "+3", "+4", "+5", "of", "Vulnerability", "Cloak", "Displacement", "Torches", "Oil", "Speed", "Tapestry", "Spine", "Copper", "Silver", "Electrum", "Gold", "Platinum", "Ointment", "Keoghtum's", "Sheet", "Strength", "Healing", "Holding", "Extra", "Gaseous Form", "Slipperiness", "Jewelled", "Flying", "Treasure Finding", "Fear", "Disappearance", "Statuette", "Fungus", "Chain", "Pendant", "Broach", "Of Seeking", "-1", "-2", "-3", "Lightning Bolt", "Fire Resistance", "Magic Missiles", "Save", "Clrc Scroll", "MU Scroll", "With 1 Spell", "With 2 Spells", "With 3 Spells", "Prot. Scroll", "Jewelry", "Fine", "Huge", "Bone", "Brass", "Key", "AC 2", "AC 6", "AC 4", "AC 3", "Of Prot.", "Paralyzation", "Ogre Power", "Invisibility", "Missiles", "Elvenkind", "Rotting", "Covered", "Efreeti", "Bottle", "Missile Attractor", "Of Maglubiyet", "Secr Door & Trap Det", "Gd Dragon Control", "Feather Falling", "Giant Strength", "Restoring Level(s)", "Flame Tongue", "Fireballs", "Spiritual", "Boulder", "Diamond", "Emerald", "Opal", "Saphire", "Of Tyr", "Of Tempus", "Of Sune"}
+// The words item names are made of (entry 0 unused); an item type is also the number of its word.
+var itemWords = [126]string{"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "Two-Handed Sword", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "Mage", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "Drow", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "Giant Strength", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "1 Spell", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""}
 
-// Combat icon colours of a new character, one per icon part.
-var defaultIconColours = [6]byte{1, 2, 3, 4, 6, 7}
+// Entries 1..6: combat icon colours of a new character, one per icon part.
+var defaultIconColours = [7]byte{11, 1, 2, 3, 4, 6, 7}
 
 // Per race: the number of classes it may take, then those classes.
 var raceClasses = [8][14]byte{
 	{18, 18, 100, 50, 3, 18, 3, 18, 3, 18, 3, 18, 3, 18},
-	{3, 2, 6, 14, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 	{7, 2, 5, 6, 13, 14, 15, 16, 0, 0, 0, 0, 0, 0},
-	{3, 2, 6, 14, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 	{13, 0, 2, 5, 6, 4, 8, 10, 9, 11, 13, 14, 15, 16},
 	{3, 2, 6, 14, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-	{6, 0, 2, 6, 8, 12, 14, 0, 0, 0, 0, 0, 0, 0},
+	{3, 2, 6, 14, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+	{3, 2, 6, 14, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 	{6, 0, 2, 5, 6, 3, 4, 0, 0, 0, 0, 0, 0, 0},
+	{138, 2, 10, 10, 0, 0, 0, 0, 130, 0, 5, 6, 0, 0},
 }
 
 // Per class: the number of alignments it allows, then those alignments.
@@ -89,44 +74,58 @@ var classAlignments = [17][10]byte{
 	{7, 1, 2, 3, 4, 5, 7, 8, 0, 0},
 }
 
-// Per class and level (0..12): the THAC0 base value.
-var thac0Table = [8][13]byte{
-	{40, 40, 40, 40, 42, 42, 42, 44, 44, 44, 46, 46, 46},
-	{40, 40, 40, 40, 42, 42, 42, 44, 44, 44, 46, 46, 46},
-	{39, 40, 40, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51},
-	{40, 40, 40, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51},
-	{40, 40, 40, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51},
-	{39, 39, 39, 39, 39, 39, 41, 41, 41, 41, 41, 43, 43},
-	{40, 40, 40, 40, 40, 41, 41, 41, 41, 44, 44, 44, 44},
-	{40, 40, 40, 40, 42, 42, 42, 44, 44, 44, 46, 46, 46},
+// Per class and level (0..18): the THAC0 base value.
+var thac0Table = [7][19]byte{
+	{40, 40, 40, 40, 42, 42, 42, 44, 44, 44, 46, 46, 46, 48, 48, 48, 50, 50, 50},
+	{40, 40, 40, 40, 42, 42, 42, 44, 44, 44, 46, 46, 46, 48, 48, 48, 50, 50, 50},
+	{39, 40, 40, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57},
+	{40, 40, 40, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57},
+	{40, 40, 40, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57},
+	{39, 39, 39, 39, 39, 39, 41, 41, 41, 41, 41, 43, 43, 43, 43, 43, 46, 46, 46},
+	{40, 40, 40, 40, 40, 41, 41, 41, 41, 44, 44, 44, 44, 46, 46, 46, 46, 48, 48},
 }
 
 // Per class: the item-use bits it adds to the class mask.
-var classItemFlags = [8]byte{2, 16, 8, 64, 64, 1, 4, 32}
+var classItemFlags = [7]byte{2, 16, 8, 64, 64, 1, 4}
 
 // Per race, for the classes 0..6: starting age base (word), dice count, dice sides.
 var raceAges = [8][28]byte{
-	{6, 0, 2, 6, 8, 12, 14, 0, 0, 0, 0, 0, 0, 0, 6, 0, 2, 5, 6, 3, 4, 0, 0, 0, 0, 0, 0, 0},
-	{250, 0, 2, 20, 0, 0, 0, 0, 40, 0, 5, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 75, 0, 3, 6},
+	{3, 2, 6, 14, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 0, 2, 5, 6, 3, 4, 0, 0, 0, 0, 0, 0, 0},
 	{138, 2, 10, 10, 0, 0, 0, 0, 130, 0, 5, 6, 0, 0, 0, 0, 0, 0, 0, 0, 150, 0, 5, 6, 100, 0, 5, 6},
-	{44, 1, 3, 12, 0, 0, 0, 0, 60, 0, 5, 4, 0, 0, 0, 0, 0, 0, 0, 0, 100, 0, 2, 12, 80, 0, 5, 4},
 	{40, 0, 2, 4, 0, 0, 0, 0, 22, 0, 3, 4, 0, 0, 0, 0, 0, 0, 0, 0, 30, 0, 2, 8, 22, 0, 3, 8},
+	{250, 0, 2, 20, 0, 0, 0, 0, 40, 0, 5, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 75, 0, 3, 6},
+	{44, 1, 3, 12, 0, 0, 0, 0, 60, 0, 5, 4, 0, 0, 0, 0, 0, 0, 0, 0, 100, 0, 2, 12, 80, 0, 5, 4},
 	{0, 0, 0, 0, 0, 0, 0, 0, 20, 0, 3, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 40, 0, 2, 4},
-	{20, 0, 1, 4, 0, 0, 0, 0, 13, 0, 1, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 20, 0, 2, 4},
 	{18, 0, 1, 4, 18, 0, 1, 4, 15, 0, 1, 4, 17, 0, 1, 4, 20, 0, 1, 4, 24, 0, 2, 4, 18, 0, 1, 4},
+	{175, 0, 38, 2, 107, 3, 176, 4, 64, 6, 40, 0, 100, 0, 175, 0, 250, 0, 69, 1, 50, 0, 150, 0, 250, 0, 94, 1},
 }
 
 // Per race: the ages at which abilities change (four steps, one spare word).
 var ageSteps = [8][5]uint16{
 	{1025, 24, 1026, 18, 1025},
-	{50, 150, 250, 350, 450},
 	{175, 550, 875, 1200, 1600},
-	{90, 300, 450, 600, 750},
 	{40, 100, 175, 250, 325},
+	{50, 150, 250, 350, 450},
+	{90, 300, 450, 600, 750},
 	{33, 68, 101, 144, 199},
-	{15, 30, 45, 60, 80},
 	{20, 40, 60, 90, 120},
+	{1542, 9, 0, 0, 12},
 }
+
+// Per race: strength minimum and maximum by gender, exceptional strength maximum by gender, then minimum and maximum of int wis dex con cha.
+var raceAbilityLimits = [8][16]byte{
+	{0, 5, 10, 0, 5, 5, 10, 15, 5, 10, 10, 15, 20, 10, 12, 12},
+	{3, 3, 18, 16, 75, 0, 8, 18, 3, 18, 7, 19, 6, 18, 8, 18},
+	{3, 3, 18, 17, 90, 0, 4, 18, 3, 18, 6, 18, 6, 18, 3, 18},
+	{8, 8, 18, 17, 99, 0, 3, 18, 3, 18, 3, 17, 12, 19, 3, 16},
+	{6, 6, 18, 15, 50, 0, 7, 18, 3, 18, 3, 18, 8, 18, 3, 18},
+	{6, 6, 17, 14, 0, 0, 6, 18, 3, 17, 8, 18, 10, 19, 3, 18},
+	{3, 3, 18, 18, 100, 50, 3, 18, 3, 18, 3, 18, 3, 18, 3, 18},
+	{7, 2, 5, 6, 13, 14, 15, 16, 0, 0, 0, 0, 0, 0, 13, 0},
+}
+
+// Entries 1..10: the spells a new cleric knows (0 ends the list).
+var clericStartSpells = [11]byte{7, 1, 2, 3, 4, 5, 6, 7, 8, 0, 0}
 
 // Per race: strength min/max by gender, exceptional strength max by gender, then min/max of int wis dex con cha.
 var raceStatLimits = [8][16]byte{
@@ -161,92 +160,64 @@ var classStatMinimum = [17][6]byte{
 	{0, 9, 0, 9, 0, 0},
 }
 
-// Per class: dice count and sides of the starting hit points.
-var classHitDice = [8][2]byte{
-	{3, 6},
-	{3, 6},
-	{5, 4},
-	{5, 4},
-	{5, 4},
-	{2, 4},
-	{2, 6},
-	{5, 4},
-}
-
 // Worth of copper, silver, electrum, gold and platinum, in copper.
 var coinValues = [5]int32{1, 10, 100, 200, 1000}
 
-// Per class: the training bit of the class (trainers list the bits they train).
-var classExpMasks = [17]byte{2, 2, 8, 16, 32, 1, 4, 4, 16, 16, 16, 32, 32, 32, 64, 64, 64}
+// Per class: the training bit of the class (trainers list the bits they train; clerics and druids share one).
+var classTrainingBits = [7]byte{2, 2, 8, 16, 32, 1, 4}
 
 // Per class: the level up to which hit points are rolled.
-var classMaxHitDice = [8]byte{10, 15, 10, 10, 11, 12, 11, 19}
+var classMaxHitDice = [7]byte{10, 15, 10, 10, 11, 12, 11}
 
 // Per class: hit dice rolled at level 1.
-var classHitDiceFirst = [8]byte{1, 1, 1, 1, 2, 1, 1, 2}
+var classFirstHitDice = [7]byte{2, 1, 1, 1, 2, 1, 1}
 
 // Per class: sides of the hit dice.
-var classHitDiceSides = [8]byte{8, 8, 10, 10, 8, 4, 6, 4}
+var classHitDiceSides = [7]byte{8, 8, 10, 10, 8, 4, 6}
 
 // Per constitution score: the hit point bonus per die.
 var conHitPointBonus = [26]int8{8, 0, 0, -2, -1, -1, -1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2}
 
-// Per class (99-byte rows): longint experience thresholds; level n needs the one at index n+1.
-var expTableData = [8][99]byte{
-	{2, 2, 2, 2, 2, 2, 2, 2, 221, 5, 0, 0, 185, 11, 0, 0, 113, 23, 0, 0, 201, 50, 0, 0, 109, 107, 0, 0, 217, 214, 0, 0, 177, 173, 1, 0, 233, 110, 3, 0, 209, 221, 6, 0, 255, 255, 255, 255, 255, 255, 255, 255, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 1, 1, 0, 0, 1, 0, 0, 0, 1, 1, 1, 0},
-	{1, 0, 0, 1, 1, 1, 0, 0, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-	{0, 0, 0, 0, 0, 0, 0, 0, 209, 7, 0, 0, 161, 15, 0, 0, 65, 31, 0, 0, 81, 70, 0, 0, 185, 136, 0, 0, 113, 17, 1, 0, 73, 232, 1, 0, 145, 208, 3, 0, 33, 161, 7, 0, 177, 113, 11, 0, 65, 66, 15, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-	{0, 0, 0, 0, 0, 0, 0, 0, 191, 10, 0, 0, 125, 21, 0, 0, 225, 46, 0, 0, 193, 93, 0, 0, 201, 175, 0, 0, 25, 115, 1, 0, 153, 171, 2, 0, 49, 87, 5, 0, 97, 174, 10, 0, 145, 5, 16, 0, 255, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1},
-	{0, 0, 0, 0, 1, 0, 0, 0, 203, 8, 0, 0, 149, 17, 0, 0, 17, 39, 0, 0, 33, 78, 0, 0, 65, 156, 0, 0, 145, 95, 1, 0, 241, 73, 2, 0, 233, 110, 3, 0, 137, 245, 4, 0, 17, 235, 9, 0, 255, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0},
-	{0, 1, 0, 0, 1, 0, 0, 0, 197, 9, 0, 0, 137, 19, 0, 0, 17, 39, 0, 0, 229, 87, 0, 0, 65, 156, 0, 0, 97, 234, 0, 0, 145, 95, 1, 0, 89, 15, 2, 0, 145, 208, 3, 0, 217, 184, 5, 0, 255, 255, 255, 255, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0},
-	{1, 1, 1, 0, 0, 0, 1, 1, 227, 4, 0, 0, 197, 9, 0, 0, 137, 19, 0, 0, 17, 39, 0, 0, 33, 78, 0, 0, 5, 166, 0, 0, 113, 17, 1, 0, 177, 173, 1, 0, 1, 113, 2, 0, 97, 91, 3, 0, 193, 182, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-	{0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+// Per class: the experience each level needs (level n: entry n).
+var expTable = [7][46]int32{
+	{33686018, 33686018, 1501, 3001, 6001, 13001, 27501, 55001, 110001, 225001, 450001, 675001, 900001, 1125001, 1350001, 1575001, -1, -1, -1, 1, 0, 1, 16842752, 0, 16842752, 0, 65536, 0, 65536, 0, 257, 65792, 256, 16777216, 16777217, 256, 16842753, 16777217, 16842752, 1, 16777216, 16777217, 16777473, 0, 16843008, 16843009},
+	{0, 65793, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+	{0, 0, 2001, 4001, 8001, 18001, 35001, 70001, 125001, 250001, 500001, 750001, 1000001, 1250001, 1500001, 1750001, -1, -1, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+	{0, 0, 2751, 5501, 12001, 24001, 45001, 95001, 175001, 350001, 700001, 1050001, 1400001, 1750001, 2100001, 2460001, -1, -1, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 256, 0, 1, 0, 1, 16777216, 0, 16777216, 0, 1, 0, 65536, 0, 256, 16777216},
+	{0, 1, 2251, 4501, 10001, 20001, 40001, 90001, 150001, 225001, 325001, 650001, 975001, 1300001, 1625001, 1950001, -1, -1, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 65536, 0, 0, 1, 1, 0, 65536, 16777216, 0, 0, 256, 256, 0, 16777216, 0, 1, 16777216},
+	{0, 0, 2501, 5001, 10001, 22501, 40001, 60001, 90001, 135001, 250001, 375001, 750001, 1125001, 1500001, 1875001, -1, -1, -1, 1, 0, 1, 16842752, 0, 16777472, 0, 65536, 0, 65537, 0, 257, 0, 256, 256, 1, 16843008, 0, 16843008, 16843008, 65536, 0, 65536, 16842752, 0, 16777216, 1},
+	{1, 0, 1251, 2501, 5001, 10001, 20001, 42501, 70001, 110001, 160001, 220001, 440001, 660001, 880001, 1100001, 1320001, 1540001, 1760001, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 }
 
-// Cleric spells gained per level: entry level*5 + spell level (1..5).
-var clericSlotData = [297]byte{221, 6, 0, 255, 255, 255, 255, 255, 255, 255, 255, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 1, 1, 0, 0, 1, 0, 0, 0, 1, 1, 1, 0, 1, 0, 0, 1, 1, 1, 0, 0, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 209, 7, 0, 0, 161, 15, 0, 0, 65, 31, 0, 0, 81, 70, 0, 0, 185, 136, 0, 0, 113, 17, 1, 0, 73, 232, 1, 0, 145, 208, 3, 0, 33, 161, 7, 0, 177, 113, 11, 0, 65, 66, 15, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 191, 10, 0, 0, 125, 21, 0, 0, 225, 46, 0, 0, 193, 93, 0, 0, 201, 175, 0, 0, 25, 115, 1, 0, 153, 171, 2, 0, 49, 87, 5, 0, 97}
+// The keys 1..9 of the number pad as the scan codes Modify works with.
+var modifyKeypad = [9]byte{79, 80, 81, 75, 32, 77, 71, 72, 73}
 
-// Paladin cleric spells gained per level: entry level*5 + spell level.
-var paladinSlotData = [99]byte{174, 10, 0, 145, 5, 16, 0, 255, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 203, 8, 0, 0, 149, 17, 0, 0, 17, 39, 0, 0, 33, 78, 0, 0, 65, 156, 0, 0, 145, 95, 1, 0, 241, 73, 2, 0, 233, 110, 3, 0, 137}
+// Cleric spells gained per level: entry level*7 + spell level (1..7).
+var clericSlotData = [133]byte{8, 24, 0, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 1, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 1, 1, 0, 0, 1, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 1, 1, 0, 1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1}
 
-// Ranger spells gained per level: entry level*5 + k (k 1..3 druid, 4..5 magic-user).
-var rangerSlotData = [99]byte{245, 4, 0, 17, 235, 9, 0, 255, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 197, 9, 0, 0, 137, 19, 0, 0, 17, 39, 0, 0, 229, 87, 0, 0, 65, 156, 0, 0, 97, 234, 0, 0, 145, 95, 1, 0, 89, 15, 2, 0, 145}
+// Paladin cleric spells gained per level: entry level*7 + spell level.
+var paladinSlotData = [133]byte{137, 37, 0, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0}
 
-// Magic-user spells gained per level: entry level*5 + spell level.
-var mageSlotData = [264]byte{208, 3, 0, 217, 184, 5, 0, 255, 255, 255, 255, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 227, 4, 0, 0, 197, 9, 0, 0, 137, 19, 0, 0, 17, 39, 0, 0, 33, 78, 0, 0, 5, 166, 0, 0, 113, 17, 1, 0, 177, 173, 1, 0, 1, 113, 2, 0, 97, 91, 3, 0, 193, 182, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+// Ranger spells gained per level: entry level*7 + k (k 1..3 druid, 4..5 magic-user).
+var rangerSlotData = [133]byte{193, 29, 0, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 
-// Saving throw targets: entry class*60 + level*5 + save.
-var saveTableData = [480]byte{4, 2, 6, 5, 4, 10, 13, 14, 16, 15, 10, 13, 14, 16, 15, 10, 13, 14, 16, 15, 9, 12, 13, 15, 14, 9, 12, 13, 15, 14, 9, 12, 13, 15, 14, 7, 10, 11, 13, 12, 7, 10, 11, 13, 12, 7, 10, 11, 13, 12, 6, 9, 10, 12, 11, 6, 9, 10, 12, 11, 6, 9, 10, 12, 11, 10, 13, 14, 16, 15, 10, 13, 14, 16, 15, 10, 13, 14, 16, 15, 9, 12, 13, 15, 14, 9, 12, 13, 15, 14, 9, 12, 13, 15, 14, 7, 10, 11, 13, 12, 7, 10, 11, 13, 12, 7, 10, 11, 13, 12, 6, 9, 10, 12, 11, 6, 9, 10, 12, 11, 6, 9, 10, 12, 11, 14, 15, 16, 17, 17, 14, 15, 16, 17, 17, 13, 14, 15, 16, 16, 13, 14, 15, 16, 16, 11, 12, 13, 13, 14, 11, 12, 13, 13, 14, 10, 11, 12, 12, 13, 10, 11, 12, 12, 13, 8, 9, 10, 9, 11, 8, 9, 10, 9, 11, 7, 8, 9, 8, 10, 7, 8, 9, 8, 10, 12, 13, 14, 15, 15, 12, 13, 14, 15, 15, 11, 12, 13, 14, 14, 11, 12, 13, 14, 14, 9, 9, 11, 11, 12, 9, 9, 11, 11, 12, 8, 9, 10, 10, 11, 9, 9, 10, 10, 11, 6, 7, 8, 7, 9, 6, 7, 8, 7, 9, 5, 6, 7, 6, 8, 5, 6, 7, 6, 8, 14, 15, 16, 17, 17, 14, 15, 16, 17, 17, 13, 14, 15, 16, 16, 13, 14, 15, 16, 16, 11, 12, 13, 13, 14, 11, 12, 13, 13, 14, 10, 11, 12, 12, 13, 10, 11, 12, 12, 13, 8, 9, 10, 9, 11, 8, 9, 10, 9, 11, 7, 8, 9, 8, 10, 7, 8, 9, 8, 10, 14, 13, 11, 15, 12, 14, 13, 11, 15, 12, 14, 13, 11, 15, 12, 14, 13, 11, 15, 12, 14, 13, 11, 15, 12, 13, 11, 9, 13, 10, 13, 11, 9, 13, 10, 13, 11, 9, 13, 10, 13, 11, 9, 13, 10, 13, 11, 9, 13, 10, 11, 9, 7, 11, 8, 11, 9, 7, 11, 8, 13, 12, 14, 16, 15, 13, 12, 14, 16, 15, 13, 12, 14, 16, 15, 13, 12, 14, 16, 15, 12, 11, 12, 15, 13, 12, 11, 12, 15, 13, 12, 11, 12, 15, 13, 12, 11, 12, 15, 13, 11, 10, 10, 14, 11, 11, 10, 10, 14, 11, 11, 10, 10, 14, 11, 11, 10, 10, 14, 11, 13, 12, 14, 16, 15, 13, 12, 14, 16, 15, 13, 12, 14, 16, 15, 13, 12, 14, 16, 15, 12, 11, 12, 15, 13, 12, 11, 12, 15, 13, 12, 11, 12, 15, 13, 12, 11, 12, 15, 13, 11, 10, 10, 14, 11, 13, 11, 9, 13, 10, 11, 9, 7, 11, 8}
+// Magic-user spells gained per level: entry level*7 + spell level.
+var mageSlotData = [133]byte{156, 28, 0, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 1, 1, 1, 0, 1, 1, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0}
 
-// Saving throws by the old-class level column: entry level*5 + save.
-var oldClassSaveData = [130]byte{11, 10, 10, 14, 11, 13, 12, 14, 16, 15, 13, 12, 14, 16, 15, 13, 12, 14, 16, 15, 13, 12, 14, 16, 15, 12, 11, 12, 15, 13, 12, 11, 12, 15, 13, 12, 11, 12, 15, 13, 12, 11, 12, 15, 13, 11, 10, 10, 14, 11, 13, 11, 9, 13, 10, 11, 9, 7, 11, 8, 11, 9, 7, 11, 8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 156, 1, 8, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+// Saving throw targets: entry class*90 + level*5 + save (levels 1..18).
+var saveTableData = [635]byte{4, 2, 4, 2, 6, 10, 13, 14, 16, 15, 10, 13, 14, 16, 15, 10, 13, 14, 16, 15, 9, 12, 13, 15, 14, 9, 12, 13, 15, 14, 9, 12, 13, 15, 14, 7, 10, 11, 13, 12, 7, 10, 11, 13, 12, 7, 10, 11, 13, 12, 6, 9, 10, 12, 11, 6, 9, 10, 12, 11, 6, 9, 10, 12, 11, 5, 8, 9, 11, 10, 5, 8, 9, 11, 10, 5, 8, 9, 11, 10, 4, 7, 8, 10, 9, 4, 7, 8, 10, 9, 4, 7, 8, 10, 9, 10, 13, 14, 16, 15, 10, 13, 14, 16, 15, 10, 13, 14, 16, 15, 9, 12, 13, 15, 14, 9, 12, 13, 15, 14, 9, 12, 13, 15, 14, 7, 10, 11, 13, 12, 7, 10, 11, 13, 12, 7, 10, 11, 13, 12, 6, 9, 10, 12, 11, 6, 9, 10, 12, 11, 6, 9, 10, 12, 11, 5, 8, 9, 11, 10, 5, 8, 9, 11, 10, 5, 8, 9, 11, 10, 4, 7, 8, 10, 9, 4, 7, 8, 10, 9, 4, 7, 8, 10, 9, 14, 15, 16, 17, 17, 14, 15, 16, 17, 17, 13, 14, 15, 16, 16, 13, 14, 15, 16, 16, 11, 12, 13, 13, 14, 11, 12, 13, 13, 14, 10, 11, 12, 12, 13, 10, 11, 12, 12, 13, 8, 9, 10, 9, 11, 8, 9, 10, 9, 11, 7, 8, 9, 8, 10, 7, 8, 9, 8, 10, 5, 6, 7, 5, 8, 5, 6, 7, 5, 8, 4, 5, 6, 4, 7, 4, 5, 6, 4, 7, 3, 4, 5, 4, 6, 3, 4, 5, 4, 6, 12, 13, 14, 15, 15, 12, 13, 14, 15, 15, 11, 12, 13, 14, 14, 11, 12, 13, 14, 14, 9, 9, 11, 11, 12, 9, 9, 11, 11, 12, 8, 9, 10, 10, 11, 9, 9, 10, 10, 11, 6, 7, 8, 7, 9, 6, 7, 8, 7, 9, 5, 6, 7, 6, 8, 5, 6, 7, 6, 8, 3, 4, 5, 3, 6, 3, 4, 5, 3, 6, 2, 3, 4, 2, 5, 2, 3, 4, 2, 5, 1, 2, 3, 2, 4, 1, 2, 3, 2, 4, 14, 15, 16, 17, 17, 14, 15, 16, 17, 17, 13, 14, 15, 16, 16, 13, 14, 15, 16, 16, 11, 12, 13, 13, 14, 11, 12, 13, 13, 14, 10, 11, 12, 12, 13, 10, 11, 12, 12, 13, 8, 9, 10, 9, 11, 8, 9, 10, 9, 11, 7, 8, 9, 8, 10, 7, 8, 9, 8, 10, 5, 6, 7, 5, 8, 5, 6, 7, 5, 8, 4, 5, 6, 4, 7, 4, 5, 6, 4, 7, 3, 4, 5, 4, 6, 3, 4, 5, 4, 6, 14, 13, 11, 15, 12, 14, 13, 11, 15, 12, 14, 13, 11, 15, 12, 14, 13, 11, 15, 12, 14, 13, 11, 15, 12, 13, 11, 9, 13, 10, 13, 11, 9, 13, 10, 13, 11, 9, 13, 10, 13, 11, 9, 13, 10, 13, 11, 9, 13, 10, 11, 9, 7, 11, 8, 11, 9, 7, 11, 8, 11, 9, 7, 11, 8, 11, 9, 7, 11, 8, 11, 9, 7, 11, 8, 10, 7, 5, 9, 6, 10, 7, 5, 9, 6, 10, 7, 5, 9, 6, 13, 12, 14, 16, 15, 13, 12, 14, 16, 15, 13, 12, 14, 16, 15, 13, 12, 14, 16, 15, 12, 11, 12, 15, 13, 12, 11, 12, 15, 13, 12, 11, 12, 15, 13, 12, 11, 12, 15, 13, 11, 10, 10, 14, 11, 11, 10, 10, 14, 11, 11, 10, 10, 14, 11, 11, 10, 10, 14, 11, 10, 9, 8, 13, 9, 10, 9, 8, 13, 9, 10, 9, 8, 13, 9, 10, 9, 8, 13, 9, 9, 8, 6, 12, 7, 9, 8, 6, 12, 7}
 
 // Thief skills by level: entry level*8 + skill (1..8).
-var thiefBaseData = [96]byte{12, 11, 19, 1, 2, 3, 4, 6, 7, 30, 25, 20, 15, 10, 10, 85, 0, 35, 29, 25, 21, 15, 10, 86, 0, 40, 33, 30, 27, 20, 15, 87, 0, 45, 37, 35, 33, 25, 15, 88, 20, 50, 42, 40, 40, 31, 20, 90, 25, 55, 47, 45, 47, 37, 20, 92, 30, 60, 52, 50, 55, 43, 25, 94, 35, 65, 57, 55, 62, 49, 25, 96, 40, 70, 62, 60, 70, 56, 30, 98, 45, 80, 67, 65, 78, 63, 30, 99, 50, 90, 72, 70, 86, 70, 35, 99}
+var thiefBaseData = [145]byte{11, 12, 11, 1, 2, 3, 4, 6, 7, 30, 25, 20, 15, 10, 10, 85, 0, 35, 29, 25, 21, 15, 10, 86, 0, 40, 33, 30, 27, 20, 15, 87, 0, 45, 37, 35, 33, 25, 15, 88, 20, 50, 42, 40, 40, 31, 20, 90, 25, 55, 47, 45, 47, 37, 20, 92, 30, 60, 52, 50, 55, 43, 25, 94, 35, 65, 57, 55, 62, 49, 25, 96, 40, 70, 62, 60, 70, 56, 30, 98, 45, 80, 67, 65, 78, 63, 30, 99, 50, 90, 72, 70, 86, 70, 35, 99, 55, 100, 77, 75, 94, 77, 35, 99, 60, 105, 82, 80, 99, 85, 40, 99, 65, 110, 87, 85, 99, 93, 40, 99, 70, 115, 92, 90, 99, 99, 50, 100, 75, 125, 97, 95, 99, 99, 50, 100, 80, 125, 99, 99, 99, 99, 55, 100, 80}
 
 // Thief skill adjustment by race: entry race*8 + skill.
-var thiefRaceData = [64]int8{60, 100, 77, 75, 94, 77, 35, 99, 65, 0, 10, 15, 0, 0, 0, -10, -5, 5, -5, 0, 5, 10, 5, 0, 0, 0, 5, 10, 5, 5, 10, -15, 0, 10, 0, 0, 0, 5, 0, 0, 0, 5, 5, 5, 10, 15, 5, -15, -5, -5, 5, 5, 0, 0, 5, 5, -10, 0, 0, 0, 0, 0, 0, 0}
+var thiefRaceData = [65]int8{80, -126, 99, 99, 99, 99, 55, 100, 85, 5, -5, 0, 5, 10, 5, 0, 0, 10, 0, 0, 0, 5, 0, 0, 0, 0, 10, 15, 0, 0, 0, -10, -5, 0, 5, 10, 5, 5, 10, -15, 0, 5, 5, 5, 10, 15, 5, -15, -5, -5, 5, 5, 0, 0, 5, 5, -10, -15, -10, -10, -20, -10, -19, -5, -10}
 
 // Thief skill adjustment by dexterity: entry dex*5 + skill (1..5).
-var thiefDexData = [130]int8{0, 5, 10, 5, 0, 0, 0, 5, 10, 5, 5, 10, -15, 0, 10, 0, 0, 0, 5, 0, 0, 0, 5, 5, 5, 10, 15, 5, -15, -5, -5, 5, 5, 0, 0, 5, 5, -10, 0, 0, 0, 0, 0, 0, 0, 0, -15, -10, -10, -20, -10, -19, -5, -10, -15, -5, -5, 0, -5, -10, 0, 0, 0, 0, -5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -5, 0, 0, 0, 5, 10, 0, 5, 5, 10, 15, 5, 10, 10, 15, 20, 10, 12, 12, 8, 8, 18, 17, 99, 0, 3, 18, 3, 18, 3, 17, 12, 19, 3, 16, 3, 3, 18, 16, 75, 0, 8, 18, 3, 18, 7, 19, 6}
+var thiefDexData = [131]int8{0, 5, 10, 5, 0, 0, 10, 0, 0, 0, 5, 0, 0, 0, 0, 10, 15, 0, 0, 0, -10, -5, 0, 5, 10, 5, 5, 10, -15, 0, 5, 5, 5, 10, 15, 5, -15, -5, -5, 5, 5, 0, 0, 5, 5, -10, -15, -10, -10, -20, -10, -19, -5, -10, -15, -5, -5, 0, -5, -10, 0, 0, 0, 0, -5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -5, 0, 0, 0, 5, 10, 0, 5, 5, 10, 15, 5, 10, 10, 15, 20, 10, 12, 12, 3, 3, 18, 16, 75, 0, 8, 18, 3, 18, 7, 19, 6, 18, 8, 18, 3, 3, 18, 17, 90, 0, 4, 18, 3, 18, 6, 18, 6, 18}
 
 // The sky colour by the area's sky word.
 var skyColours = [16]byte{0, 15, 4, 11, 13, 2, 9, 14, 0, 15, 4, 11, 13, 2, 9, 14}
-
-// Symbols of the 3D view frame's top row, columns 2..14.
-var viewFrameTop = [15]byte{4, 3, 0, 6, 1, 1, 1, 1, 8, 1, 1, 4, 1, 1, 2}
-
-// Symbols of the 3D view frame's bottom row, columns 2..14.
-var viewFrameBottom = [15]byte{1, 2, 1, 4, 1, 1, 1, 1, 1, 1, 8, 4, 1, 1, 3}
-
-// Symbols of the 3D view frame's left column, rows 2..14.
-var viewFrameLeft = [15]byte{5, 2, 0, 2, 7, 2, 2, 2, 2, 5, 2, 2, 2, 2, 1}
-
-// Symbols of the 3D view frame's right column, rows 2..14.
-var viewFrameRight = [15]byte{2, 1, 2, 5, 9, 2, 2, 2, 7, 5, 2, 2, 2, 2, 3}
-
-// Symbols of the column-16 rule beside the view, rows 0..16.
-var viewDivider = [17]byte{0, 7, 5, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 5, 2, 9, 4}
 
 // Compass point names by facing 0..7.
 var directionNames = [8]string{"N", "NE", "E", "SE", "S", "SW", "W", "NW"}
@@ -257,17 +228,8 @@ var stepX = [9]int8{0, 1, 1, 1, 0, -1, -1, -1, 0}
 // Row step by facing 0..7 (8: none).
 var stepY = [9]int8{-1, -1, 0, 1, 1, 1, 0, -1, 0}
 
-// Combat screen frame symbols down column 0 (rows 0..22).
-var combatFrameLeft = [23]byte{0, 2, 9, 5, 2, 2, 2, 2, 2, 2, 5, 7, 2, 2, 2, 2, 2, 9, 7, 2, 2, 2, 1}
-
-// Combat screen frame symbols down column 22, between the map and the panel.
-var combatFrameMiddle = [23]byte{0, 7, 5, 2, 2, 2, 2, 2, 2, 2, 2, 2, 7, 5, 2, 2, 2, 2, 2, 2, 5, 2, 4}
-
-// Combat screen frame symbols down column 39.
-var combatFrameRight = [23]byte{2, 2, 9, 7, 2, 2, 2, 5, 2, 2, 2, 2, 2, 2, 2, 2, 2, 7, 2, 2, 2, 2, 2}
-
 // Combat ground tiles: move cost (255 blocks), two flags and the tile's kind.
-var groundInfo = [64][4]byte{
+var groundInfo = [29][4]byte{
 	{1, 0, 255, 0},
 	{255, 1, 2, 0},
 	{255, 1, 2, 1},
@@ -294,44 +256,9 @@ var groundInfo = [64][4]byte{
 	{1, 1, 0, 22},
 	{1, 1, 0, 23},
 	{255, 1, 2, 24},
-	{2, 2, 0, 34},
-	{1, 1, 0, 35},
-	{1, 1, 0, 36},
-	{1, 1, 0, 37},
-	{1, 1, 0, 38},
-	{1, 1, 0, 39},
-	{255, 1, 2, 0},
-	{255, 1, 2, 1},
-	{255, 1, 2, 2},
-	{255, 1, 2, 3},
-	{255, 1, 2, 4},
-	{1, 1, 0, 5},
-	{1, 1, 0, 6},
-	{1, 1, 0, 7},
-	{1, 1, 0, 8},
-	{1, 1, 0, 9},
-	{255, 1, 2, 10},
-	{255, 1, 2, 11},
-	{1, 1, 0, 12},
-	{1, 1, 0, 13},
-	{1, 1, 0, 14},
-	{1, 1, 0, 15},
-	{2, 1, 0, 16},
-	{2, 1, 0, 17},
-	{2, 1, 0, 18},
-	{2, 1, 0, 19},
-	{2, 1, 0, 20},
-	{2, 1, 0, 21},
-	{1, 1, 0, 22},
-	{1, 1, 0, 23},
-	{1, 1, 0, 24},
 	{1, 1, 0, 25},
-	{2, 1, 0, 26},
-	{2, 1, 0, 27},
-	{4, 0, 0, 28},
-	{4, 0, 0, 29},
-	{4, 0, 0, 30},
-	{4, 0, 0, 31},
+	{1, 1, 0, 26},
+	{1, 1, 0, 27},
 }
 
 // Facing of a line step by row step + 1 and column step + 1 (8: no step).
@@ -343,7 +270,7 @@ var lineStepDirs = [3][3]byte{
 
 // Squares a combatant of size 0..4 covers: column and row offsets of its four parts (-1 none).
 var footprints = [5][8]int8{
-	{1, 1, 0, 32, 1, 1, 0, 33},
+	{1, 1, 0, 28, 1, 1, 0, 29},
 	{0, 0, -1, -1, -1, -1, -1, -1},
 	{0, 0, 0, 1, -1, -1, -1, -1},
 	{0, 0, 1, 0, -1, -1, -1, -1},
@@ -391,19 +318,19 @@ var formationRows = [5][12]int8{
 }
 
 // Magic item templates read by the treasure generator: from entry n, name words n..n+2, weight n+3, price n+4, spells n+5..n+7 (low bytes).
-var itemTemplates = [57]uint16{14642, 185, 187, 64, 1, 800, 3, 99, 0, 239, 167, 64, 1, 1100, 1, 59, 0, 185, 167, 64, 1, 400, 1, 3, 0, 173, 167, 64, 1, 450, 1, 48, 0, 206, 167, 69, 1, 11000, 30, 15, 0, 226, 167, 100, 10, 15000, 0, 38, 131, 157, 167, 21, 20, 3000, 1, 51, 0}
+var itemTemplates = [57]uint16{65535, 95, 94, 53, 1, 400, 3, 99, 0, 80, 90, 53, 1, 550, 1, 59, 0, 95, 90, 53, 1, 200, 1, 62, 0, 92, 90, 53, 1, 225, 1, 57, 0, 98, 90, 51, 1, 5500, 30, 65, 0, 104, 90, 53, 1, 500, 1, 97, 0, 88, 90, 7, 20, 1500, 1, 60, 0}
 
-// The affects a paladin's Cure removes (diseases).
-var diseaseAffects = [6]byte{31, 34, 43, 44, 50, 57}
+// Entries 1..4: the affects a paladin's Cure Disease removes (diseases).
+var diseaseAffects = [5]byte{53, 31, 34, 43, 44}
 
 // Clock carries: minutes per ten, tens per hour, hours per day ... (area words 198..204).
 var clockLimits = [7]uint16{10, 10, 6, 24, 30, 12, 256}
 
 // Entries 1..4: the affects that leave a character helpless.
-var helplessAffectData = [5]byte{1, 51, 52, 53, 31}
+var helplessAffectData = [5]byte{1, 31, 51, 52, 53}
 
-// Entries 1..19: the affects a character loses when it goes out of action (O0E3:15AB).
-var downAffectData = [20]byte{255, 7, 11, 13, 21, 23, 30, 31, 32, 51, 52, 53, 58, 59, 95, 98, 136, 137, 139, 144}
+// Entries 1..14: the affects a character loses when it goes out of action (O145:13E9).
+var downAffectData = [15]byte{0, 3, 11, 21, 23, 27, 30, 31, 51, 52, 53, 91, 106, 107, 111}
 
 // The facings from a small cloud's centre to its 4 squares (stinking cloud).
 var cloudSquares4 = [4]byte{8, 2, 3, 4}
@@ -416,118 +343,135 @@ var dispelCloudSquares = [9]byte{8, 2, 3, 4, 8, 0, 1, 2, 3}
 // The facings from a large cloud's centre to its 9 squares (cloudkill); 8 is the centre.
 var cloudSquares9 = [9]byte{8, 0, 1, 2, 3, 4, 5, 6, 7}
 
-// Entries 1..4: the affects that end with the fight (O0E3:160D).
-var fightAffectData = [5]byte{0, 13, 58, 139, 144}
-
 // Spell names by spell number.
-var spellNames = [101]string{"", "Bless", "Curse", "Cure Light Wounds", "Cause Light Wounds", "Detect Magic", "Protection From Evil", "Protection from Good", "Resist Cold", "Burning Hands", "Charm Person", "Detect Magic", "Enlarge", "Reduce", "Friends", "Magic Missile", "Protection From Evil", "Protection From Good", "Read Magic", "Shield", "Shocking Grasp", "Sleep", "Find Traps", "Hold Person", "Resist Fire", "Silence, 15' Radius", "Slow Poison", "Snake Charm", "Spiritual Hammer", "Detect Invisibility", "Invisibility", "Knock", "Mirror Image", "Ray of Enfeeblement", "Stinking Cloud", "Strength", "Animate Dead", "Cure Blindness", "Cause Blindness", "Cure Disease", "Cause Disease", "Dispel Magic", "Prayer", "Remove Curse", "Bestow Curse", "Blink", "Dispel Magic", "Fireball", "Haste", "Hold Person", "Invisibility, 10' Radius", "Lightning Bolt", "Protection From Evil, 10' Radius", "Protection From Good, 10' Radius", "Protection From Normal Missiles", "Slow", "Restoration", "", "Cure Serious Wounds", "", "", "", "", "", "", "", "Cause Serious Wounds", "Neutralize Poison", "Poison", "Protection Evil, 10' Radius", "Sticks to Snakes", "Cure Critical Wounds", "Cause Critical Wounds", "Dispel Evil", "Flame Strike", "Raise Dead", "Slay Living", "Detect Magic", "Entangle", "Faerie Fire", "Invisibility to Animals", "Charm Monsters", "Confusion", "Dimension Door", "Fear", "Fire Shield", "Fumble", "Ice Storm", "Minor Globe Of Invulnerability", "Remove Curse", "Animate Dead", "Cloud Kill", "Cone of Cold", "Feeblemind", "Hold Monsters", "", "", "", "", "", "Bestow Curse"}
+var spellNames = [118]string{"", "Bless", "Curse", "Cure Light Wounds", "Cause Light Wounds", "Detect Magic", "Protection From Evil", "Protection from Good", "Resist Cold", "Burning Hands", "Charm Person", "Detect Magic", "Enlarge", "Reduce", "Friends", "Magic Missile", "Protection From Evil", "Protection From Good", "Read Magic", "Shield", "Shocking Grasp", "Sleep", "Find Traps", "Hold Person", "Resist Fire", "Silence, 15' Radius", "Slow Poison", "Snake Charm", "Spiritual Hammer", "Detect Invisibility", "Invisibility", "Knock", "Mirror Image", "Ray of Enfeeblement", "Stinking Cloud", "Strength", "Heal", "Cure Blindness", "Cause Blindness", "Cure Disease", "Cause Disease", "Dispel Magic", "Prayer", "Remove Curse", "Bestow Curse", "Blink", "Dispel Magic", "Fireball", "Haste", "Hold Person", "Invisibility, 10' Radius", "Lightning Bolt", "Protection From Evil, 10' Radius", "Protection From Good, 10' Radius", "Protection From Normal Missiles", "Slow", "Harm", "spell 57", "Cure Serious Wounds", "spell 59", "spell 60", "spell 61", "spell 62", "spell 63", "spell 64", "spell 65", "Cause Serious Wounds", "Neutralize Poison", "Poison", "Protection Evil, 10' Radius", "Sticks to Snakes", "Cure Critical Wounds", "Cause Critical Wounds", "Dispel Evil", "Flame Strike", "Raise Dead", "Slay Living", "Detect Magic", "Entangle", "Faerie Fire", "Invisibility to Animals", "Charm Monsters", "Confusion", "Dimension Door", "Fear", "Fire Shield", "Fumble", "Ice Storm", "Minor Globe Of Invulnerability", "Remove Curse", "Barkskin", "Cloud Kill", "Cone of Cold", "Feeblemind", "Hold Monsters", "spell 95", "Charm Person Or Mammal", "spell 97", "Cure Light Wounds", "spell 99", "Bestow Curse", "spell 101", "spell 102", "spell 103", "spell 104", "spell 105", "spell 106", "spell 107", "spell 108", "spell 109", "Death Spell", "Disintegrate", "Globe of Invulnerability", "Stone to Flesh", "Flesh to Stone", "Delayed Blast Fireball", "Mass Invisibility", "Power Word Stun"}
+
+// Affect names the game shows, by affect number (empty: none).
+var affectDisplayNames = [114]string{"", "Blessed", "Cursed", "Harrassed by Snakes", "Dispelling Evil", "Detecting Magic", "", "", "Protected from Evil", "Protected from Good", "Resistant to Cold", "Charmed", "Enlarged", "Barkskin", "Friendly", "Slow Poison", "Reading Magic", "Shielded", "", "Able to Find Traps", "Fire Resistant (spell)", "Silenced", "", "Carries Spiritual Hammer", "Sees Invisible", "Invisible (spell)", "", "Befuddled", "Duplicated", "Weakened", "Nauseated", "", "", "Blind", "Diseased", "Confused", "Accursed", "Blinking", "Strengthened", "Hastened", "", "Protected from Normal Missiles", "Slowed", "", "", "Protected from Evil, 10' Radius", "Protected from Good, 10' Radius", "", "", "Affected by Prayer", "Fire Shield, Hot flames", "", "Held", "Asleep", "Fire Shield, Cold flames", "POISONED", "Invisible (ring)", "Enveloped in Globe of Invulnerability", "", "", "", "Fire Resistant (ring)", "", "Within Minor Globe of Invulnerability", "", "", "", "", "Mentally Enfeebled", "Invisible to Animals", "", "Magically Highlighted", "", "Immune to Dragon Breath", "Wearing Magical Boots", "", "Immune to Disease", "Confused", "Carrying Magical Stone", "", "", "", "", "", "", "", "", "", "", "Wearing Magical Cloak", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "STUNNED", "Berserk", "", "", "", "FRIGHTENED", "", "Giant Strength"}
 
 // Spell menu headings by spell level.
 var spellLevelHeadings = [10]string{"", "1st Level", "2nd Level", "3rd Level", "4th Level", "5th Level", "6th Level", "7th Level", "8th Level", "9th Level"}
 
 // The spell table: one 16-byte record per spell number (spellEntry).
-var spellTableData = [101][16]byte{
+var spellTableData = [118][16]byte{
 	{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-	{0, 1, 6, 0, 6, 0, 10, 4, 0, 4, 1, 2, 10, 1, 0, 0},
-	{0, 1, 6, 0, 6, 0, 10, 0, 0, 4, 2, 1, 10, 3, 1, 0},
-	{0, 1, 0, 0, 0, 0, 4, 2, 0, 4, 0, 2, 5, 1, 0, 0},
-	{0, 1, 255, 0, 0, 0, 4, 0, 0, 4, 0, 1, 5, 2, 1, 0},
+	{0, 1, 6, 0, 6, 0, 10, 3, 0, 4, 1, 2, 10, 1, 0, 0},
+	{0, 1, 6, 0, 6, 0, 10, 0, 0, 4, 2, 1, 10, 1, 1, 0},
+	{0, 1, 0, 0, 0, 0, 4, 2, 0, 4, 0, 2, 5, 0, 0, 0},
+	{0, 1, 255, 0, 0, 0, 4, 0, 0, 4, 0, 1, 5, 1, 1, 0},
 	{0, 1, 3, 0, 10, 0, 0, 1, 0, 4, 5, 2, 1, 0, 0, 0},
 	{0, 1, 0, 0, 0, 3, 4, 2, 0, 4, 8, 2, 4, 1, 0, 0},
 	{0, 1, 0, 0, 0, 3, 4, 2, 0, 4, 9, 2, 4, 1, 0, 0},
 	{0, 1, 0, 0, 0, 10, 4, 2, 0, 4, 10, 2, 10, 0, 0, 0},
-	{2, 1, 0, 0, 0, 0, 4, 0, 0, 4, 0, 1, 1, 2, 1, 0},
-	{2, 1, 12, 0, 0, 0, 4, 0, 1, 4, 11, 1, 1, 4, 1, 0},
-	{2, 1, 0, 0, 0, 2, 0, 1, 0, 4, 5, 2, 1, 0, 0, 0},
-	{2, 1, 0, 2, 0, 10, 4, 2, 0, 4, 12, 2, 1, 0, 0, 0},
-	{2, 1, 0, 2, 0, 10, 4, 2, 1, 4, 13, 2, 1, 0, 1, 0},
-	{2, 1, 0, 0, 0, 1, 0, 1, 0, 4, 14, 0, 1, 0, 0, 0},
-	{2, 1, 6, 4, 0, 0, 4, 0, 0, 4, 0, 1, 1, 4, 1, 0},
-	{2, 1, 0, 0, 0, 2, 4, 2, 0, 4, 8, 2, 1, 1, 0, 0},
-	{2, 1, 0, 0, 0, 2, 4, 2, 0, 4, 9, 2, 1, 1, 0, 0},
-	{2, 1, 0, 0, 0, 2, 0, 1, 0, 4, 16, 0, 10, 0, 0, 0},
-	{2, 1, 0, 0, 0, 5, 0, 1, 0, 4, 17, 2, 1, 2, 0, 0},
-	{2, 1, 255, 0, 0, 0, 4, 0, 0, 4, 0, 1, 1, 2, 1, 0},
-	{2, 1, 3, 4, 0, 5, 9, 0, 0, 4, 53, 1, 1, 2, 1, 1},
+	{3, 1, 0, 0, 0, 0, 4, 0, 0, 4, 0, 1, 1, 2, 1, 0},
+	{3, 1, 12, 0, 60, 60, 4, 0, 1, 4, 11, 1, 1, 5, 1, 0},
+	{3, 1, 0, 0, 0, 2, 0, 1, 0, 4, 5, 2, 1, 0, 0, 0},
+	{3, 1, 0, 2, 0, 10, 4, 2, 0, 4, 12, 2, 1, 0, 0, 0},
+	{3, 1, 0, 2, 0, 10, 4, 2, 1, 4, 12, 2, 1, 0, 1, 0},
+	{3, 1, 0, 0, 0, 1, 0, 1, 0, 4, 14, 0, 1, 0, 0, 0},
+	{3, 1, 6, 4, 0, 0, 4, 0, 0, 4, 0, 1, 1, 5, 1, 0},
+	{3, 1, 0, 0, 0, 2, 4, 2, 0, 4, 8, 2, 1, 1, 0, 0},
+	{3, 1, 0, 0, 0, 2, 4, 2, 0, 4, 9, 2, 1, 1, 0, 0},
+	{3, 1, 0, 0, 0, 2, 0, 1, 0, 4, 16, 0, 10, 0, 0, 0},
+	{3, 1, 0, 0, 0, 5, 0, 1, 0, 4, 17, 2, 1, 2, 0, 0},
+	{3, 1, 255, 0, 0, 0, 4, 0, 0, 4, 0, 1, 1, 2, 1, 0},
+	{3, 1, 3, 4, 0, 5, 9, 0, 0, 4, 53, 1, 1, 4, 1, 1},
 	{0, 2, 0, 0, 30, 0, 0, 1, 0, 4, 19, 0, 5, 0, 0, 0},
-	{0, 2, 6, 0, 4, 1, 6, 0, 1, 4, 52, 1, 5, 6, 1, 0},
-	{0, 2, 0, 0, 0, 10, 4, 2, 0, 4, 20, 2, 5, 1, 0, 0},
-	{0, 2, 12, 0, 0, 2, 31, 0, 3, 4, 21, 1, 5, 4, 1, 1},
-	{0, 2, 0, 0, 0, 60, 4, 2, 0, 4, 22, 2, 1, 0, 0, 0},
+	{0, 2, 6, 0, 4, 1, 6, 0, 1, 4, 52, 1, 5, 7, 1, 0},
+	{0, 2, 0, 0, 0, 10, 4, 2, 0, 4, 20, 2, 5, 0, 0, 0},
+	{0, 2, 12, 0, 0, 2, 31, 0, 1, 4, 21, 1, 5, 2, 1, 1},
+	{0, 2, 0, 0, 0, 60, 4, 2, 0, 4, 22, 0, 1, 0, 0, 0},
 	{0, 2, 3, 0, 0, 0, 240, 0, 0, 4, 51, 1, 5, 0, 1, 0},
 	{0, 2, 3, 0, 0, 1, 0, 1, 0, 4, 23, 2, 5, 1, 0, 0},
-	{2, 2, 0, 4, 0, 5, 0, 1, 0, 4, 24, 2, 2, 1, 0, 0},
-	{2, 2, 0, 0, 0, 0, 4, 2, 0, 4, 25, 2, 2, 2, 0, 0},
-	{2, 2, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 1, 0, 0, 0},
-	{2, 2, 0, 0, 0, 2, 0, 1, 0, 4, 28, 2, 2, 3, 0, 0},
-	{2, 2, 1, 1, 0, 1, 4, 0, 1, 4, 29, 1, 2, 2, 1, 0},
-	{2, 2, 3, 0, 0, 1, 9, 0, 3, 0, 30, 1, 2, 5, 1, 1},
-	{2, 2, 0, 0, 0, 60, 0, 2, 0, 4, 38, 0, 10, 0, 0, 0},
-	{3, 7, 4, 0, 0, 0, 8, 4, 1, 4, 0, 2, 0, 2, 0, 0},
+	{3, 2, 0, 4, 0, 5, 0, 1, 0, 4, 24, 2, 2, 1, 0, 0},
+	{3, 2, 0, 0, 0, 0, 4, 2, 0, 4, 25, 2, 2, 2, 0, 0},
+	{3, 2, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 1, 0, 0, 0},
+	{3, 2, 0, 0, 0, 2, 0, 1, 0, 4, 28, 2, 2, 3, 0, 0},
+	{3, 2, 1, 1, 0, 1, 4, 0, 1, 4, 29, 1, 2, 1, 1, 0},
+	{3, 2, 3, 0, 0, 1, 9, 0, 3, 0, 30, 1, 2, 4, 1, 1},
+	{3, 2, 0, 0, 0, 60, 0, 2, 0, 4, 38, 0, 10, 0, 0, 0},
+	{0, 6, 5, 0, 0, 0, 4, 2, 0, 4, 0, 2, 0, 2, 0, 0},
 	{0, 3, 0, 0, 0, 0, 4, 2, 0, 4, 0, 2, 10, 0, 0, 0},
 	{0, 3, 255, 0, 0, 0, 4, 0, 1, 4, 33, 1, 10, 3, 1, 0},
 	{0, 3, 0, 0, 0, 0, 0, 2, 0, 4, 0, 0, 100, 0, 0, 0},
 	{0, 3, 255, 0, 0, 0, 4, 0, 1, 4, 34, 1, 100, 4, 1, 0},
-	{0, 3, 6, 0, 0, 0, 9, 2, 0, 4, 0, 2, 4, 3, 1, 1},
-	{0, 3, 0, 0, 0, 1, 0, 4, 0, 4, 49, 2, 6, 5, 0, 0},
+	{0, 3, 6, 0, 0, 0, 9, 2, 0, 4, 0, 2, 4, 1, 1, 1},
+	{0, 3, 0, 0, 0, 1, 0, 3, 0, 4, 49, 2, 6, 5, 0, 0},
 	{0, 3, 0, 0, 0, 0, 4, 2, 0, 4, 0, 2, 6, 0, 0, 0},
-	{0, 3, 255, 0, 0, 10, 4, 0, 1, 4, 36, 1, 6, 5, 1, 0},
-	{2, 3, 0, 0, 0, 1, 0, 0, 0, 4, 37, 1, 1, 2, 0, 0},
-	{2, 3, 12, 0, 0, 1, 9, 2, 0, 4, 0, 2, 3, 2, 1, 1},
-	{2, 3, 10, 1, 0, 0, 11, 0, 2, 4, 0, 1, 3, 7, 1, 3},
-	{2, 3, 6, 0, 3, 1, 10, 4, 0, 4, 39, 2, 3, 3, 0, 0},
-	{2, 3, 12, 0, 0, 2, 7, 0, 1, 4, 52, 1, 3, 6, 1, 0},
-	{2, 3, 0, 0, 0, 0, 9, 4, 0, 4, 25, 2, 3, 1, 0, 0},
-	{2, 3, 4, 1, 0, 0, 8, 0, 2, 4, 0, 1, 3, 6, 1, 0},
-	{2, 3, 0, 0, 0, 2, 4, 2, 0, 4, 45, 2, 3, 1, 0, 0},
-	{2, 3, 0, 0, 0, 2, 4, 2, 0, 4, 46, 2, 3, 2, 0, 0},
-	{2, 3, 0, 0, 0, 10, 4, 2, 0, 4, 41, 2, 3, 3, 0, 0},
-	{2, 3, 9, 1, 3, 1, 10, 0, 0, 4, 42, 1, 3, 4, 1, 0},
-	{0, 7, 0, 0, 0, 0, 4, 2, 0, 4, 0, 2, 6, 0, 0, 0},
-	{3, 6, 0, 0, 0, 0, 0, 1, 0, 4, 39, 2, 0, 3, 0, 0},
-	{0, 4, 0, 0, 0, 0, 4, 2, 0, 4, 0, 2, 7, 1, 0, 0},
-	{3, 6, 0, 0, 0, 0, 0, 1, 0, 4, 38, 2, 0, 1, 0, 0},
-	{3, 6, 4, 4, 0, 0, 4, 0, 2, 4, 0, 1, 0, 7, 1, 0},
-	{3, 6, 6, 0, 0, 0, 4, 0, 1, 0, 52, 1, 0, 7, 1, 0},
-	{3, 6, 0, 0, 0, 0, 0, 1, 0, 4, 39, 2, 0, 1, 0, 0},
-	{3, 6, 0, 0, 0, 0, 7, 4, 0, 4, 71, 2, 0, 2, 0, 0},
-	{3, 6, 7, 0, 0, 0, 11, 0, 2, 4, 0, 1, 0, 7, 1, 3},
-	{3, 6, 12, 0, 0, 0, 4, 0, 0, 4, 0, 1, 0, 6, 1, 0},
-	{0, 4, 0, 0, 0, 0, 4, 0, 0, 4, 0, 1, 7, 5, 1, 0},
+	{0, 3, 255, 0, 0, 10, 4, 0, 1, 4, 36, 1, 6, 2, 1, 0},
+	{3, 3, 0, 0, 0, 1, 0, 0, 0, 4, 37, 1, 1, 4, 0, 0},
+	{3, 3, 12, 0, 0, 1, 9, 2, 0, 4, 0, 2, 3, 1, 1, 1},
+	{3, 3, 10, 4, 0, 0, 11, 0, 2, 4, 0, 1, 3, 7, 1, 3},
+	{3, 3, 6, 0, 3, 1, 10, 3, 0, 4, 39, 2, 3, 5, 0, 0},
+	{3, 3, 12, 0, 0, 2, 7, 0, 1, 4, 52, 1, 3, 6, 1, 0},
+	{3, 3, 0, 0, 0, 0, 9, 3, 0, 4, 25, 2, 3, 1, 0, 0},
+	{3, 3, 4, 4, 0, 0, 8, 0, 2, 4, 0, 1, 3, 7, 1, 0},
+	{3, 3, 0, 0, 0, 2, 4, 2, 0, 4, 45, 2, 3, 1, 0, 0},
+	{3, 3, 0, 0, 0, 2, 4, 2, 0, 4, 46, 2, 3, 2, 0, 0},
+	{3, 3, 0, 0, 0, 10, 4, 2, 0, 4, 41, 2, 3, 3, 0, 0},
+	{3, 3, 9, 4, 3, 1, 10, 0, 0, 4, 42, 1, 3, 4, 1, 0},
+	{0, 6, 0, 0, 0, 0, 4, 0, 0, 4, 0, 1, 10, 0, 1, 0},
+	{4, 6, 0, 0, 0, 0, 0, 1, 0, 4, 39, 2, 0, 3, 0, 0},
+	{0, 4, 0, 0, 0, 0, 4, 2, 0, 4, 0, 2, 7, 0, 0, 0},
+	{4, 6, 0, 0, 0, 0, 0, 1, 0, 4, 113, 2, 0, 2, 0, 0},
+	{4, 6, 9, 0, 0, 0, 4, 0, 2, 4, 0, 1, 0, 7, 1, 0},
+	{4, 6, 6, 0, 0, 0, 4, 0, 1, 0, 52, 1, 0, 6, 1, 0},
+	{4, 6, 0, 0, 0, 0, 0, 1, 0, 4, 0, 2, 0, 0, 0, 0},
+	{4, 6, 0, 0, 0, 0, 7, 3, 0, 4, 0, 2, 0, 0, 0, 0},
+	{4, 6, 7, 0, 0, 0, 11, 0, 2, 4, 0, 1, 0, 7, 1, 3},
+	{4, 6, 12, 0, 0, 0, 4, 0, 0, 4, 0, 1, 0, 5, 1, 0},
+	{0, 4, 0, 0, 0, 0, 4, 0, 0, 4, 0, 1, 7, 3, 1, 0},
 	{0, 4, 0, 0, 0, 0, 0, 2, 0, 4, 0, 0, 7, 0, 0, 0},
 	{0, 4, 0, 0, 0, 0, 4, 0, 1, 0, 0, 1, 7, 6, 1, 0},
-	{0, 4, 3, 0, 0, 10, 4, 2, 0, 4, 45, 2, 7, 2, 0, 0},
+	{0, 4, 3, 0, 0, 10, 4, 2, 0, 4, 45, 2, 7, 1, 0, 0},
 	{0, 4, 3, 0, 0, 2, 4, 0, 0, 4, 3, 1, 7, 4, 1, 0},
 	{0, 5, 0, 0, 0, 0, 4, 2, 0, 4, 0, 2, 8, 2, 0, 0},
-	{0, 5, 255, 0, 0, 0, 4, 0, 1, 4, 0, 1, 8, 6, 1, 0},
-	{0, 5, 0, 0, 0, 1, 0, 0, 0, 4, 145, 1, 8, 3, 0, 0},
+	{0, 5, 255, 0, 0, 0, 4, 0, 1, 4, 0, 1, 8, 4, 1, 0},
+	{0, 5, 0, 0, 0, 1, 0, 0, 0, 4, 32, 1, 8, 5, 0, 0},
 	{0, 5, 6, 0, 0, 0, 4, 0, 2, 4, 0, 1, 8, 6, 1, 0},
-	{0, 5, 0, 0, 0, 0, 0, 2, 0, 4, 0, 0, 10, 1, 0, 0},
+	{0, 5, 0, 0, 0, 0, 0, 2, 0, 4, 0, 0, 10, 0, 0, 0},
 	{0, 5, 3, 0, 0, 0, 4, 0, 1, 4, 0, 1, 10, 7, 1, 0},
 	{1, 1, 3, 0, 12, 0, 0, 1, 0, 4, 5, 2, 3, 1, 0, 0},
-	{1, 1, 8, 0, 10, 0, 11, 0, 1, 4, 136, 1, 3, 3, 1, 0},
-	{1, 1, 8, 0, 0, 4, 5, 0, 1, 4, 7, 1, 3, 4, 1, 0},
+	{1, 1, 8, 0, 10, 0, 11, 0, 1, 4, 0, 1, 3, 1, 1, 0},
+	{1, 1, 8, 0, 0, 4, 5, 0, 1, 4, 71, 1, 3, 1, 1, 0},
 	{1, 1, 255, 0, 10, 1, 4, 2, 0, 4, 69, 2, 4, 1, 1, 0},
-	{2, 4, 6, 0, 0, 0, 5, 0, 1, 4, 11, 1, 4, 6, 1, 0},
-	{2, 4, 12, 0, 2, 1, 11, 0, 1, 4, 35, 1, 4, 7, 1, 0},
-	{2, 4, 0, 3, 0, 0, 8, 0, 0, 4, 0, 1, 1, 0, 1, 0},
-	{2, 4, 6, 0, 0, 1, 8, 0, 1, 4, 142, 1, 4, 6, 1, 0},
-	{2, 4, 0, 0, 2, 1, 0, 1, 0, 4, 0, 2, 4, 8, 0, 0},
-	{2, 4, 0, 1, 0, 1, 4, 0, 1, 4, 27, 1, 4, 4, 1, 0},
-	{2, 4, 0, 1, 0, 0, 10, 0, 0, 4, 0, 1, 4, 7, 1, 0},
-	{2, 4, 0, 1, 0, 1, 0, 1, 0, 4, 63, 2, 4, 5, 0, 0},
-	{2, 4, 0, 0, 0, 0, 4, 2, 0, 4, 0, 2, 4, 0, 0, 0},
-	{3, 5, 1, 0, 0, 0, 240, 4, 0, 4, 32, 2, 5, 0, 0, 0},
-	{2, 5, 2, 0, 0, 1, 9, 0, 0, 4, 0, 2, 5, 5, 1, 0},
-	{2, 5, 6, 0, 0, 0, 8, 0, 2, 4, 0, 1, 5, 6, 1, 0},
-	{2, 5, 16, 0, 0, 0, 4, 0, 1, 4, 68, 1, 5, 6, 1, 0},
-	{2, 5, 0, 1, 0, 1, 7, 0, 1, 4, 52, 1, 5, 7, 1, 0},
-	{3, 6, 0, 0, 0, 0, 0, 1, 0, 4, 73, 2, 10, 1, 0, 0},
-	{3, 6, 0, 0, 0, 0, 0, 1, 0, 4, 109, 2, 10, 1, 0, 0},
-	{3, 6, 0, 0, 0, 0, 0, 1, 0, 4, 25, 2, 0, 1, 0, 0},
-	{3, 6, 3, 0, 0, 0, 11, 0, 1, 4, 0, 1, 0, 1, 1, 0},
-	{3, 6, 0, 0, 0, 0, 0, 1, 0, 4, 0, 2, 0, 1, 0, 0},
-	{2, 4, 0, 0, 0, 10, 4, 0, 1, 4, 0, 1, 4, 4, 1, 0},
+	{3, 4, 6, 0, 0, 0, 5, 0, 1, 4, 11, 1, 4, 6, 1, 0},
+	{3, 4, 12, 0, 2, 1, 11, 0, 1, 4, 35, 1, 4, 7, 1, 0},
+	{3, 4, 0, 12, 0, 0, 8, 0, 0, 4, 0, 1, 1, 0, 1, 0},
+	{3, 4, 6, 0, 0, 1, 8, 0, 1, 4, 111, 1, 4, 6, 1, 0},
+	{3, 4, 0, 0, 2, 1, 0, 1, 0, 4, 0, 2, 4, 7, 0, 0},
+	{3, 4, 0, 4, 0, 1, 4, 0, 1, 4, 27, 1, 4, 4, 1, 0},
+	{3, 4, 0, 4, 0, 0, 10, 0, 0, 4, 0, 1, 4, 7, 1, 0},
+	{3, 4, 0, 16, 0, 1, 0, 1, 0, 4, 63, 2, 4, 6, 0, 0},
+	{3, 4, 0, 0, 0, 0, 4, 2, 0, 4, 0, 2, 4, 0, 0, 0},
+	{1, 2, 1, 0, 0, 0, 240, 3, 0, 4, 13, 2, 3, 0, 0, 0},
+	{3, 5, 2, 0, 0, 1, 9, 0, 0, 4, 0, 2, 5, 5, 1, 0},
+	{3, 5, 6, 0, 0, 0, 8, 0, 2, 4, 0, 1, 5, 6, 1, 0},
+	{3, 5, 16, 0, 0, 0, 4, 0, 1, 4, 68, 1, 5, 5, 1, 0},
+	{3, 5, 0, 2, 0, 1, 7, 0, 1, 4, 52, 1, 5, 7, 1, 0},
+	{4, 6, 0, 0, 0, 1, 0, 1, 0, 4, 73, 2, 10, 1, 0, 0},
+	{1, 2, 8, 0, 60, 60, 4, 0, 1, 4, 11, 1, 4, 5, 1, 0},
+	{4, 6, 0, 0, 0, 0, 0, 1, 0, 4, 25, 2, 0, 1, 0, 0},
+	{1, 2, 255, 0, 0, 0, 4, 2, 0, 4, 0, 2, 4, 2, 0, 0},
+	{4, 6, 0, 0, 0, 0, 0, 1, 0, 4, 0, 2, 0, 1, 0, 0},
+	{3, 4, 0, 0, 0, 10, 4, 0, 1, 4, 36, 1, 4, 4, 1, 0},
+	{4, 0, 0, 0, 0, 2, 4, 2, 0, 4, 0, 2, 3, 1, 0, 0},
+	{4, 0, 12, 0, 0, 2, 31, 0, 1, 4, 0, 1, 5, 2, 1, 1},
+	{4, 0, 0, 0, 10, 0, 0, 1, 0, 4, 0, 2, 0, 1, 0, 0},
+	{4, 0, 0, 0, 0, 0, 4, 2, 0, 4, 0, 2, 6, 0, 0, 0},
+	{4, 0, 6, 0, 6, 0, 10, 3, 0, 4, 0, 2, 10, 1, 0, 0},
+	{4, 0, 12, 0, 0, 0, 4, 0, 1, 4, 0, 1, 1, 4, 1, 0},
+	{4, 0, 0, 0, 0, 0, 4, 1, 0, 4, 0, 1, 1, 3, 1, 0},
+	{1, 9, 0, 0, 0, 0, 0, 0, 1, 4, 0, 1, 0, 0, 0, 0},
+	{3, 0, 0, 0, 0, 0, 4, 1, 0, 4, 0, 1, 1, 3, 1, 0},
+	{3, 6, 0, 4, 0, 0, 9, 0, 0, 4, 0, 1, 6, 3, 1, 0},
+	{3, 6, 0, 2, 0, 0, 4, 0, 1, 4, 0, 1, 6, 8, 1, 0},
+	{3, 6, 0, 0, 0, 1, 4, 1, 0, 4, 57, 2, 1, 3, 0, 0},
+	{3, 6, 0, 4, 0, 0, 4, 2, 0, 4, 0, 2, 6, 2, 0, 0},
+	{3, 6, 0, 4, 0, 0, 4, 0, 1, 4, 65, 1, 6, 7, 1, 0},
+	{3, 7, 10, 4, 0, 0, 11, 0, 2, 4, 0, 1, 1, 9, 1, 0},
+	{3, 7, 0, 4, 0, 0, 10, 3, 0, 4, 25, 2, 7, 3, 0, 0},
+	{3, 7, 0, 2, 0, 0, 4, 0, 0, 4, 106, 1, 1, 3, 1, 0},
 }
 
 // turnUndeadRolls = DS:0369 + 10*undead + column: the d20 a cleric needs to

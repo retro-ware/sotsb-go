@@ -5,14 +5,15 @@ import (
 	"os"
 )
 
-// Script variables (O04C:0D52 setVar, 0F16 getVar and the character values
-// behind area2 addresses, 07E4 / 0B4F).
+// Script variables (O07D:0EC7 setVar, 107E getVar and the character values
+// behind area2 addresses, 07BD / 0CAD).
 
 // Area words the setter watches.
 const (
 	areaWordRedrawA   = 253 // writing either asks for a redraw of the view
 	areaWordRedrawB   = 254
-	areaWordInside    = 230 // 0 outdoors (wilderness map), else in a dungeon
+	areaWordInside    = 230 // a change puts the party back in the dungeon
+	areaWordFacing    = 234 // reads give the facing
 	charValueBase     = scriptArea2First
 	encounterSpecialA = 990 // special writes kept for the encounter
 	encounterSpecialB = 184
@@ -42,26 +43,33 @@ const (
 	cvName         = 0
 	cvIntelligence = 21
 	cvConstitution = 24
+	cvCharismaNow  = 25
+	cvMemoFirst    = 27
+	cvMemoLast     = 101
 	cvRace         = 114
 	cvClass        = 115
+	cvMaxHP        = 118
 	cvSave2        = 155
 	cvMaxLevel     = 160
 	cvThiefFirst   = 165
 	cvThiefLast    = 172
-	cvMemoFirst    = 32
-	cvMemoLast     = 112
 	cvControl      = 184
-	cvCoinFirst    = 187 // 187, 189 .. 195: copper .. platinum
-	cvCoinLast     = 195
+	cvCoinFirst    = 187 // 187, 189 .. 197: copper .. gems
+	cvCoinLast     = 197
 	cvMageLevel    = 201
+	cvClericLevel  = 202
+	cvThiefLevel   = 203
+	cvFighterLevel = 204
+	cvPaladinLevel = 207
+	cvRangerLevel  = 208
 	cvSex          = 214
 	cvAlignment    = 216
-	cvPaladinFlag  = 228
 	cvExpValue     = 247
 	cvExpPerHP     = 249
-	cvActive       = 256
+	cvStatus       = 256
 	cvSide         = 268
 	cvDummy        = 269
+	cvHP           = 281
 	cvMove         = 283
 	cvPartyPlace   = 689
 	cvPartyPlace2  = 692
@@ -74,29 +82,41 @@ const (
 
 	controlCharmedHigh = 178 // control values above it lose 50 when set
 	controlCharmedDrop = 50
-	statusGone         = 7
-	inactiveFlag       = 128
+	scriptStatusOkay   = 1 // the status value that makes a character okay again
+	autoFlag           = 128
 	sideMonster        = 129
 	wallsReload        = 128
 )
 
-// charismaPercent: O04C:07E4's table for value 719 (charisma as a percent
-// reaction bonus).
+// scriptStatus: the status numbers scripts use for each character status
+// (statuses not listed read as 0).
+var scriptStatus = map[byte]uint16{
+	statusOkay:          scriptStatusOkay,
+	statusRunning:       6,
+	statusUnconscious:   5,
+	statusDying:         4,
+	statusDead:          3,
+	statusStoned:        7,
+	statusDisintegrated: 2,
+}
+
+// charismaPercent: value 719's table (charisma as a percent reaction
+// bonus); scores outside 3..25 give 0.
 func charismaPercent(cha byte) uint16 {
 	switch {
-	case cha <= 3:
+	case cha == 3:
 		return 0
-	case cha <= 7:
+	case cha >= 4 && cha <= 7:
 		return uint16(cha-3) * 5
-	case cha <= 12:
+	case cha >= 8 && cha <= 12:
 		return 25
-	case cha <= 15:
+	case cha >= 13 && cha <= 15:
 		return uint16(cha-12)*5 + 25
 	case cha == 16:
 		return 50
 	case cha == 17:
 		return 55
-	case cha <= 25:
+	case cha >= 18 && cha <= 25:
 		return 60
 	}
 	return 0
@@ -104,8 +124,18 @@ func charismaPercent(cha byte) uint16 {
 
 func signed(b byte) uint16 { return uint16(int16(int8(b))) }
 
-// charValue = get_player_values (O04C:07E4): a character value behind an area2
-// address of the selected character, and whether there is one.
+// classLevel: a class's level, with the old one added for a dual-classed
+// human who may use it.
+func classLevel(c *Character, class int) uint16 {
+	level := signed(c.Levels[class])
+	if oldClassUsable(c) {
+		level += signed(c.OldLevels[class])
+	}
+	return level
+}
+
+// charValue = O07D:07BD: a character value behind an area2 address of the
+// selected character, and whether there is one.
 func (e *Engine) charValue(a uint16) (uint16, bool) {
 	c := e.selected()
 	v := a - charValueBase
@@ -114,10 +144,14 @@ func (e *Engine) charValue(a uint16) (uint16, bool) {
 		return uint16(c.Stats[statInt].Value), true
 	case v == cvConstitution:
 		return uint16(c.Stats[statCon].Value), true
+	case v == cvCharismaNow:
+		return uint16(c.Stats[statCha].Value), true
 	case v == cvRace:
 		return signed(c.Race), true
 	case v == cvClass:
 		return signed(c.Class), true
+	case v == cvMaxHP:
+		return uint16(c.MaxHP), true
 	case v == cvSave2:
 		return uint16(c.Saves[1]), true
 	case v == cvMaxLevel:
@@ -129,41 +163,42 @@ func (e *Engine) charValue(a uint16) (uint16, bool) {
 	case v >= cvCoinFirst && v <= cvCoinLast && (v-cvCoinFirst)%2 == 0:
 		return c.Coins[(v-cvCoinFirst)/2], true
 	case v == cvMageLevel:
-		old := uint16(0)
-		if oldClassUsable(c) {
-			old = 1
-		}
-		return signed(c.Levels[clsMage]) + signed(c.OldLevels[clsMage])*old, true
+		return classLevel(c, clsMage), true
+	case v == cvClericLevel:
+		return classLevel(c, clsCleric), true
+	case v == cvThiefLevel:
+		return classLevel(c, clsThief), true
+	case v == cvFighterLevel:
+		return classLevel(c, clsFighter), true
+	case v == cvPaladinLevel:
+		return classLevel(c, clsPaladin), true
+	case v == cvRangerLevel:
+		return classLevel(c, clsRanger), true
 	case v == cvSex:
 		return signed(c.Sex), true
 	case v == cvAlignment:
 		return signed(c.Alignment), true
-	case v == cvPaladinFlag:
-		return uint16(c.Pad402[0] & 1), true
 	case v == cvExpValue:
 		return c.ExpValue, true
 	case v == cvExpPerHP:
 		return uint16(c.ExpPerHP), true
-	case v == cvActive:
-		r := uint16(inactiveFlag)
-		if c.Okay != 0 {
-			r = 1
+	case v == cvStatus:
+		if e.sc.noMember {
+			return 0, true
 		}
-		if e.sc.justJoined {
-			r = 0
-		}
-		e.sc.justJoined = false
-		return r, true
+		return scriptStatus[c.Status], true
 	case v == cvSide:
 		switch {
 		case c.Side == 0 && c.Auto != 0:
-			return inactiveFlag, true
+			return autoFlag, true
 		case c.Side == 1:
 			return sideMonster, true
 		}
 		return 0, true
 	case v == cvDummy:
 		return 0, true // the original returns whatever was in the result
+	case v == cvHP:
+		return uint16(c.HP), true
 	case v == cvMove:
 		return uint16(c.Move), true
 	case v == cvPartyPlace || v == cvPartyPlace2:
@@ -178,7 +213,7 @@ func (e *Engine) charValue(a uint16) (uint16, bool) {
 	return 0, false
 }
 
-// setCharValue = O04C:0B4F: after an area2 write, the character value it
+// setCharValue = O07D:0CAD: after an area2 write, the character value it
 // stands for.
 func (e *Engine) setCharValue(a, val uint16) {
 	c := e.selected()
@@ -189,7 +224,7 @@ func (e *Engine) setCharValue(a, val uint16) {
 			e.sc.nameCleared = true
 		}
 	case v >= cvMemoFirst && v <= cvMemoLast:
-		c.Memorized[v-cvMemoFirst+1] = byte(val) // offset 30 + (v-31)
+		c.Memorized[v-cvMemoFirst] = byte(val)
 	case v == cvControl:
 		if val > controlCharmedHigh {
 			val -= controlCharmedDrop
@@ -201,28 +236,24 @@ func (e *Engine) setCharValue(a, val uint16) {
 		c.ExpValue = val
 	case v == cvExpPerHP:
 		c.ExpPerHP = byte(val)
-	case v == cvActive:
-		if val >= inactiveFlag {
-			c.Okay = 0
-			if val == inactiveFlag+statusGone {
-				c.Status = statusGone
-			}
-		}
-		if val == 0 {
-			e.sc.activeCleared = true
+	case v == cvStatus:
+		if val == scriptStatusOkay {
+			c.Status, c.Okay = statusOkay, 1
 		}
 	case v == cvSide:
 		switch val {
 		case 0:
 			c.Side, c.Auto = 0, 0
-		case inactiveFlag:
+		case autoFlag:
 			c.Side, c.Auto = 0, 1
 		case sideMonster:
 			c.Side, c.Auto = 1, 1
 		}
+	case v == cvHP:
+		c.HP = byte(val)
 	case v == cvGameArea:
-		e.gameAreaBackup = e.gameArea // R5BD:0B0C
-		e.gameArea = byte(val)
+		e.gameAreaBackup = e.gameArea // R640:0AB0
+		e.gameArea = byte((val + 1) / 2)
 	case v == cvWalls1 || v == cvWalls2 || v == cvWalls3:
 		if val > wallsReload {
 			e.LoadWalldef(int(val%wallsReload), int(v-cvWalls1)/2+1)
@@ -230,11 +261,14 @@ func (e *Engine) setCharValue(a, val uint16) {
 	}
 }
 
-// getVar = O04C:0F16.
+// getVar = O07D:107E.
 func (e *Engine) getVar(a uint16) uint16 {
 	s := &e.sc
 	switch addrKindOf(a) {
 	case addrArea:
+		if a-scriptAreaFirst == areaWordFacing {
+			return uint16(s.facing)
+		}
 		return wordAt(e.area, 2*int(a-scriptAreaFirst))
 	case addrArea2:
 		if v, ok := e.charValue(a); ok {
@@ -265,6 +299,9 @@ func (e *Engine) getVar(a uint16) uint16 {
 	case specialPosY:
 		return signed(s.posY)
 	case specialDir:
+		if wordAt(e.area, 2*areaWordInside) == 0 {
+			return uint16(s.facing)
+		}
 		return uint16(s.facing / 2)
 	case specialWall:
 		return uint16(s.wallHere)
@@ -274,7 +311,7 @@ func (e *Engine) getVar(a uint16) uint16 {
 	return 0
 }
 
-// setVar = O04C:0D52.
+// setVar = O07D:0EC7.
 func (e *Engine) setVar(a, val uint16) {
 	s := &e.sc
 	if scriptTrace {
@@ -288,11 +325,7 @@ func (e *Engine) setVar(a, val uint16) {
 			s.viewChanged = true
 		case w == areaWordInside && wordAt(e.area, 2*areaWordInside) != val:
 			e.lastGameState = e.gameState
-			if val == 0 {
-				e.gameState = stateWilderness
-			} else {
-				e.gameState = stateDungeon
-			}
+			e.gameState = stateDungeon
 		}
 		putWord(e.area, 2*int(w), val)
 	case addrArea2:

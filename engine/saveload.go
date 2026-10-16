@@ -6,18 +6,21 @@ import (
 	"strconv"
 )
 
-// Saved games (unit O0A1): savgamA..J.dat with the records, the script,
-// the position and the wall sets, and the party as CHRDATxN.sav files.
+// Saved games (O0F8:2813 and 2FAB): savgamA..J.dat with the area, game
+// and aux records, the position and states and the wall sets, and the
+// party as CHRDATxN.sav files.
 
-// The saved game's layout: area, area2, aux, script, then the position
-// and states, the wall slots and the party's file names.
+// The saved game's layout: area, game state, aux, then the position and
+// states, the wall slots and the party's file names.
 const (
 	saveNameSize  = 41 // string[40]
 	saveNameSlots = 8
-	saveGameSize  = 1 + 2048 + 2048 + 1024 + scriptCodeSize + 5 + 2 + 3*4 + 1 + saveNameSize*saveNameSlots
+	savePosition  = 5 // x, y, facing, the wall and the cell there
+	saveWallSlots = 3
+	saveGameSize  = 1 + 2048 + 2048 + 1024 + savePosition + 2 + saveWallSlots*4 + 1 + saveNameSize*saveNameSlots
 )
 
-// Area and area2 words a save carries the settings in.
+// Area and game bytes a save carries the settings in.
 const (
 	areaWordSpeedByte = 504 // byte offset: the game speed
 	areaWordPics      = 255 // pictures on * 2 + animation
@@ -29,7 +32,12 @@ func (e *Engine) gameFileName(letter byte) string {
 	return e.savePath("savgam" + string(letter) + ".dat")
 }
 
-// SaveGame = O0A1:3F5E: write savgamX.dat and the party's .sav files.
+// partyFileName: the saved game's file of party member n (1..).
+func partyFileName(letter byte, n int) string {
+	return "CHRDAT" + string(letter) + strconv.Itoa(n)
+}
+
+// SaveGame = O0F8:2FAB: write savgamX.dat and the party's .sav files.
 func (e *Engine) SaveGame() {
 	var key byte
 	for {
@@ -41,7 +49,7 @@ func (e *Engine) SaveGame() {
 	if key == 0 {
 		return
 	}
-	e.addSource = 0
+	e.addSource = fromSilverBlades
 	if !e.saveDirReady() {
 		return
 	}
@@ -64,12 +72,14 @@ func (e *Engine) SaveGame() {
 	b = append(b, e.area...)
 	b = append(b, e.game...)
 	b = append(b, e.aux...)
-	b = append(b, s.code[:]...)
 	b = append(b, s.posX, s.posY, s.facing, s.wallHere, s.cellHere)
 	b = append(b, e.lastGameState, e.gameState)
-	for k := 0; k < 3; k++ {
+	for k := 0; k < saveWallSlots; k++ {
 		b = binary.LittleEndian.AppendUint16(b, uint16(int16(e.mapPairA[k])))
 		b = binary.LittleEndian.AppendUint16(b, uint16(int16(e.mapPairB[k])))
+	}
+	if len(e.party) == 0 {
+		e.displayAndWait(colourYellow, colourBlack, "WARNING: Problem Saving Characters")
 	}
 	b = append(b, byte(len(e.party)))
 	var names [saveNameSlots * saveNameSize]byte
@@ -77,7 +87,7 @@ func (e *Engine) SaveGame() {
 		if i >= saveNameSlots {
 			break
 		}
-		n := "CHRDAT" + string(key) + strconv.Itoa(i+1)
+		n := partyFileName(key, i+1)
 		names[i*saveNameSize] = byte(len(n))
 		copy(names[i*saveNameSize+1:], n)
 	}
@@ -87,25 +97,16 @@ func (e *Engine) SaveGame() {
 		return
 	}
 	for i, c := range e.party {
-		e.SaveCharacter(c, "CHRDAT"+string(key)+strconv.Itoa(i+1))
+		e.SaveCharacter(c, partyFileName(key, i+1))
 		e.removeCharacterFiles(c)
 	}
-	e.textWaiting = true
+	e.saved = true
 	e.ClearRow24()
 }
 
-// removeCharacterFiles = O0A1:0C90 remove_player_file (c): the roster
-// files of a character now kept in the saved game.
-func (e *Engine) removeCharacterFiles(c *Character) {
-	base := makeFileName(c.Name())
-	for _, ext := range []string{extCharacter, extItems, extAffects} {
-		os.Remove(e.savePath(base + ext))
-	}
-}
-
-// LoadGame = O0A1:37A9 loadGame: pick a saved game and read it back.
+// LoadGame = O0F8:2813: pick a saved game and read it back.
 func (e *Engine) LoadGame() {
-	e.addSource = 0
+	e.addSource = fromSilverBlades
 	if !e.saveDirReady() {
 		return
 	}
@@ -139,35 +140,34 @@ func (e *Engine) LoadGame() {
 	e.loadedGame = true
 	s := &e.sc
 	p := 0
-	rd := func(n int) []byte { r := b[p : p+n]; p += n; return r }
-	e.gameArea = rd(1)[0]
-	copy(e.area, rd(len(e.area)))
-	copy(e.game, rd(len(e.game)))
-	copy(e.aux, rd(len(e.aux)))
-	copy(s.code[:], rd(scriptCodeSize))
-	pos := rd(5)
+	read := func(n int) []byte { r := b[p : p+n]; p += n; return r }
+	e.gameArea = read(1)[0]
+	copy(e.area, read(len(e.area)))
+	copy(e.game, read(len(e.game)))
+	copy(e.aux, read(len(e.aux)))
+	pos := read(savePosition)
 	s.posX, s.posY, s.facing, s.wallHere, s.cellHere = pos[0], pos[1], pos[2], pos[3], pos[4]
-	e.lastGameState = rd(1)[0]
-	e.gameState = rd(1)[0]
-	for k := 0; k < 3; k++ {
-		e.mapPairA[k] = int(int16(binary.LittleEndian.Uint16(rd(2))))
-		e.mapPairB[k] = int(int16(binary.LittleEndian.Uint16(rd(2))))
+	e.lastGameState = read(1)[0]
+	e.gameState = read(1)[0]
+	for k := 0; k < saveWallSlots; k++ {
+		e.mapPairA[k] = int(int16(binary.LittleEndian.Uint16(read(2))))
+		e.mapPairB[k] = int(int16(binary.LittleEndian.Uint16(read(2))))
 	}
-	count := int(rd(1)[0])
-	names := rd(saveNameSlots * saveNameSize)
+	count := int(read(1)[0])
+	names := read(saveNameSlots * saveNameSize)
 	pics := wordAt(e.area, 2*areaWordPics)
-	e.picturesOn = pics>>1 != 0
-	e.loadingMessage = pics&1 != 0
+	e.picturesOn = pics/2 != 0
+	e.loadingMessage = pics%2 != 0
 	e.gameSpeed = e.area[areaWordSpeedByte]
-	putWord(e.game, 2*cvPartyCount, 0)
+	e.setPartyCount(0)
 	e.party, e.partySel = nil, 0
 	for i := 0; i < count && i < saveNameSlots; i++ {
-		ps := names[i*saveNameSize:]
-		n := min(int(ps[0]), saveNameSize-1)
-		name := makeFileName(removeSubstr(string(ps[1:1+n]), "."))
+		entry := names[i*saveNameSize:]
+		n := min(int(entry[0]), saveNameSize-1)
+		name := makeFileName(removeSubstr(string(entry[1:1+n]), "."))
 		if e.fileExists(e.savePath(name + extGameCharacter)) {
 			c := &Character{}
-			if e.LoadCharacter(name, c, true) {
+			if e.LoadCharacter(name+extGameCharacter, c) {
 				e.AddToParty(c)
 			}
 		}
@@ -185,16 +185,13 @@ func (e *Engine) LoadGame() {
 	}
 	e.partySel = 0
 	e.gameArea = e.game[gameAreaByte]
-	e.symDAX = "8X8D" + e.areaDigit()
 	if wordAt(e.area, 2*areaWordFreeSteps) != 0 {
-		if e.gameState != stateStartMenu {
-			if e.mapPairA[0] > 0 {
-				e.loadGeo(byte(wordAt(e.area, 2*areaWordGeo)))
-			}
-			for k := 0; k < 3; k++ {
-				if e.mapPairA[k] > 0 {
-					e.LoadWalldef(e.mapPairA[k]&0xFF, e.mapPairB[k]&0xFF)
-				}
+		if e.mapPairA[0] > 0 {
+			e.loadGeo(e.area[2*areaWordGeo])
+		}
+		for k := 0; k < saveWallSlots; k++ {
+			if e.mapPairA[k] > 0 {
+				e.LoadWalldef(int(byte(e.mapPairA[k])), int(byte(e.mapPairB[k])))
 			}
 		}
 	} else {

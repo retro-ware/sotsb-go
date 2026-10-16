@@ -10,10 +10,10 @@ func (e *Engine) combatSetup() {
 	e.ClearRow24()
 	e.gameDelay()
 	e.DisplayString(0, 0x18, 0xA, "A battle begins...")
-	e.v6E30, e.combatRound, e.rv.hitRoll = 0, 0, 0
+	e.computerMagic, e.combatRound, e.rv.hitRoll = false, 0, 0
 	e.roundLimit = combatRoundsWithoutAttack
 	e.nbodies = 0
-	e.stinkingClouds, e.poisonClouds = nil, nil
+	e.stinkingClouds, e.poisonClouds, e.delayedBlasts = nil, nil, nil
 	e.thrownItem = nil
 	e.bodies = [10]body{}
 	putWord(e.game, 0x666, 0)
@@ -31,7 +31,6 @@ func (e *Engine) combatSetup() {
 	e.combatUseHook()
 	for _, c := range e.party {
 		e.affectGroup(c, grpRound)
-		e.affectGroup(c, grpAlwaysInvisible)
 	}
 	e.monsterHPPercent()
 	e.gameState = stateCombat
@@ -79,6 +78,7 @@ func (e *Engine) combatBlocks() {
 		if c.Side == sideParty && c.Combat.Extra == 1 && (m == 0 || m > 0x66) {
 			c.Control = byte(wordAt(e.game, 0x58C) + 0x80)
 		}
+		c.Combat.HasSpells = 1
 	}
 }
 

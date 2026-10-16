@@ -1,11 +1,32 @@
 package engine
 
-// The computer-controlled turn, ported from O05A: monster AI, and party
-// members under AI control or fleeing. Called from the combat loop (ovr09).
+// The computer-controlled turn (unit O090): monsters, and party members
+// under computer control or fleeing. Called from the combat loop.
 
-// o10_000F = O05A:004B (char): one computer turn. Picks the move pattern,
-// then spells, then moves and attacks until the turn is used.
-func (e *Engine) o10_000F(c *Character) {
+// Computer turn limits and values.
+const (
+	delayWaiting        = 20 // the Delay of one who waits for the end of the round
+	aiMaxTries          = 20 // attack tries before the computer gives up
+	aiPasses            = 7  // spell choice passes, from the strongest wish down
+	aiPicksPerPass      = 3  // memorised spells tried each pass
+	movePatternCount    = 6
+	stepTries           = 5 // directions a move pattern tries
+	noStepYet           = 8 // lastStep before the first step
+	cloudkillLevelProof = 7 // from this many hit dice up the computer walks into Cloudkill
+	moraleLimit         = 102
+	statusSurrendered   = statusUnconscious // what KillCharacter makes of one who surrenders
+	keyMagicToggle      = '2'
+	keyEveryoneWaits    = ' '
+	keyGodIntervene     = '-'
+)
+
+// anyRange: pickAttackTarget and buildNear look at every distance.
+const anyRange = 255
+
+// computerTurn = O090:000F (char): one computer turn. It picks the move
+// pattern, may flee, uses an item or a spell, then moves and attacks until
+// the turn is used.
+func (e *Engine) computerTurn(c *Character) {
 	done := e.aiKeys(c)
 	e.ClearRow24()
 	e.clearCombatText()
@@ -13,16 +34,16 @@ func (e *Engine) o10_000F(c *Character) {
 		done = e.endTurn(c)
 	}
 	ci := c.Combat
-	d := ci.Pattern
-	if d == 0 || d > 4 || e.Dice(1, 4) == 1 {
-		d = byte(e.Dice(1, 8))
-		if d == 8 {
-			d = byte(e.Dice(1, 2) + 4)
+	pattern := ci.Pattern
+	if pattern == 0 || pattern > 4 || e.Dice(1, 4) == 1 {
+		pattern = byte(e.Dice(1, 8))
+		if pattern == 8 {
+			pattern = byte(e.Dice(1, 2) + 4)
 		} else {
-			d = byte(e.Dice(1, 4)) // the first roll is thrown away
+			pattern = byte(e.Dice(1, 4)) // the first roll is thrown away
 		}
 	}
-	ci.Pattern = d
+	ci.Pattern = pattern
 	if !done {
 		done = e.aiFleeCheck(c)
 	}
@@ -33,16 +54,12 @@ func (e *Engine) o10_000F(c *Character) {
 		return
 	}
 	if e.aiCastFromItem(c) {
-		done = e.endTurn(c)
+		e.endTurn(c)
 		return
 	}
 	if ci.Spell > 0 {
 		e.CastSpell(ci.Spell, 1, 1, &done)
-		done = e.endTurn(c)
-		return
-	}
-	if e.aiTryCast(c) {
-		done = e.endTurn(c)
+		e.endTurn(c)
 		return
 	}
 	if e.aiCastKnown(c) {
@@ -51,7 +68,7 @@ func (e *Engine) o10_000F(c *Character) {
 	e.aiPickWeapon(c)
 	done = e.aiKeys(c)
 	for !done {
-		if e.pickAttackTarget(c, 0xFF, 1, 0) && int8(ci.Delay) > 0 && c.Okay != 0 {
+		if e.pickAttackTarget(c, anyRange, 1, 0) && int8(ci.Delay) > 0 && c.Okay != 0 {
 			done = e.aiAttackLoop(c)
 		} else {
 			done = e.aiGiveUp(c)
@@ -59,45 +76,29 @@ func (e *Engine) o10_000F(c *Character) {
 	}
 }
 
-// aiTryCast = O05A:024B (char): a cleric (or one who was a cleric before
-// changing class) with no turn used turns the undead in reach.
-func (e *Engine) aiTryCast(c *Character) bool {
-	if c.Combat.TurnUsed == 0 && (int8(c.Levels[clsCleric]) > 0 ||
-		int8(c.OldLevels[clsCleric]) > int8(c.MulticlassLevel)) {
-		var t *Character
-		if e.weakestFoe(c, &t) {
-			e.turnUndead(c)
-			return true
-		}
-	}
-	return false
-}
-
-// Spell table fields read by the computer's spell choice (DS:37E9..37EB;
-// the table starts at DS:37DC). spellAimField (14) says whether it looks
-// for targets.
+// Spell table fields read by the computer's spell choice.
 const (
 	spellSaveTypeField = 9  // the saving throw kind against it
-	spellAIPowerField  = 13 // the highest pass (7 down to 1) at which the AI uses it
+	spellAIPowerField  = 13 // the highest pass (7 down to 1) at which the computer uses it
 	spellAIRadiusField = 15 // area radius; 0: one target only
 )
 
 // spellSaveNone: a spell whose save does nothing harms its own side freely.
 const spellSaveNone = 1
 
-// Save bonus of those caught by the AI's area spell: the party's members
-// save worse, monsters better.
+// Save bonus of those caught by the computer's area spell: the party's
+// members save worse, monsters better.
 const (
 	aiAreaSaveParty    = -2
 	aiAreaSaveMonsters = 8
 )
 
-// canCast = O05A:03B1 (char, spell, level): may the computer cast the
-// spell at this pass: the pass fits and an area spell must not catch
-// one of its own side who fails the save.
-func (e *Engine) canCast(c *Character, spell, level int) bool {
+// canCast = O090:02F0 (char, spell, pass): may the computer cast the spell
+// at this pass: the pass fits, and an area spell must not catch one of
+// its own side who fails the save.
+func (e *Engine) canCast(c *Character, spell, pass int) bool {
 	s := spellTable[spell]
-	if int(s[spellAIPowerField]) < level {
+	if int(s[spellAIPowerField]) < pass {
 		return false
 	}
 	if spell != spellCureLightWounds && s[spellAimField] == 0 {
@@ -116,26 +117,24 @@ func (e *Engine) canCast(c *Character, spell, level int) bool {
 	if s[spellAIRadiusField] == 0 {
 		return true
 	}
-	// O05A:02AF (nested): does the area at x, y catch one of the caster's
-	// side who fails the save.
+	// O090:01F0: does the area at x, y catch one of the caster's side who
+	// fails the save.
 	catchesOwn := func(x, y int) bool {
-		r := false
+		caught := false
 		bonus := aiAreaSaveMonsters
-		if e.selected().Side == 0 {
+		if e.selected().Side == sideParty {
 			bonus = aiAreaSaveParty
 		}
-		e.buildNear(x, y, int(s[spellAIRadiusField]), 0xFF, 1)
-		foes := otherSide(e.selected())
-		for i := 1; i <= len(e.near.list); i++ {
-			w := e.combatant(e.near.list[i-1].index)
-			if w.Side == foes || s[spellSaveField] == spellSaveNone {
-				continue
-			}
-			if !e.SavingThrow(w, int(s[spellSaveTypeField]), bonus) {
-				r = true
+		e.buildNear(x, y, int(s[spellAIRadiusField]), anyRange, 1)
+		foes := opposingSide(e.selected())
+		for _, near := range e.near.list {
+			w := e.combatant(near.index)
+			if w.Side != foes && s[spellSaveField] != spellSaveNone &&
+				!e.SavingThrow(w, int(s[spellSaveTypeField]), bonus) {
+				caught = true
 			}
 		}
-		return r
+		return caught
 	}
 	for i := 1; i <= n; i++ {
 		p := e.cpos[e.targets[i]]
@@ -146,141 +145,148 @@ func (e *Engine) canCast(c *Character, spell, level int) bool {
 	return true
 }
 
-// aiCastFromItem = O05A:04AA (char): try to use an item that casts a
-// spell the computer can cast; true when one was used.
+// Item spells past this number are numbered 23 higher than the spells.
+const (
+	itemSpellShiftFrom = 56
+	itemSpellShift     = 23
+)
+
+// aiCastFromItem = O090:03E9 (char): use a readied item that casts a spell
+// the computer may cast; true when one was used.
 func (e *Engine) aiCastFromItem(c *Character) bool {
-	r := false
-	var found *Item
-	lvl := 7
-	rounds := e.Dice(1, 7)
-	if c.Combat.CanUse == 0 || e.rv.side[otherSide(c)] == 0 || wordAt(e.area, 0x1CA) != 0 {
+	if c.Combat.CanUse == 0 || e.rv.side[opposingSide(c)] <= 0 || wordAt(e.area, 2*areaWordNoMagic) != 0 {
 		return false
 	}
-	for k := 1; k <= rounds; k++ {
-		for _, p := range c.Items {
+	var found *Item
+	pass := aiPasses
+	rounds := e.Dice(1, aiPasses)
+	for round := 1; round <= rounds; round++ {
+		for _, it := range c.Items {
 			if found != nil {
 				break
 			}
-			sp := p.Spells[1]
-			if !e.isScroll(p) && p.Spells[2] < 0x80 && p.Readied != 0 && sp > 0 {
-				if sp > 0x38 {
-					sp -= 0x17
+			spell := it.Spells[1]
+			if !e.isScroll(it) && it.Spells[2] < itemPowerFlag && it.Readied != 0 && spell > 0 {
+				if spell > itemSpellShiftFrom {
+					spell -= itemSpellShift
 				}
-				if e.canCast(c, int(sp), lvl) {
-					found = p
+				if e.canCast(c, int(spell), pass) {
+					found = it
 				}
 			}
 		}
-		lvl--
+		pass--
 	}
-	if found != nil {
-		e.useItem(found)
-		r = true
+	if found == nil {
+		return false
 	}
-	return r
+	e.useItem(found)
+	return true
 }
 
-// aiCastKnown = O05A:060B (char): pick a memorised spell the
-// computer may cast, trying lower levels each round; true when the spell
-// call (spellMenuTargets) returned a non-empty string.
+// aiCastKnown = O090:0544 (char): cast one of the memorised spells the
+// computer may cast, trying weaker wishes each pass; true when the turn
+// was used.
 func (e *Engine) aiCastKnown(c *Character) bool {
-	var arr [len(charRecord{}.Memorized)]byte
-	n := 0
-	if c.Combat.CanCast != 0 {
-		for i := 1; i < len(c.Memorized); i++ {
-			if c.Memorized[i] > 0 {
-				arr[n] = c.Memorized[i]
-				n++
-			}
+	ci := c.Combat
+	if ci.HasSpells == 0 || ci.CanCast == 0 || e.FindAffect(c, affectFeebleminded) != nil {
+		return false
+	}
+	var known []byte
+	for i := 1; i < len(c.Memorized); i++ {
+		if c.Memorized[i] > 0 {
+			known = append(known, c.Memorized[i])
 		}
+	}
+	if len(known) == 0 {
+		ci.HasSpells = 0
+		return false
 	}
 	found := 0
-	lvl := 7
-	rounds := e.Dice(1, 7)
-	if n > 0 && (c.Control > 0x7F || e.v6E30 != 0) && e.rv.side[otherSide(c)] > 0 {
-		for it := 1; it <= rounds && found == 0; it++ {
-			for t := 1; t < 4 && found == 0; t++ {
-				sp := int(arr[e.Dice(1, n)-1])
-				if e.canCast(c, sp, lvl) {
-					found = sp
+	pass := aiPasses
+	rounds := e.Dice(1, aiPasses)
+	if (c.Control > controlHired || e.computerMagic) && e.rv.side[opposingSide(c)] > 0 {
+		for round := 1; round <= rounds && found == 0; round++ {
+			for pick := 1; pick <= aiPicksPerPass && found == 0; pick++ {
+				spell := int(known[e.Dice(1, len(known))-1])
+				if e.canCast(c, spell, pass) {
+					found = spell
 				}
 			}
-			lvl--
+			pass--
 		}
 	}
-	if found > 0 {
-		var ok bool
-		e.spellMenuTargets(found, 1, &ok)
-		return ok
+	if found == 0 {
+		return false
 	}
-	return false
+	var used bool
+	e.spellMenuTargets(found, 1, &used)
+	return used
 }
 
-// aiStepTurns = DS:02B8: for move pattern p (1..6) and try i (1..5), the
-// turn from the wanted direction at aiStepTurns[p*5+i]. The first bytes
-// are other data; pattern 0 never occurs.
-var aiStepTurns = [36]byte{137, 139, 142, 144, 31, 0,
-	8, 7, 6, 1, 2,
-	8, 1, 2, 7, 6,
-	7, 1, 8, 6, 2,
-	1, 7, 8, 2, 6,
-	8, 7, 6, 5, 4,
-	8, 1, 2, 3, 4}
-
-// cloudkillLevelProof: from this many hit dice up the AI walks into Cloudkill.
-const cloudkillLevelProof = 7
-
-func aiStepDir(pattern byte, i, dir int) int {
-	return (int(aiStepTurns[int(pattern)*5+i]) + dir) % 8
+// aiStepTurns: for move pattern p (1..6) and try i (1..5), the turn from
+// the wanted direction at aiStepTurns[p][i-1] (DS:032C).
+var aiStepTurns = [movePatternCount + 1][stepTries]byte{
+	{},
+	{8, 7, 6, 1, 2},
+	{8, 1, 2, 7, 6},
+	{7, 1, 8, 6, 2},
+	{1, 7, 8, 2, 6},
+	{8, 7, 6, 5, 4},
+	{8, 1, 2, 3, 4},
 }
 
-// aiCanStep = O05A:073B (char, i, dir, var blocked): can the combatant
-// take the i-th step of its pattern towards dir; blocked is set when the
+func aiStepDir(pattern byte, try, dir int) int {
+	return (int(aiStepTurns[pattern][try-1]) + dir) % 8
+}
+
+// groundImpassable: the movement cost of ground nobody can enter.
+const groundImpassable = 255
+
+// aiCanStep = O090:06BB (char, try, dir, var blocked): can the combatant
+// take the try-th step of its pattern towards dir; blocked is set when the
 // square is off the map. A cloud it is not proof against costs all its
-// moves unless it holds its breath (a save) or, for Cloudkill, is strong.
-func (e *Engine) aiCanStep(c *Character, i, dir int) (ok, blocked bool) {
+// moves, unless it holds its breath (a save) in a stinking cloud or has
+// the hit dice for Cloudkill.
+func (e *Engine) aiCanStep(c *Character, try, dir int) (ok, blocked bool) {
 	ci := c.Combat
-	d := aiStepDir(ci.Pattern, i, dir)
+	d := aiStepDir(ci.Pattern, try, dir)
 	who, ground, stinking, poison := e.groundAt(c, d)
 	if ground == 0 {
 		return false, true
 	}
-	if e.groundInfo(ground)[0] == 0xFF {
+	if e.groundInfo(ground)[0] == groundImpassable {
 		return false, false
 	}
 	cost := stepCost(e.groundInfo(ground)[0], d)
-	if who == 0 && cost < int(ci.Moves) {
-		has := func(a byte) bool { return e.FindAffect(c, a) != nil }
-		if stinking && !has(affectCollapse) && !has(affectCoughing) && !has(affectNoPoisonParalysis) &&
-			!has(affectNoCharmHoldSleep) && !has(affectMagicImmune) && !has(affectMinorGlobe) &&
-			ci.Turned == 0 && !e.SavingThrow(c, saveVsParalysis, 0) {
-			cost = int(ci.Moves) + 1
-		}
-		if poison && int8(c.MaxLevel) < cloudkillLevelProof && !has(affectMagicImmune) &&
-			!has(affectNoPoisonParalysis) && !has(affectNoMindAffects) && ci.Turned == 0 &&
-			!has(affectNoCharmHoldSleep) {
-			cost = int(ci.Moves) + 1
-		}
-		if int(ci.Moves) >= cost {
-			return true, false
-		}
+	if who != 0 || cost >= int(ci.Moves) {
+		return false, false
 	}
-	return false, false
+	has := func(a byte) bool { return e.FindAffect(c, a) != nil }
+	if stinking && !has(affectCoughing) && !has(affectMinorGlobe) && !has(affectGlobe) &&
+		!has(affectPoisonImmune) && ci.Turned == 0 && !e.SavingThrow(c, saveVsParalysis, 0) {
+		cost = int(ci.Moves) + 1
+	}
+	if poison && int8(c.MaxLevel) < cloudkillLevelProof && !has(affectPoisonImmune) && ci.Turned == 0 {
+		cost = int(ci.Moves) + 1
+	}
+	return int(ci.Moves) >= cost, false
 }
 
-// aiMoveStep = O05A:09D1 (char): show the movement left and take one
-// step towards the target (or a wandering direction when fleeing).
+// aiMoveStep = O090:08CE (char): show the movement left and take one step
+// towards the target (or away from the party's side when fleeing).
 func (e *Engine) aiMoveStep(c *Character) {
 	ci := c.Combat
-	e.DisplayString(0, 0x18, 0xA, "Move/Attack, Move Left = "+itoa(int(ci.Moves>>1))+" ")
+	e.DisplayString(0, statusRow, colourGreen, "Move/Attack, Move Left = "+itoa(int(ci.Moves/2))+" ")
 	if e.aiKeys(c) {
 		return
 	}
-	// hired ones only move while the monsters are not too hurt; a mage
-	// that is not fleeing moves only with armour readied
-	willing := c.Control < 0x80 || int(e.v6E2F) <= int(e.v6825)+e.Dice(1, 100) || c.Side == 1
-	if ci.Moves>>1 <= 0 || int8(ci.Delay) <= 0 || !willing ||
-		(ci.Fleeing == 0 && c.Slots[slotArmour] == nil && c.Class == clsMage) {
+	// A hired one moves only while its morale holds against the party's; a
+	// magic-user who is not fleeing moves only with armour readied (or as
+	// a dual-classed human using the old class).
+	willing := c.Control <= controlHired || int(e.partyMorale) <= int(e.rv.morale)+e.Dice(1, 100) || c.Side == sideMonsters
+	armoured := ci.Fleeing != 0 || c.Slots[slotArmour] != nil || c.Class != clsMage || oldClassUsable(c)
+	if ci.Moves/2 == 0 || int8(ci.Delay) <= 0 || !willing || !armoured {
 		e.aiGiveUp(c)
 		return
 	}
@@ -289,173 +295,167 @@ func (e *Engine) aiMoveStep(c *Character) {
 		dir = e.directionTo(c, ci.Target)
 	} else {
 		ci.Pattern = byte(e.Dice(1, 2))
-		f := int(e.partyFacing())
-		dir = f - ((f+2)%4)>>1
-		if c.Side == 0 {
+		facing := e.partyFacing()
+		dir = facing - (facing+2)%4/2
+		if c.Side == sideParty {
 			dir += 4
 		}
 		dir %= 8
-		dir = int(byte(dir))
 	}
-	var ok, blocked bool
 	done := false
-	i := 1
-	for i < 6 && !done {
-		if ok, blocked = e.aiCanStep(c, i, dir); ok {
+	try := 1
+	for try <= stepTries && !done {
+		ok, blocked := e.aiCanStep(c, try, dir)
+		if ok {
 			break
 		}
 		if ci.Fleeing != 0 && blocked {
 			done = e.fleeBattle(c)
 		} else {
-			i++
+			try++
 		}
 	}
-	var d int
 	if done {
 		ci.Moves = 0
 		ci.Fleeing = 0
-		done = e.endTurn(c)
-	} else {
-		d = aiStepDir(ci.Pattern, i, dir)
-		if i == 6 || int(e.v443C) == (d+4)%8 {
-			e.v443D++
-			ci.Pattern = byte(int(ci.Pattern)%6 + 1)
-			if e.v443D > 1 {
-				ci.Target = nil
-				if e.v443D > 2 {
-					ci.Moves = 0
-					done = true
-				} else if !e.pickAttackTarget(c, 0xFF, 1, 0) {
-					done = e.aiGiveUp(c)
-				}
+		e.endTurn(c)
+		return
+	}
+	step := 0 // the original reads the table one past the last try
+	if try <= stepTries {
+		step = aiStepDir(ci.Pattern, try, dir)
+	}
+	if try > stepTries || e.lastStep == (step+4)%8 {
+		e.stuckCount++
+		ci.Pattern = ci.Pattern%movePatternCount + 1
+		if e.stuckCount > 1 {
+			ci.Target = nil
+			if e.stuckCount > 2 {
+				ci.Moves = 0
+				done = true
+			} else if !e.pickAttackTarget(c, anyRange, 1, 0) {
+				done = e.aiGiveUp(c)
 			}
 		}
-		if i < 6 {
-			e.v443C = byte(d)
-		} else {
-			done = true
-		}
+	}
+	if try <= stepTries {
+		e.lastStep = step
+	} else {
+		done = true
 	}
 	if done {
 		return
 	}
-	e.showMoves = e.aiEngaged || e.combatOnScreen(c, false) || c.Side == 0
-	e.combatTurn(c, byte(d), 0, false)
+	e.showMoves = e.aiEngaged || e.combatOnScreen(c, false) || c.Side == sideParty
+	e.combatTurn(c, byte(step), 0, false)
 	e.leaveAttacks(c, int(ci.Facing))
 	if c.Okay == 0 {
-		done = e.endTurn(c)
+		e.endTurn(c)
 		return
 	}
 	if ci.Moves > 0 {
 		e.stepSquare(c, int(ci.Facing))
 	}
-	if c.Okay == 0 {
-		done = e.endTurn(c)
+	if c.Okay == 0 || e.isHelpless(c) {
+		e.endTurn(c)
 	}
 	e.inPoisonCloud(c, true)
 }
 
-// aiAttackLoop = O05A:0DB1 (char): move, pick a target and attack until
+// aiAttackLoop = O090:0CD6 (char): move, pick a target and attack until
 // the turn is over; true when it is.
 func (e *Engine) aiAttackLoop(c *Character) bool {
 	ci := c.Combat
-	e.v443C, e.v443D, e.v443E = 8, 0, 0
-	iter := 0
-	cont, stop := true, false
-	e.affectGroup(c, 0xE)
-	if c.Side == 0 && e.bandage(true) {
+	e.lastStep, e.stuckCount, e.stuckSteps = noStepYet, 0, 0
+	tries := 0
+	going, stop := true, false
+	e.affectGroup(c, grpAI)
+	if c.Side == sideParty && e.bandage(true) {
 		ci.Delay = 0 // a party member under the computer bandages the dying first
 	}
 	if ci.Delay == 0 {
-		cont = false
+		going = false
 	}
-	for !stop && cont {
-		for ci.Fleeing != 0 && ci.Moves > 0 && int8(ci.Delay) > 0 && int8(ci.Delay) < 0x14 {
+	for !stop && going {
+		for ci.Fleeing != 0 && ci.Moves > 0 && int8(ci.Delay) > 0 && int8(ci.Delay) < delayWaiting {
 			e.aiMoveStep(c)
 		}
-		if ci.Delay == 0 || ci.Delay == 0x14 {
-			cont = false
-		} else {
-			stop = false
-		}
-		if stop || !cont {
+		if ci.Delay == 0 || ci.Delay == delayWaiting {
+			going = false
 			continue
 		}
-		iter++
-		if iter > 0x14 {
+		tries++
+		if tries > aiMaxTries {
 			stop = true
-			cont = !e.aiGiveUp(c)
+			going = !e.aiGiveUp(c)
 		}
 		e.aiEngaged = false
-		rng := 1
-		if w := c.Slots[0]; w != nil {
-			rng = int(e.baseItem(w.Type, 0xC) - 1)
+		reach := 1
+		if w := c.Slots[slotWeapon]; w != nil {
+			reach = int(e.baseItem(w.Type, itemRange)) - 1
 		}
-		if rng == 0 || rng == 0xFF {
-			rng = 1
+		if reach <= 0 {
+			reach = 1
 		}
-		tgt := ci.Target
-		if tgt != nil && (tgt.Okay == 0 || tgt.Side == 0) {
-			tgt = nil
+		target := ci.Target
+		if target != nil && (target.Okay == 0 || target.Side == sideParty) {
+			target = nil
 		}
-		if tgt != nil && e.mayAct(c, tgt) {
-			tx, ty := e.combatX(tgt), e.combatY(tgt)
-			r := rng
-			if e.lineOfSight(&r, &tx, &ty, e.combatX(c), e.combatY(c)) && r>>1 <= rng {
+		if target != nil && e.mayAct(c, target) {
+			tx, ty := e.combatX(target), e.combatY(target)
+			distance := reach
+			if e.lineOfSight(&distance, &tx, &ty, e.combatX(c), e.combatY(c)) && distance/2 <= reach {
 				e.aiEngaged = true
 			}
 		}
 		if !e.aiEngaged {
-			n := e.nearEnemies(c, rng)
+			n := e.nearEnemies(c, reach)
 			if n == 0 {
-				if e.pickAttackTarget(c, 0xFF, 0, 0) {
+				if e.pickAttackTarget(c, anyRange, 0, 0) {
 					e.aiMoveStep(c)
 				} else {
 					stop = e.aiGiveUp(c)
 				}
 			} else {
-				r := e.Dice(1, n)
-				tgt = e.combatant(e.targets[r])
+				target = e.combatant(e.targets[e.Dice(1, n)])
 				if e.rangedWeapon(c) && !e.throwable(c) && e.nearEnemies(c, 1) > 0 {
 					e.aiPickWeapon(c)
 					stop = true
 					continue
 				}
-				if e.rangeTo(c, tgt) == 1 || e.mayAct(c, tgt) {
+				if e.rangeTo(c, target) == 1 || e.mayAct(c, target) {
 					e.aiEngaged = true
 				}
 			}
 		}
-		if e.aiEngaged {
-			e.combatCentre(e.combatX(c), e.combatY(c), 2, e.directionTo(c, tgt))
-		}
 		if !e.aiEngaged {
 			continue
 		}
-		if e.sweepAttack(c, tgt) {
+		e.combatCentre(e.combatX(c), e.combatY(c), 2, e.directionTo(c, target))
+		if e.sweepAttack(c, target) {
 			stop = e.endTurn(c)
 			continue
 		}
-		e.countAttack(c, tgt)
-		var weapon *Item
+		e.countAttack(c, target)
+		var ammo *Item
 		if e.rangedWeapon(c) {
-			e.aiEngaged = e.ammoFor(c, &weapon)
-			if e.throwable(c) && e.rangeTo(c, tgt) == 1 {
-				weapon = nil
+			e.aiEngaged = e.ammoFor(c, &ammo)
+			if e.throwable(c) && e.rangeTo(c, target) == 1 {
+				ammo = nil
 			}
 		}
-		stop = e.fullAttack(c, tgt, 0, weapon)
+		stop = e.fullAttack(c, target, 0, ammo)
 		if stop {
-			cont = false
-		} else if tgt.Okay == 0 {
+			going = false
+		} else if target.Okay == 0 {
 			stop = true
 		}
 	}
-	return !cont
+	return !going
 }
 
-// aiGiveUp = O05A:11F7 (char): the turn ends; a combatant that cannot go
-// on is cleared, otherwise it stands guard (O0ED:2833).
+// aiGiveUp = O090:1125 (char): the turn ends; a combatant that cannot go
+// on is done, otherwise it stands guard.
 func (e *Engine) aiGiveUp(c *Character) bool {
 	e.clearCombatText()
 	if e.isHelpless(c) || e.rangedWeapon(c) || c.Combat.Delay == 0 {
@@ -464,228 +464,222 @@ func (e *Engine) aiGiveUp(c *Character) bool {
 	return e.guard(c)
 }
 
-// aiKeys = O05A:1269 (char): keys during the computer turn: '2' toggles
-// magic, space ends the turn of everyone not yet moved, '-' (godIntervene).
+// aiKeys = O090:1197 (char): keys during the computer turn: '2' toggles
+// the computer's magic, space ends the computer's control of the party
+// (this one then waits), '-' calls on the gods.
 func (e *Engine) aiKeys(c *Character) bool {
-	r := false
+	waits := false
 	if e.keyWaiting() {
 		k := e.ReadKeyByte()
 		if k == 0 {
 			k = e.ReadKeyByte()
 		}
 		switch k {
-		case 0x32:
-			e.v6E30 ^= 1
-			if e.v6E30 != 0 {
+		case keyMagicToggle:
+			e.computerMagic = !e.computerMagic
+			if e.computerMagic {
 				e.printMessage("Magic On")
 			} else {
 				e.printMessage("Magic Off")
 			}
-		case 0x20:
+		case keyEveryoneWaits:
 			for _, p := range e.party {
-				if p.Control < 0x80 && p.Status != 1 {
+				if p.Control <= controlHired && p.Status != statusAnimated {
 					p.Auto = 0
 				}
 			}
 			if c.Auto == 0 {
-				c.Combat.Delay = 0x14
-				r = true
+				c.Combat.Delay = delayWaiting
+				waits = true
 			}
-		case 0x2D:
+		case keyGodIntervene:
 			e.godIntervene()
 		}
 	}
 	e.ClearKeyboard()
-	return r
+	return waits
 }
 
-// aiFleeCheck = O05A:137F (char): a forced flee, or a morale check that
-// makes the combatant flee or surrender.
+// gameWordPartyMorale: the game word with the party's morale (100 - it is
+// what the computer's side must beat to stay).
+const gameWordPartyMorale = 710
+
+// aiFleeCheck = O090:12AC (char): a forced flight, or a morale check that
+// makes a hired one or a monster flee or surrender.
 func (e *Engine) aiFleeCheck(c *Character) bool {
 	ci := c.Combat
-	r := false
 	ci.Fleeing = 0
-	e.releaseHeld(c)
 	if ci.Turned != 0 {
 		ci.Fleeing = 1
 		e.combatName(c, "is forced to flee", 10, true)
-		return r
+		return false
 	}
-	if c.Control <= 0x7F {
-		return r
+	if c.Control <= controlHired {
+		return false
 	}
-	e.v6825 = byte(int(c.Control&0x7F) * 2)
-	if e.v6825 > 0x66 {
-		e.v6825 = 0
+	e.rv.morale = c.Control & controlHired * 2
+	if e.rv.morale > moraleLimit {
+		e.rv.morale = 0
 	}
-	e.affectGroup(c, 0x11)
-	t := 100 - int(c.HP)*100/int(c.MaxHP) // cdq clobbers dx: signed word divide
-	if !(int(e.v6825) < t || e.v6825 == 0) {
-		return r
+	e.affectGroup(c, grpMorale)
+	if int(e.rv.morale) >= 100-int(c.HP)*100/int(c.MaxHP) && e.rv.morale != 0 {
+		return false
 	}
-	e.v6825 = e.v6E2F
-	e.affectGroup(c, 0x11)
-	t2 := uint16(100 - wordAt(e.game, 0x58C))
-	if !(uint16(e.v6825) < t2 || e.v6825 == 0 || c.Side == 0) {
-		return r
+	e.rv.morale = e.partyMorale
+	e.affectGroup(c, grpMorale)
+	if int(e.rv.morale) < 100-int(wordAt(e.game, 2*gameWordPartyMorale)) || e.rv.morale == 0 || c.Side == sideParty {
+		if e.maxPartyMove(c) <= e.turnMoveRate(c)/2 {
+			ci.Fleeing = 1
+			return false
+		}
+		if c.Stats[statInt].Value > 5 {
+			e.KillCharacter(c, statusSurrendered, "Surrenders")
+			return e.endTurn(c)
+		}
 	}
-	a := e.maxPartyMove(c)
-	if a <= e.turnMoveRate(c)>>1 {
-		ci.Fleeing = 1
-		e.RemoveAffect(c, affectMiscasting, nil)
-		e.RemoveAffect(c, affectVsKind3, nil)
-		return r
-	}
-	if c.Stats[statInt].Base > 5 {
-		e.KillCharacter(c, 4, "Surrenders")
-		r = e.endTurn(c)
-	}
-	return r
+	return false
 }
 
-// weaponScore = O05A:1535 (char, item): how good the item is as the
+// Base item flags and values read when the computer chooses weapons.
+const (
+	itemFlagLauncher        = 8 // needs ammunition (itemUsesArrows or itemUsesBolts)
+	itemFlagThrown          = 16
+	itemFlagStrength        = 4
+	itemFlagDexterity       = 2
+	itemFlagsThrownStrength = itemFlagThrown | itemFlagStrength
+	itemFlagsSling          = itemFlagLauncher | itemFlagDexterity
+	itemSlotWeapon          = 0
+	itemSlotShield          = 1
+	slotShield              = 1
+	alignmentPower          = itemPowerFlag + 4 // burns those not of the item's alignment
+	alignmentMask           = 15
+	weaponSpellNever        = 83 // a weapon casting this is never chosen
+)
+
+// weaponScore = O090:1439 (char, item): how good the item is as the
 // character's weapon (0 = unusable).
 func (e *Engine) weaponScore(c *Character, it *Item) int {
-	var t [16]byte
-	for i := range t {
-		t[i] = e.baseItem(it.Type, i)
-	}
-	s := byte(int(t[9]) * int(t[10]))
+	field := func(k int) byte { return e.baseItem(it.Type, k) }
+	score := field(itemDiceNormal) * field(itemSidesNormal)
 	if int8(it.Plus) > 0 {
-		s += byte(int(int8(it.Plus)) << 3)
+		score += it.Plus * 8
 	}
-	if int8(t[11]) > 0 {
-		s += byte(int(int8(t[11])) << 1)
+	if bonus := field(itemBonusNormal); int8(bonus) > 0 {
+		score += bonus * 2
 	}
-	if it.Type == 0x55 && c.Combat.Target != nil && int8(c.Combat.Target.Undead) > 0 {
-		s = 8
+	if field(itemFlags)&itemFlagLauncher != 0 {
+		score += (field(itemAttacks) - 1) * 2
 	}
-	if t[14]&8 != 0 {
-		s += byte((int(t[5]) - 1) << 1)
+	if field(itemHands) <= 1 {
+		score += 3
 	}
-	if t[1] <= 1 {
-		s += 3
+	if int(field(itemHands))+int(c.Hands) >= 3 ||
+		it.Spells[2] == alignmentPower && it.Spells[1]&alignmentMask != c.Alignment ||
+		it.Spells[1] == weaponSpellNever || it.Cursed != 0 {
+		score = 0
 	}
-	if int(c.Hands)+int(t[1]) > 3 {
-		s = 0
-	}
-	if it.Spells[2] == 0x84 && it.Spells[1]&0xF != c.Alignment {
-		s = 0
-	}
-	if it.Spells[1] == 0x53 {
-		s = 0
-	}
-	if it.Cursed != 0 {
-		s = 0
-	}
-	return int(s)
+	return int(score)
 }
 
-// aiPickWeapon = O05A:1673 (char): choose the best melee or missile
-// weapon, and the best second item, and ready them.
+// aiPickWeapon = O090:1544 (char): ready the best melee or missile weapon
+// and the best shield.
 func (e *Engine) aiPickWeapon(c *Character) {
-	tb := func(it *Item, n int) byte { return e.baseItem(it.Type, n) }
-	if w := c.Slots[0]; w != nil {
-		c.Hands -= tb(w, 1)
+	field := func(it *Item, k int) byte { return e.baseItem(it.Type, k) }
+	if w := c.Slots[slotWeapon]; w != nil {
+		c.Hands -= field(w, itemHands)
 	}
-	if w := c.Slots[1]; w != nil {
-		c.Hands -= tb(w, 1)
-	}
-	var best1, best2, best3 *Item
-	bs1, bs3 := byte(1), byte(0)
-	bs2 := byte(int(c.BaseDice[0]) * int(c.BaseSides[0]))
+	var missile, melee, shield *Item
+	missileScore, shieldScore := byte(1), byte(0)
+	meleeScore := c.BaseSides[0] * c.BaseDice[0]
 	if int8(c.BaseBonus[0]) > 0 {
-		bs2 += byte(int(int8(c.BaseBonus[0])) << 1)
+		meleeScore += c.BaseBonus[0] * 2
 	}
-	for _, p := range c.Items {
-		if tb(p, 0) == 0 && tb(p, 0xD)&c.ClassMask != 0 {
-			sc := byte(e.weaponScore(c, p))
-			f := tb(p, 0xE)
-			if (f&8 != 0 || f&0x10 != 0) && sc > bs1 {
-				best1, bs1 = p, sc
+	for _, it := range c.Items {
+		usable := field(it, itemClassFlags)&c.ClassMask != 0
+		if field(it, itemSlot) == itemSlotWeapon && usable {
+			score := byte(e.weaponScore(c, it))
+			flags := field(it, itemFlags)
+			if flags&(itemFlagLauncher|itemFlagThrown) != 0 && score > missileScore {
+				missile, missileScore = it, score
 			}
-			if f&8 == 0 && sc > bs2 {
-				best2, bs2 = p, sc
-			}
-		}
-		if tb(p, 0) == 1 && tb(p, 0xD)&c.ClassMask > 0 {
-			sc := byte(0)
-			if int8(p.Plus) >= 0 {
-				sc = byte(int(int8(p.Plus)) + 1)
-			}
-			if sc > bs3 {
-				best3, bs3 = p, sc
+			if flags&itemFlagLauncher == 0 && score > meleeScore {
+				melee, meleeScore = it, score
 			}
 		}
-	}
-	ranged := best1 != nil && tb(best1, 0xC) > 1 && tb(best1, 0xE)&0x14 == 0x14
-	var pend *Item
-	var f byte
-	if best1 != nil {
-		f = tb(best1, 0xE)
-		if f&0x10 != 0 {
-			pend = best1
-		}
-		if f&8 != 0 {
-			if f&1 != 0 {
-				pend = c.Slots[11]
+		if field(it, itemSlot) == itemSlotShield && usable {
+			score := byte(0)
+			if int8(it.Plus) >= 0 {
+				score = it.Plus + 1
 			}
-			if f&0x80 != 0 {
-				pend = c.Slots[12]
+			if score > shieldScore {
+				shield, shieldScore = it, score
 			}
 		}
 	}
-	ok := pend != nil || f == 0x0A
-	chosen := best2
-	if best1 != nil && int(bs1) > int(bs2)>>1 && ok && (ranged || e.nearEnemies(c, 1) == 0) {
-		chosen = best1
+	farReaching := missile != nil && field(missile, itemRange) > 1 &&
+		field(missile, itemFlags)&itemFlagsThrownStrength == itemFlagsThrownStrength
+	var flags byte
+	var ammo *Item
+	if missile != nil {
+		flags = field(missile, itemFlags)
+		if flags&itemFlagThrown != 0 {
+			ammo = missile
+		}
+		if flags&itemFlagLauncher != 0 {
+			if flags&itemUsesArrows != 0 {
+				ammo = c.Slots[slotArrows]
+			}
+			if flags&itemUsesBolts != 0 {
+				ammo = c.Slots[slotBolts]
+			}
+		}
 	}
-	done := false
-	ok = true
-	if w := c.Slots[0]; w != nil && (w == chosen || w.Cursed != 0) {
-		ok = false
+	armed := ammo != nil || flags == itemFlagsSling
+	chosen := melee
+	if missile != nil && missileScore > meleeScore/2 && armed && (farReaching || e.nearEnemies(c, 1) == 0) {
+		chosen = missile
 	}
-	if ok {
-		if c.Slots[0] != nil {
-			e.readyItem(c.Slots[0])
+	changed := false
+	if w := c.Slots[slotWeapon]; w == nil || w != chosen && w.Cursed == 0 {
+		if w != nil {
+			e.readyItem(w)
 		}
 		e.ApplyItems(c)
-		if w := c.Slots[1]; w != nil && w.Cursed == 0 {
-			c.Hands -= tb(w, 1)
+		if s := c.Slots[slotShield]; s != nil && s.Cursed == 0 {
+			c.Hands -= field(s, itemHands)
 		}
 		if chosen != nil {
 			e.readyItem(chosen)
 		}
-		done = true
+		changed = true
 	}
 	e.ApplyItems(c)
 	e.setSpeed(c)
-	ok = true
-	if w := c.Slots[1]; w != nil && (w == best3 || w.Cursed != 0) {
-		ok = false
+	shieldFree := true
+	if s := c.Slots[slotShield]; s != nil && (s == shield || s.Cursed != 0) {
+		shieldFree = false
 	}
 	if c.Hands > 2 {
-		// the original passes chosen even when nil
-		if w := c.Slots[1]; w == nil || w.Cursed != 0 {
-			if chosen != nil {
+		if s := c.Slots[slotShield]; s == nil || s.Cursed != 0 {
+			if chosen != nil { // the original passes it even when there is none
 				e.readyItem(chosen)
 			}
 		} else {
-			e.readyItem(w)
+			e.readyItem(s)
 		}
-		done = true
-	} else if c.Hands < 2 && ok {
-		if c.Slots[1] != nil {
-			e.readyItem(c.Slots[1])
+		changed = true
+	} else if c.Hands < 2 && shieldFree {
+		if s := c.Slots[slotShield]; s != nil {
+			e.readyItem(s)
 		}
 		e.ApplyItems(c)
-		if best3 != nil {
-			e.readyItem(best3)
+		if shield != nil {
+			e.readyItem(shield)
 		}
-		done = true
+		changed = true
 	}
 	e.ApplyItems(c)
-	if done {
+	if changed {
 		e.panelDirty = true
 		e.combatPanel(c)
 	}

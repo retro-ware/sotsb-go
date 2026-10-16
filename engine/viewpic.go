@@ -124,13 +124,11 @@ func (e *Engine) bigPicture(block byte) {
 	e.areaKind = block
 }
 
-// drawWildernessFrame = R133:0252 draw8x8_04: the screen frame with the
-// rule under the picture.
+// drawWildernessFrame: the screen frame with the rule under the picture
+// (R19D:0000 and 00C0; Silver Blades has no single routine for it).
 func (e *Engine) drawWildernessFrame() {
 	e.drawScreenFrame()
-	for x := 0; x <= screenLastCol; x++ {
-		e.Put8x8Symbol(x, viewRuleRow, int(frameMiddleRow[x])+frameRuleBase)
-	}
+	e.drawRule(viewRuleRow)
 }
 
 // drawBigPic draws the big picture at (1,1) (O110:087A's draw_picture).

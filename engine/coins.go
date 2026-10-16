@@ -434,7 +434,7 @@ func (e *Engine) appraise() bool {
 			}
 			k, _ := e.DisplayInput("You can : ", choice, colourLightMagenta, colourGreen, colourWhite, true, false)
 			if k == 'K' && !full {
-				it := &Item{Type: itemGemOrJewel, Price: value, Weight: 1}
+				it := &Item{itemRecord: itemRecord{Type: itemGemOrJewel, Price: value, Weight: 1}}
 				it.Words[2] = word
 				// Fixed: the original loses the item when the list is empty.
 				c.Items = append(c.Items, it)

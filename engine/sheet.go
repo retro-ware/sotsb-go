@@ -5,16 +5,15 @@ package engine
 
 // Rows and columns of the character sheet.
 const (
-	sheetStatsRow          = 7
-	sheetLevelRow          = 15
-	sheetCombatRow         = 17
-	sheetWeaponRow         = 20
-	sheetStatColumn        = 5
-	acBase                 = 60 // armour class is kept as 60 - AC
-	affectDetectMagicItems = 5
-	itemTypeWand           = 86
-	wordQuarrel            = 135 // name words that are already plural
-	wordArrows             = 177
+	sheetStatsRow   = 7
+	sheetLevelRow   = 15
+	sheetCombatRow  = 17
+	sheetWeaponRow  = 20
+	sheetStatColumn = 5
+	acBase          = 60 // armour class is kept as 60 - AC
+	itemTypeWand    = 86
+	wordQuarrel     = 135 // name words that are already plural
+	wordArrows      = 177
 )
 
 var statLabels = [6]string{"STR ", "INT ", "WIS ", "DEX ", "CON ", "CHA "}
@@ -60,12 +59,12 @@ func (e *Engine) CharacterSheet() {
 	e.displayStringBg(8, row, colourGreen, colourBlack, statusNames[c.Status])
 }
 
-// showLevels: the class levels "5" or "3/3" in the sheet's level row (part
-// of playerDisplayFull, also drawn by the creation's reroll loop).
-func (e *Engine) showLevels(c *Character) {
+// levelsText: the class levels "5" or "3/3" (with a dual-classed human's
+// usable old levels added).
+func levelsText(c *Character) string {
 	levels := ""
 	first := firstClassLevel(c)
-	for k := 0; k <= clsMonk; k++ {
+	for k := 0; k < classCount; k++ {
 		old := int8(c.OldLevels[k])
 		if int8(c.Levels[k]) > 0 || old < first && old > 0 {
 			if levels != "" {
@@ -74,7 +73,12 @@ func (e *Engine) showLevels(c *Character) {
 			levels += itoa(int(byte(int8(c.Levels[k]) + old)))
 		}
 	}
-	e.displayStringBg(7, sheetLevelRow, colourWhite, colourBlack, levels)
+	return levels
+}
+
+// showLevels: the class levels in the sheet's level row.
+func (e *Engine) showLevels(c *Character) {
+	e.displayStringBg(7, sheetLevelRow, colourWhite, colourBlack, levelsText(c))
 }
 
 // showCoins = O0AF:0596: the coins carried, jewelry first, right-aligned names.
@@ -204,7 +208,7 @@ func (e *Engine) ItemName(c *Character, it *Item, x, y int, readied, display boo
 	}
 	detect := false
 	for _, p := range e.party {
-		if e.FindAffect(p, affectDetectMagicItems) != nil {
+		if e.FindAffect(p, affectDetectMagic) != nil {
 			detect = true
 			break
 		}

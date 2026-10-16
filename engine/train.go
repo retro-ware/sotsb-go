@@ -197,7 +197,7 @@ func (e *Engine) ModifyCharacter() {
 			break
 		}
 	}
-	e.wisdomSlots(c, true)
+	e.clericSlots(c)
 	c.Share = 1
 	e.setRolledHP(c)
 	for i := range c.Stats {
@@ -211,7 +211,7 @@ func (e *Engine) ModifyCharacter() {
 func (e *Engine) setRolledHP(c *Character) {
 	var bonus byte
 	n := 0
-	for k := 0; k <= clsMonk; k++ {
+	for k := 0; k < classCount; k++ {
 		lv := int8(c.Levels[k])
 		if lv <= 0 {
 			continue
@@ -306,40 +306,60 @@ func (e *Engine) modifyRaise(c *Character, i int, limits [16]byte, sex int) {
 // cha) is at statLimitMin+2*i, its maximum one after.
 const statLimitMin = 4
 
-// hitPointsFrom = the tail of O0A7:46BA: sum plus the constitution
-// bonus, averaged over the classes (count 0 would be a divide error in
-// the original; 0 here).
-func (e *Engine) hitPointsFrom(c *Character, sum byte, count int) byte {
-	if count == 0 {
-		return 0
+// classConBonus = O0EF:44FD (c, class): the constitution hit point bonus per
+// die for one class; fighters, paladins and rangers get more above 16.
+func classConBonus(c *Character, class int) int8 {
+	con := c.Stats[statCon].Value
+	bonus := conHitPointBonus[con]
+	if class == clsFighter || class == clsRanger || class == clsPaladin {
+		switch {
+		case con == 17:
+			bonus++
+		case con == 18:
+			bonus += 2
+		case con == 19 || con == 20:
+			bonus += 3
+		case con >= 21 && con <= 23:
+			bonus += 4
+		case con == 24 || con == 25:
+			bonus += 5
+		}
 	}
-	adj := e.conHitPointBonusOf(c)
-	if adj < 0 {
-		if int(sum) > count+(-adj) {
-			return byte((int(sum) + adj) / count)
+	return bonus
+}
+
+// minHitPoints = O0EF:457C (char): the least hit points the levels allow,
+// one per level (a ranger one more) plus the constitution bonus, averaged
+// over the classes.
+func (e *Engine) minHitPoints(c *Character) byte {
+	var sum byte
+	var bonus int8
+	count := 0
+	for k := 0; k < classCount; k++ {
+		lv := int8(c.Levels[k])
+		if lv <= 0 {
+			continue
+		}
+		sum += byte(lv)
+		count++
+		if k == clsRanger {
+			sum++
+		}
+		bonus += classConBonus(c, k)
+	}
+	if count == 0 {
+		return 0 // a divide error in the original
+	}
+	if bonus < 0 {
+		if int(sum) > -int(bonus)+count {
+			return byte((int(sum) + int(bonus)) / count)
 		}
 		return 1
 	}
-	return byte((int(sum) + adj) / count)
+	return byte((int(sum) + int(bonus)) / count)
 }
 
-// minHitPoints = O0A7:46BA (char): the least hit points the levels allow.
-func (e *Engine) minHitPoints(c *Character) byte {
-	var sum byte
-	count := 0
-	for i := 0; i <= 7; i++ {
-		if lv := int8(c.Levels[i]); lv > 0 {
-			sum += byte(lv)
-			count++
-			if i == 4 || i == 7 {
-				sum++
-			}
-		}
-	}
-	return e.hitPointsFrom(c, sum, count)
-}
-
-// conBonusForClass = O0A7:24EE (class): the hit point bonus per level for
+// conBonusForClass = O0EF:22CF (class): the hit point bonus per level for
 // the selected character's constitution; above 16 only fighters,
 // paladins and rangers get more than 2.
 func (e *Engine) conBonusForClass(k int) int8 {
@@ -365,35 +385,31 @@ func (e *Engine) conBonusForClass(k int) int8 {
 }
 
 // maxHitDie: per class, the sides of its hit die.
-var maxHitDie = [...]int{8, 8, 10, 10, 8, 4, 6, 4}
+var maxHitDie = [classCount]int{8, 8, 10, 10, 8, 4, 6}
 
 // hitPointsAfterDice: per class, the hit points at the last rolled level
-// plus per level beyond it; a druid's and a monk's are fixed.
+// plus per level beyond it; a druid's are fixed.
 func hitPointsAfterDice(k, beyond int) byte {
 	switch k {
 	case clsCleric:
 		return byte(beyond*2 + 72)
 	case clsDruid:
 		return 112
-	case clsFighter, clsPaladin:
-		return byte(beyond*3 + 90)
-	case clsRanger:
+	case clsFighter, clsPaladin, clsRanger:
 		return byte(beyond*2 + 88)
 	case clsMage:
 		return byte(beyond + 44)
-	case clsThief:
-		return byte(beyond*2 + 60)
 	}
-	return 72
+	return byte(beyond*2 + 60) // thief
 }
 
-// maxHitPoints = O0A7:4793 (char): the most hit points the levels allow,
+// maxHitPoints = O0EF:4655 (char): the most hit points the levels allow,
 // a full die per level plus the constitution bonus, averaged over the
 // classes. Past the rolled levels the original assigns rather than adds.
 func (e *Engine) maxHitPoints(c *Character) byte {
 	var sum byte
 	n := 0
-	for k := 0; k <= clsMonk; k++ {
+	for k := 0; k < classCount; k++ {
 		lv := int(int8(c.Levels[k]))
 		if lv <= 0 {
 			continue
@@ -401,7 +417,7 @@ func (e *Engine) maxHitPoints(c *Character) byte {
 		n++
 		if byte(lv) < classMaxHitDice[k] {
 			per := int(e.conBonusForClass(k)) + maxHitDie[k]
-			if k == clsRanger || k == clsMonk {
+			if k == clsRanger {
 				lv++
 			}
 			sum += byte(per * lv)
@@ -452,7 +468,7 @@ func (e *Engine) iconCopy(src, dst byte, recolour bool) {
 	}
 	for i := 1; i <= len(c.IconColour); i++ {
 		v := c.IconColour[i-1]
-		pos := defaultIconColours[i-1] // the icon part's colour index
+		pos := defaultIconColours[i] // the icon part's colour index
 		to[pos] = v & 15
 		to[pos+8] = v >> 4
 	}
@@ -498,92 +514,59 @@ func recolourPicture(im *dax.Image, to [16]byte) {
 // default icon and each step shows another Amiga colour.
 var amigaIconColour = [16]byte{0, 9, 10, 11, 6, 4, 5, 15, 12, 1, 2, 3, 7, 13, 8, 14}
 
-// Experience bits of the classes, for the trainer's mask and the mask of
-// classes being trained.
-func classBit(class int) byte { return classExpMasks[class] }
+// classBit: the training bit of a class (trainers list the bits they teach).
+func classBit(class int) byte { return classTrainingBits[class] }
 
 // expThreshold is the experience a class needs to reach the level after
-// level (0 when there is none).
+// level (0 or less when there is none).
 func expThreshold(class, level int) int32 {
-	row := expTableData[class][:]
-	i := (level + 1) * 4
-	if i+4 > len(row) { // the table rows run into the next class (99-byte rows)
-		next := expTableData[min(class+1, len(expTableData)-1)][:]
-		row = append(append([]byte{}, row...), next...)
+	if level+1 >= len(expTable[class]) {
+		return 0
 	}
-	return int32(uint32(row[i]) | uint32(row[i+1])<<8 | uint32(row[i+2])<<16 | uint32(row[i+3])<<24)
+	return expTable[class][level+1]
 }
 
-// Hit points gained per level once a class is past its hit dice.
-const (
-	fixedHPFighter = 3 // fighter, paladin
-	fixedHPOther   = 2 // ranger, cleric, thief
-	fixedHPMage    = 1
-)
-
-// rollHitPoints2 = O0A7:49E0 (c, mask): hit points rolled for the classes of
-// the mask; each class rolls its dice twice and keeps the better. A class
-// past its hit dice sets (not adds) a fixed amount (original quirk).
-func (e *Engine) rollHitPoints2(c *Character, mask int) int {
-	total := byte(0)
-	for k := 0; k <= clsMonk; k++ {
+// levelHitPoints = O0EF:4840 (c, mask, classes): hit points for the
+// classes of the mask, averaged over the character's classes. A class still
+// rolling dice rolls twice and keeps the better (level 1: its first hit
+// dice, after that one die); a class past its dice sets (not adds) a fixed
+// amount (original quirk).
+func (e *Engine) levelHitPoints(c *Character, mask byte, classes int) {
+	var rolled, bonus byte // the bonus sums signed values in a byte
+	for k := 0; k < classCount; k++ {
 		lvl := int8(c.Levels[k])
-		if lvl <= 0 || classBit(k)&byte(mask) == 0 {
+		if lvl <= 0 || classBit(k)&mask == 0 {
 			continue
 		}
 		if byte(lvl) < classMaxHitDice[k] {
-			count := int(classHitDiceFirst[k])
+			count := classFirstHitDice[k]
 			if lvl > 1 {
 				count = 1
 			}
-			a := byte(e.Dice(count, int(classHitDiceSides[k])))
-			b := byte(e.Dice(count, int(classHitDiceSides[k])))
-			total += max(a, b)
+			a := byte(e.Dice(int(count), int(classHitDiceSides[k])))
+			b := byte(e.Dice(int(count), int(classHitDiceSides[k])))
+			rolled += max(a, b)
+			bonus += count * byte(classConBonus(c, k))
 			continue
 		}
 		switch k {
 		case clsFighter, clsPaladin:
-			total = fixedHPFighter
-		case clsRanger, clsCleric, clsThief:
-			total = fixedHPOther
+			rolled = 3
+		case clsCleric, clsRanger, clsThief:
+			rolled = 2
 		case clsMage:
-			total = fixedHPMage
+			rolled = 1
 		}
 	}
-	return int(total)
-}
-
-// conHitPointBonusOf = O0A7:45C1: the constitution hit point bonus summed
-// over the classes still rolling hit dice; fighters, paladins and rangers
-// get more for high constitution, a first-level ranger doubles it.
-func (e *Engine) conHitPointBonusOf(c *Character) int {
-	bonus := int8(0)
-	con := c.Stats[statCon].Value
-	for k := 0; k <= clsMonk; k++ {
-		lvl := int8(c.Levels[k])
-		if lvl <= 0 || byte(lvl) >= classMaxHitDice[k] {
-			continue
-		}
-		bonus += conHitPointBonus[con]
-		if c.Class == clsFighter || c.Class == clsPaladin || c.Class == clsRanger {
-			switch {
-			case con == 17:
-				bonus++
-			case con == 18:
-				bonus += 2
-			case con == 19 || con == 20:
-				bonus += 3
-			case con >= 21 && con <= 23:
-				bonus += 4
-			case con == 24 || con == 25:
-				bonus += 5
-			}
-		}
-		if k == clsRanger && c.Levels[clsRanger] == 1 {
-			bonus *= 2
-		}
+	rolled = byte(int(rolled) / classes)
+	if rolled < 1 {
+		rolled = 1
 	}
-	return int(bonus)
+	c.HPRoll += rolled
+	bonus /= byte(classes)
+	wounds := c.MaxHP - c.HP
+	c.MaxHP += rolled + bonus
+	c.HP = c.MaxHP - wounds
 }
 
 // goldWorth = O0AF:33AE getPlayerGold: the character's coins in gold
@@ -631,36 +614,36 @@ const (
 
 const trainingCost = 1000 // gold pieces
 
-// Spells a magic-user learns while being trained silently (new characters
-// start above level 1), by the magic-user level reached.
+// Spells a magic-user knows once trained silently to a level (new
+// characters start above level 1), by the magic-user level reached.
 var silentMageSpells = map[byte][]int{
-	2: {spellMagicMissile},
-	3: {spellStinkingCloud, spellCharmPerson},
-	4: {spellKnock},
-	5: {spellFireball},
+	6: {12, 15, 30, 3, 34, 47, 51, 54},
+	7: {14, 16, 29, 35, 45, 48, 81},
+	8: {10, 9, 32, 55, 85},
+	9: {50, 52, 82, 88, 94},
 }
 
-// trainSilently = the creation's training loop: train without questions,
-// costs or messages until no class can advance any more.
+// trainSilently = the creation's training loop: train without questions
+// or messages until no class can advance any more.
 func (e *Engine) trainSilently(c *Character) {
 	undo := e.selectTemp(c)
 	defer undo()
-	savedMask := e.game[trainingMaskByte]
-	e.game[trainingMaskByte] = 255
+	savedMask := wordAt(e.game, trainingMaskByte)
+	putWord(e.game, trainingMaskByte, 255)
 	e.cannotTrain = false
 	e.silentTraining = true
 	for !e.cannotTrain {
 		e.TrainCharacter()
 	}
 	e.silentTraining = false
-	e.game[trainingMaskByte] = savedMask
+	putWord(e.game, trainingMaskByte, savedMask)
 }
 
-// trainingMaskByte: the byte of the second area record (p4FB6) holding the
+// trainingMaskByte: the byte of the second area record (p67CA) holding the
 // classes the local trainer teaches.
 const trainingMaskByte = 1360
 
-// TrainCharacter = O0A7:4D07 train_player: raise every class of the selected
+// TrainCharacter = O0EF:4A8E train_player: raise every class of the selected
 // character whose experience allows it and the local trainer teaches.
 func (e *Engine) TrainCharacter() {
 	c := e.selected()
@@ -668,50 +651,42 @@ func (e *Engine) TrainCharacter() {
 		e.statusMessage("we only train conscious people", colourYellow, colourBlack)
 		return
 	}
-	if goldWorth(c) < trainingCost && !e.freeTraining && !e.silentTraining && !e.gameWon {
-		e.statusMessage("Training costs 1000 gp.", colourYellow, colourBlack)
-		return
-	}
 	var ready, have byte // classes with enough experience, classes the character has
 	var cap int32        // the experience to keep: just short of the second level up
 	trainer := e.game[trainingMaskByte]
-	lastLevel := 0
-	for k := 0; k <= clsMonk; k++ {
-		lvl := int8(c.Levels[k])
-		if lvl <= 0 {
+	lvl := 0 // the last class's level (the original reuses it below)
+	for k := 0; k < classCount; k++ {
+		if int8(c.Levels[k]) <= 0 {
 			continue
 		}
 		have += classBit(k)
-		lastLevel = int(lvl)
-		if e.atRaceLimit(c, k, int(lvl)) {
+		lvl = int(c.Levels[k])
+		if atRaceLimit(c, k, lvl) {
 			continue
 		}
-		need := expThreshold(k, int(lvl))
-		if !(need <= int32(c.Exp) || e.freeTraining) || need <= 0 {
-			continue
-		}
-		if e.freeTraining && int32(c.Exp) < need {
-			c.Exp = uint32(need)
-		}
-		ready += classBit(k)
-		if next := expThreshold(k, int(lvl)+1); next > 0 && next <= int32(c.Exp) && next > cap {
-			cap = next - 1
+		need := expThreshold(k, lvl)
+		if (need <= int32(c.Exp) || e.freeTraining) && need > 0 {
+			if e.freeTraining && need > int32(c.Exp) {
+				c.Exp = uint32(need)
+			}
+			ready += classBit(k)
+			if next := expThreshold(k, lvl+1); next > 0 && int32(c.Exp) >= next && next > cap {
+				cap = next - 1
+			}
 		}
 	}
 	if !e.silentTraining {
-		// Only the class with the highest threshold advances at a time.
+		// The class with the highest threshold at the last level read joins.
 		var best int32
 		bestClass := 0
-		for k := 0; k <= clsMonk; k++ {
-			if classBit(k)&ready != 0 {
-				if t := expThreshold(k, lastLevel); t > best {
-					best, bestClass = t, k
-				}
+		for k := 0; k < classCount; k++ {
+			if classBit(k)&ready != 0 && expThreshold(k, lvl) > best {
+				best, bestClass = expThreshold(k, lvl), k
 			}
 		}
 		if best > 0 {
-			ready = classBit(bestClass)
-			if next := expThreshold(bestClass, lastLevel+1); next > 0 && next <= int32(c.Exp) && next > cap {
+			ready |= classBit(bestClass)
+			if next := expThreshold(bestClass, lvl+1); next > 0 && int32(c.Exp) >= next && next > cap {
 				cap = next - 1
 			}
 		}
@@ -741,7 +716,7 @@ func (e *Engine) TrainCharacter() {
 		row := 4
 		e.displayName(c, 4, row, false)
 		e.displayStringBg(len(c.Name())+4, row, colourGreen, colourBlack, " will become:")
-		for k := 0; k <= clsMonk; k++ {
+		for k := 0; k < classCount; k++ {
 			if int8(c.Levels[k]) > 0 && classBit(k)&training != 0 {
 				row++
 				lead := "and a level "
@@ -755,14 +730,11 @@ func (e *Engine) TrainCharacter() {
 			return
 		}
 		e.printMessage("Congratulations...")
-		if !e.freeTraining && !e.gameWon {
-			payGold(c, trainingCost)
-		}
 	}
 	classes := 0
-	oldMage := c.Levels[clsMage]
+	oldMage := int8(c.Levels[clsMage])
 	c.ClassMask = 0
-	for k := 0; k <= clsMonk; k++ {
+	for k := 0; k < classCount; k++ {
 		if int8(c.Levels[k]) <= 0 {
 			continue
 		}
@@ -777,59 +749,51 @@ func (e *Engine) TrainCharacter() {
 	}
 	e.recalcClassBonuses(c)
 	if !e.silentTraining {
-		if int8(oldMage) < int8(c.Levels[clsMage]) || int8(c.Levels[clsRanger]) > rangerSpellLevel {
+		if int8(c.Levels[clsMage]) > oldMage || int8(c.Levels[clsRanger]) > rangerSpellLevel {
 			e.learnNewSpell(c)
+		}
+		if oldClassUsable(c) {
+			if int8(c.OldLevels[clsRanger]) > 0 && e.FindAffect(c, affectRangerVsGiants) == nil {
+				e.AddAffect(c, affectRangerVsGiants, 0, 255, 0)
+			}
+			if int8(c.OldLevels[clsPaladin]) > 0 && e.FindAffect(c, affectProtFromEvil) == nil {
+				e.AddAffect(c, affectProtFromEvil, 0, 255, 0)
+			}
 		}
 	} else {
 		for _, s := range silentMageSpells[c.Levels[clsMage]] {
 			c.SpellBook[s-1] = 1
 		}
 	}
-	if int8(c.MulticlassLevel) >= int8(c.MaxLevel) {
-		return
+	if int8(c.MaxLevel) > int8(c.MulticlassLevel) {
+		e.levelHitPoints(c, training, classes)
 	}
-	rolled := e.rollHitPoints2(c, int(training)) & 0xFF
-	gain := rolled / classes
-	if gain == 0 {
-		gain = 1
-	}
-	c.HPRoll += byte(gain)
-	gain = (rolled + e.conHitPointBonusOf(c)) / classes
-	if gain < 1 {
-		gain = 1
-	}
-	wounds := c.MaxHP - c.HP
-	c.MaxHP += byte(gain)
-	c.HP = c.MaxHP - wounds
 }
 
 // rangerSpellLevel: rangers above this level learn magic-user spells.
 const rangerSpellLevel = 8
 
-// atRaceLimit = the race checks in O0A7:4D07: demi-humans stop at a
+// atRaceLimit = the race checks in O0EF:4A8E: demi-humans stop at a
 // maximum level per class, some only with a high strength or intelligence.
-func (e *Engine) atRaceLimit(c *Character, class, level int) bool {
+func atRaceLimit(c *Character, class, level int) bool {
 	str, intl := c.Stats[statStr].Value, c.Stats[statInt].Value
-	limit := func(max, ifStr17 int, ability byte, highOnly bool) bool {
-		// at max always; at max-1 with ability 17; at max-2 with ability under 17
-		return level == max || level == max-1 && ability == 17 || level == max-2 && ability < 17 && highOnly
+	// at top always, one lower with the ability 17, two lower under 17
+	limit := func(top int, ability byte) bool {
+		return level == top || level == top-1 && ability == 17 || level == top-2 && ability < 17
 	}
 	switch int(c.Race) {
 	case raceDwarf:
-		return class == clsFighter && limit(9, 0, str, true)
+		return class == clsFighter && limit(9, str) || class == clsCleric && level >= 8
 	case raceElf:
-		return class == clsFighter && limit(7, 0, str, true) ||
+		return class == clsFighter && limit(7, str) || class == clsCleric && level >= 7 ||
 			class == clsMage && (level == 11 || level == 9 && intl < 17 || level == 10 && intl == 17)
 	case raceGnome:
-		return class == clsFighter && (level == 6 || level == 5 && str < 18)
+		return class == clsFighter && (level == 6 || level == 5 && str < 18) || class == clsCleric && level >= 7
 	case raceHalfElf:
-		if class == clsCleric && level == 5 {
-			return true
-		}
-		return (class == clsFighter || class == clsRanger) && limit(8, 0, str, true) ||
-			class == clsMage && limit(8, 0, intl, true)
+		return class == clsCleric && level == 5 ||
+			(class == clsFighter || class == clsRanger) && limit(8, str) || class == clsMage && limit(8, intl)
 	case raceHalfling:
-		return class == clsFighter && limit(6, 0, str, true)
+		return class == clsFighter && limit(6, str)
 	}
 	return false
 }

@@ -1,17 +1,16 @@
 package engine
 
-// The affect handlers of O064 (and the five O064's setup_spells2 takes from
-// O08D), with the table they fill. Each handler is (char, affect, flag);
-// flag 1 means the affect is being removed. The rule globals DS:6FAA.. are
-// e.rv and the scratch fields of Engine (see rules.go).
+// The affect handlers of O0A4, with the table O0A4:3969 fills. Each
+// handler is (char, affect, flag); flag 1 means the affect is being
+// removed. The rule globals DS:87D2.. are e.rv (see rules.go).
 
-// AffectHandler is one entry of the DS:6FC0 table.
+// AffectHandler is one entry of the DS:87EA table.
 type AffectHandler func(e *Engine, c *Character, a *Affect, flag byte)
 
 var affectHandlers [affectHandlerCount]AffectHandler
 
-// itemHandler = DS:720C, O064:26D3: a readied (or unreadied) item that
-// grants the affect its Spells[1] names.
+// itemHandler = O0A4:3908, the table's last entry: a readied (or
+// unreadied) item that grants the affect its Spells[1] names.
 func (e *Engine) itemHandler(c *Character, it *Item, flag byte) {
 	e.itemCall = false
 	typ := it.Spells[1]
@@ -20,159 +19,141 @@ func (e *Engine) itemHandler(c *Character, it *Item, flag byte) {
 		return
 	}
 	e.AddAffect(c, typ, 0, 255, 1)
-	if e.gameState != stateCombat {
-		e.callAffect(typ, c, nil, 0)
-	}
 }
 
-// setupAffectHandlers = O064:2AD8 setup_spells2.
+// setupAffectHandlers = O0A4:3969, with the two breath weapons (83, 104)
+// the magic overlay adds (O113:4650); the numbers it leaves out have no
+// handler.
 func setupAffectHandlers() {
 	h := &affectHandlers
 	h[affectBless] = (*Engine).blessHandler
 	h[affectCurse] = (*Engine).curseHandler
 	h[affectSticksToSnakes] = (*Engine).snakesHandler
-	h[affectWardEnchanted] = (*Engine).wardEnchantedHandler
-	h[5] = (*Engine).emptyHandler
-	h[affectKindBane] = (*Engine).kindBaneHandler
-	h[affectArmourBonus] = (*Engine).armourBonusHandler
+	h[affectDispellingEvil] = (*Engine).dispellingEvilHandler
+	h[affectDetectMagic] = (*Engine).emptyHandler
+	h[affectElectricityImmune] = (*Engine).electricityImmuneHandler
+	h[affectGnomeVsFoes] = (*Engine).gnomeVsFoesHandler
 	h[affectProtFromEvil] = (*Engine).protFromEvilHandler
 	h[affectProtFromGood] = (*Engine).protFromGoodHandler
 	h[affectResistCold] = (*Engine).resistColdHandler
 	h[affectCharmed] = (*Engine).charmHandler
 	h[affectEnlarge] = (*Engine).emptyHandler
-	h[affectSuffocating] = (*Engine).suffocateHandler
-	h[affectCharisma] = (*Engine).emptyHandler
+	h[affectBarkskin] = (*Engine).barkskinHandler
+	h[affectFriendly] = (*Engine).emptyHandler
 	h[affectPoisonDamage] = (*Engine).poisonDamageHandler
-	h[16] = (*Engine).emptyHandler
+	h[affectReadMagic] = (*Engine).emptyHandler
 	h[affectShield] = (*Engine).shieldHandler
-	h[affectGnomeVsManSized] = (*Engine).vsGoblinoidHandler
-	h[19] = (*Engine).emptyHandler
+	h[affectHalfElfResistance] = (*Engine).halfElfResistHandler
+	h[affectFindTraps] = (*Engine).emptyHandler
 	h[affectResistFire] = (*Engine).resistFireHandler
 	h[affectSilenced] = (*Engine).silencedHandler
 	h[affectSlowPoison] = (*Engine).slowPoisonHandler
 	h[affectSpiritualHammer] = (*Engine).spiritualHammerHandler
 	h[affectDetectInvisibility] = (*Engine).emptyHandler
 	h[affectInvisible] = (*Engine).invisibleHandler
-	h[affectDwarfVsOrc] = (*Engine).vsOrcHandler
-	h[affectStunned] = (*Engine).loseTurnHandler
+	h[affectDwarfVsFoes] = (*Engine).dwarfVsFoesHandler
+	h[affectBefuddled] = (*Engine).loseTurnHandler
 	h[affectMirrorImage] = (*Engine).mirrorImageHandler
-	h[affectQuarterLessDamage] = (*Engine).quarterLessHandler
+	h[affectEnfeebled] = (*Engine).enfeebledHandler
 	h[affectCoughing] = (*Engine).coughingHandler
 	h[affectNausea] = (*Engine).loseTurnHandler
-	h[affectCollapse] = (*Engine).collapseHandler
-	h[affectDazzled] = (*Engine).dazzledHandler
-	h[affectWeakAndWasting] = (*Engine).weakAndWastingHandler
+	h[affectDispelEvil] = (*Engine).dispelEvilHandler
+	h[affectBlind] = (*Engine).blindHandler
+	h[affectDiseased] = (*Engine).diseasedHandler
 	h[affectConfused] = (*Engine).confusedHandler
-	h[affectHampered] = (*Engine).hamperedHandler
-	h[affectStumbling] = (*Engine).stumblingHandler
+	h[affectCursed] = (*Engine).cursedHandler
+	h[affectBlinking] = (*Engine).blinkingHandler
 	h[affectStrengthSpell] = (*Engine).emptyHandler
 	h[affectHaste] = (*Engine).hasteHandler
 	h[affectStinkingCloud] = (*Engine).stinkingCloudEndHandler
-	h[affectAvoidPlainWeapons] = (*Engine).avoidPlainWeaponsHandler
+	h[affectProtNormalMissiles] = (*Engine).protNormalMissilesHandler
 	h[affectSlow] = (*Engine).slowHandler
 	h[affectWeakened] = (*Engine).weakenHandler
 	h[affectWasting] = (*Engine).wastingHandler
 	h[affectProtFromEvil10] = (*Engine).protFromEvilHandler
 	h[affectProtFromGood10] = (*Engine).protFromGoodHandler
-	h[affectVsGiants] = (*Engine).vsGiantsHandler
-	h[affectGnomeExtra] = (*Engine).gnomeExtraHandler
+	h[affectDwarfDodges] = (*Engine).dwarfDodgesHandler
+	h[affectGnomeDodges] = (*Engine).gnomeDodgesHandler
 	h[affectPrayer] = (*Engine).prayerHandler
-	h[affectFireBody] = (*Engine).fireBodyHandler
-	h[affectSleep] = (*Engine).loseTurnHandler
-	h[affectParalyzed] = (*Engine).loseTurnHandler
+	h[affectFireShieldHot] = (*Engine).fireShieldHotHandler
+	h[affectImmobile] = (*Engine).loseTurnHandler
 	h[affectHeld] = (*Engine).loseTurnHandler
-	h[affectIceBody] = (*Engine).iceBodyHandler
+	h[affectAsleep] = (*Engine).loseTurnHandler
+	h[affectFireShieldCold] = (*Engine).fireShieldColdHandler
 	h[affectPoisoned] = (*Engine).emptyHandler
-	h[affectFlicker] = (*Engine).flickerHandler
-	h[affectEngulfs] = (*Engine).engulfsHandler
-	h[affectEngulfed] = (*Engine).engulfedHandler
-	h[affectRegenerating] = (*Engine).regeneratingHandler
-	h[affectMagicWeaponsOnly] = (*Engine).magicWeaponsOnlyHandler
-	h[affectFireDamageReduced] = (*Engine).fireDamageReducedHandler
+	h[affectInvisibleRing] = (*Engine).invisibleRingHandler
+	h[affectGlobe] = (*Engine).globeHandler
+	h[affectStoningGaze] = (*Engine).stoningGazeHandler
+	h[affectGazeReflectable] = (*Engine).emptyHandler
+	h[affectNeedsPlus3Weapon] = (*Engine).needsPlus3WeaponHandler
+	h[affectFireResistRing] = (*Engine).fireResistRingHandler
 	h[affectHealingOverTime] = (*Engine).healingOverTimeHandler
 	h[affectMinorGlobe] = (*Engine).minorGlobeHandler
 	h[affectPoisonSting] = (*Engine).poisonStingHandler
-	h[affectPoisonSting4] = (*Engine).poisonSting4Handler
-	h[affectPoisonSting2] = (*Engine).poisonSting2Handler
-	h[affectParalysingTouch] = (*Engine).paralysingTouchHandler
+	h[affectStoningTouch] = (*Engine).stoningTouchHandler
+	h[affectSwallowsWhole] = (*Engine).swallowsWholeHandler
+	h[affectBreathFireClose] = (*Engine).breathFireCloseHandler
 	h[affectFeebleminded] = (*Engine).feeblemindHandler
-	h[affectHiddenFromKind19] = (*Engine).hiddenFromKind19Handler
-	h[affectPoisonStingMinus2] = (*Engine).poisonStingMinus2Handler
-	h[affectBlur] = (*Engine).blurHandler
-	h[affectFlicker95] = (*Engine).flicker95Handler
-	h[affectUnaffectedByType32] = (*Engine).unaffectedByType32Handler
-	h[74] = (*Engine).emptyHandler
-	h[affectVsKind3] = (*Engine).vsKind3Handler
-	h[affectVsKind8] = (*Engine).vsKind8Handler
+	h[affectInvisibleToAnimals] = (*Engine).invisibleToAnimalsHandler
+	h[affectConfusingGaze] = (*Engine).confusingGazeHandler
+	h[affectHighlighted] = (*Engine).highlightedHandler
+	h[affectMirror] = (*Engine).emptyHandler
+	h[affectDragonBreathImmune] = (*Engine).dragonBreathImmuneHandler
+	h[affectMagicalBoots] = (*Engine).magicalBootsHandler
+	h[affectBaneWeapon] = (*Engine).baneWeaponHandler
+	h[affectDiseaseImmune] = (*Engine).emptyHandler
 	h[affectBerserk] = (*Engine).berserkHandler
-	h[affectRecovering] = (*Engine).recoveringHandler
-	h[affectBurningTouch] = (*Engine).burningTouchHandler
-	h[affectAcidTouch] = (*Engine).acidTouchHandler
-	h[affectHalfDamage] = (*Engine).halfDamageHandler
-	h[affectSaveVsElements] = (*Engine).saveVsElementsHandler
-	h[affectElectricityHeals] = (*Engine).electricityHealsHandler
-	h[affectArrowsScratch] = (*Engine).arrowsScratchHandler
-	h[affectRays] = (*Engine).raysHandler
-	h[affectFirstStrike] = (*Engine).firstStrikeHandler
+	h[affectMagicalStone] = (*Engine).magicalStoneHandler
+	h[affectFireHeals] = (*Engine).fireHealsHandler
+	h[affectBreathFire] = (*Engine).breathFireHandler
+	h[affectSpitAcid] = (*Engine).spitAcidHandler
+	h[affectFearAura] = (*Engine).fearAuraHandler
+	h[84] = (*Engine).emptyHandler
+	h[85] = (*Engine).emptyHandler
+	h[affectPoisonStingMinus2] = (*Engine).poisonStingMinus2Handler
+	h[87] = (*Engine).emptyHandler
+	h[affectParalysingTouch] = (*Engine).paralysingTouchHandler
+	h[affectMagicalCloak] = (*Engine).magicalCloakHandler
+	h[affectBoltsHarmless] = (*Engine).boltsHarmlessHandler
 	h[affectCloudkill] = (*Engine).cloudkillEndHandler
-	h[92] = (*Engine).emptyHandler
-	h[affectFireHalved] = (*Engine).fireHalvedHandler
-	h[affectRangedHalved] = (*Engine).rangedHalvedHandler
-	h[affectFallsDead] = (*Engine).fallsDeadHandler
-	h[affectHugs] = (*Engine).hugsHandler
-	h[affectConSavingBonus] = (*Engine).conSaveHandler
-	h[affectRegrowth] = (*Engine).regrowthHandler
-	h[affectBacksUp] = (*Engine).backsUpHandler
-	h[affectRegrows] = (*Engine).regrowsHandler
-	h[affectRegenerates] = (*Engine).regeneratesHandler
-	h[affectRegrowing] = (*Engine).regrowingHandler
-	h[affectBurns] = (*Engine).burnsHandler
-	h[affectAvoidRanged60] = (*Engine).avoidRanged60Handler
-	h[affectMagicResist50] = (*Engine).magicResist50Handler
-	h[affectMagicResist15] = (*Engine).magicResist15Handler
-	h[affectElfResistSleep] = (*Engine).elfResistHandler
-	h[affectNoCharmHold] = (*Engine).noCharmHoldHandler
-	h[affectNoParalysis] = (*Engine).noParalysisHandler
-	h[affectColdImmune] = (*Engine).coldImmuneHandler
-	h[affectNoPoisonParalysis] = (*Engine).noPoisonParalysisHandler
+	h[affectFearless] = (*Engine).fearlessHandler
 	h[affectFireImmune] = (*Engine).fireImmuneHandler
-	h[affectFireReduced] = (*Engine).fireReducedHandler
-	h[affectElectricityHalved] = (*Engine).electricityHalvedHandler
-	h[affectEdgedHalved] = (*Engine).edgedHalvedHandler
-	h[affectMagicWeaponsHalved] = (*Engine).magicWeaponsHalvedHandler
-	h[affectSlingStones] = (*Engine).slingStonesHandler
-	h[affectColdHalved] = (*Engine).coldHalvedHandler
-	h[affectNeedsMagicWeapon] = (*Engine).needsMagicWeaponHandler
-	h[affectAvoidsBows] = (*Engine).avoidsBowsHandler
-	h[affectSpitsAcid] = (*Engine).spitsAcidHandler
-	h[affectParalysingGaze] = (*Engine).paralysingGazeHandler
-	h[affectFireTouch] = (*Engine).fireTouchHandler
-	h[affectHalfElfResistance] = (*Engine).halfElfResistHandler
-	h[affectNoCharmHoldSleep] = (*Engine).noCharmHoldSleepHandler
-	h[127] = (*Engine).emptyHandler
-	h[affectMagicImmune] = (*Engine).magicImmuneHandler
-	h[affectSlainByArrow] = (*Engine).slainByArrowHandler
-	h[affectNoMindAffects] = (*Engine).noMindAffectsHandler
+	h[affectHardyAll] = (*Engine).hardyAllHandler
+	h[affectElfResistance] = (*Engine).elfResistHandler
+	h[affectNoCharmSleep] = (*Engine).noCharmSleepHandler
+	h[affectConSavingBonus] = (*Engine).conSaveHandler
+	h[affectColdImmune] = (*Engine).coldImmuneHandler
+	h[affectPoisonImmune] = (*Engine).poisonImmuneHandler
+	h[affectDelayedBlast] = (*Engine).delayedBlastHandler
+	h[101] = (*Engine).emptyHandler
+	h[102] = (*Engine).emptyHandler
+	h[affectPlainWeaponsImmune] = (*Engine).plainWeaponsImmuneHandler
 	h[affectRangerVsGiants] = (*Engine).rangerVsGiantsHandler
-	h[affectElectricityImmune] = (*Engine).electricityImmuneHandler
-	h[affectRooted] = (*Engine).rootedHandler
+	h[affectStunned] = (*Engine).loseTurnHandler
 	h[affectBerserkFoe] = (*Engine).berserkFoeHandler
 	h[affectAlwaysInvisible] = (*Engine).alwaysInvisibleHandler
-	h[affectEngulfing] = (*Engine).engulfingHandler
-	h[140] = (*Engine).emptyHandler
+	h[affectLaidOnHands] = (*Engine).emptyHandler
 	h[affectPaladinCures] = (*Engine).paladinCuresHandler
-	h[affectRunningAway] = (*Engine).runningAwayHandler
+	h[affectFrightened] = (*Engine).frightenedHandler
 	h[affectZapsAttackers] = (*Engine).zapsHandler
-	h[affectHugging] = (*Engine).huggingHandler
-	h[affectDispelEvil] = (*Engine).dispelEvilHandler
-	h[affectGiantStrength] = (*Engine).emptyHandler
+	h[affectGiantStrength] = (*Engine).giantStrengthHandler
+	h[affectBreathWeapon] = (*Engine).breathWeaponHandler
+	h[affectBreathWeapon2] = (*Engine).breathWeaponHandler
 }
 
 func init() { setupAffectHandlers() }
 
+// Spell table fields (spellTableData rows).
+const (
+	spellClassField = 0
+	spellLevelField = 1
+	spellSaveField  = 8  // what a saving throw does (0: nothing)
+	spellImageField = 14 // non-zero: a mirror image can take the spell
+)
+
 // --- shared pieces --------------------------------------------------------
 
-// blockAffect = O064:0019 (type): the affect being added is refused when
+// blockAffect = O0A4:007F (type): the affect being added is refused when
 // type is 0 or the one being added; the damage goes with it.
 func (e *Engine) blockAffect(typ byte) {
 	if typ == 0 || e.rv.affVal == typ {
@@ -181,7 +162,7 @@ func (e *Engine) blockAffect(typ byte) {
 	}
 }
 
-// addAffectNow = O064:0038 (char, type, data, time): adds the affect with
+// addAffectNow = O0A4:00A0 (char, type, data, time): adds the affect with
 // its removal call; refused while an affect is being cured.
 func (e *Engine) addAffectNow(c *Character, typ, data byte, time int) bool {
 	if e.rv.cure != 0 {
@@ -191,7 +172,7 @@ func (e *Engine) addAffectNow(c *Character, typ, data byte, time int) bool {
 	return true
 }
 
-// endTurn = O0ED:27E4 (char): no initiative, spell, guard or moves left;
+// endTurn = O151:2DEC (char): no initiative, spell, guard or moves left;
 // always true (the caller's "turn over").
 func (e *Engine) endTurn(c *Character) bool {
 	ci := combatInfo(c)
@@ -216,7 +197,7 @@ func targetOf(c *Character) *Character {
 	return &Character{}
 }
 
-// readiedWeapon = O064:0F77 (char): the ammunition the readied weapon
+// readiedWeapon = O0A4:1381 (char): the ammunition the readied weapon
 // shoots, else the weapon itself.
 func (e *Engine) readiedWeapon(c *Character) *Item {
 	var it *Item
@@ -228,7 +209,7 @@ func (e *Engine) readiedWeapon(c *Character) *Item {
 	return it
 }
 
-// avoidDistantAttack = O064:0F06 (char, percent): an attack from afar by
+// avoidDistantAttack = O0A4:1308 (char, percent): an attack from afar by
 // the selected character (who holds a weapon) may miss.
 func (e *Engine) avoidDistantAttack(c *Character, pct int) {
 	sel := e.selected()
@@ -236,48 +217,42 @@ func (e *Engine) avoidDistantAttack(c *Character, pct int) {
 		e.combatName(c, "Avoids it", combatMsgRow, true)
 		e.rv.damage = 0
 		e.rv.hitRoll = -1
-		e.hits6822[1]--
+		e.rv.hits[1]--
 	}
 }
 
-// poisonAttack = O064:1407 (char, bonus): the one the character fights is
-// poisoned to death unless it saves.
+// poisonAttack = O0A4:1A67 (char, bonus): the one the character fights is
+// poisoned to death unless it saves. A victim with a poison sting of its
+// own adds the sting's data to the saving throw, unless the bonus is
+// negative, which then counts as none.
 func (e *Engine) poisonAttack(c *Character, bonus int) {
 	t := targetOf(c)
-	e.v6826 = t
-	if !e.SavingThrow(t, saveVsParalysis, bonus) {
-		e.combatName(t, "is Poisoned", combatMsgRow, false)
-		e.gameDelay()
-		e.AddAffect(t, affectPoisoned, 0, 255, 0)
+	e.rv.target = t
+	if sting := e.FindAffect(t, affectPoisonSting); sting != nil {
+		if bonus < 0 {
+			bonus = 0
+		} else {
+			bonus += int(sting.Data)
+		}
+	}
+	saved := e.SavingThrow(t, saveVsParalysis, bonus)
+	e.isUnaffected(t, affectPoisoned, 0, 255, 0, 1, saved, "is "+affectNameOf(affectPoisoned))
+	e.gameDelay()
+	if e.FindAffect(t, affectPoisoned) != nil {
 		e.killWithMessage(t, statusDead, "is killed")
 	}
 }
 
-// paralyseTarget = O064:14AE (char, time): the one the character fights is
-// paralysed for the time unless it saves.
-func (e *Engine) paralyseTarget(c *Character, time int) {
+// paralyseTarget = O0A4:0014 (char, time, bonus): the one the character
+// fights is paralysed unless it saves.
+func (e *Engine) paralyseTarget(c *Character, time int, bonus int) {
 	t := targetOf(c)
-	e.v6826 = t
-	if !e.SavingThrow(t, saveVsParalysis, 0) {
-		e.hitMessage(t, true, "is Paralyzed")
-		e.AddAffect(t, affectParalyzed, time, 12, 0)
-	}
+	e.rv.target = t
+	saved := e.SavingThrow(t, saveVsParalysis, bonus)
+	e.isUnaffected(t, affectHeld, time, 12, 0, 1, saved, "paralyzed by poison")
 }
 
-// resistRoll = O064:20EE (base): magic resistance, base% plus 5% for each
-// caster level under 11, against the affect or magic damage.
-func (e *Engine) resistRoll(base int) {
-	lvl := e.casterLevel(int(e.curSpell))
-	chance := byte(base + (11-lvl)*5)
-	if e.rv.affVal == 0 && e.rv.dmgType&dmgMagic == 0 {
-		return
-	}
-	if byte(e.Dice(1, 100)) <= chance {
-		e.blockAffect(0)
-	}
-}
-
-// alignedIn: is the selected character's alignment one of these?
+// selectedAligned: is the selected character's alignment one of these?
 func (e *Engine) selectedAligned(a, b, c byte) bool {
 	al := e.selected().Alignment
 	return al == a || al == b || al == c
@@ -287,32 +262,39 @@ func (e *Engine) selectedAligned(a, b, c byte) bool {
 
 func (e *Engine) emptyHandler(c *Character, a *Affect, flag byte) {}
 
-// loseTurnHandler = O064:0071: the turn is over (stunned, sleeping, held).
+// loseTurnHandler = O0A4:0274: the turn is over (befuddled, asleep, held).
 func (e *Engine) loseTurnHandler(c *Character, a *Affect, flag byte) { e.endTurn(c) }
 
-// saveAndHitUp = O064:0087.
-func (e *Engine) saveAndHitUp() {
-	e.rv.save++
-	e.rv.hitRoll++
+// saveAndHitUp = O0A4:0292.
+func (e *Engine) saveAndHitUp(flag byte) {
+	if flag == 0 {
+		e.rv.save++
+		e.rv.hitRoll++
+	}
 }
 
-// blessHandler = O064:0096.
+// blessHandler = O0A4:02A9.
 func (e *Engine) blessHandler(c *Character, a *Affect, flag byte) {
-	e.v6825 += 5
-	e.rv.hitRoll++
+	if flag == 0 {
+		e.rv.morale += 5
+		e.rv.hitRoll++
+	}
 }
 
-// curseHandler = O064:00A6.
+// curseHandler = O0A4:02C1.
 func (e *Engine) curseHandler(c *Character, a *Affect, flag byte) {
-	if e.v6825 < 5 {
-		e.v6825 = 0
+	if flag != 0 {
+		return
+	}
+	if e.rv.morale < 5 {
+		e.rv.morale = 0
 	} else {
-		e.v6825 -= 5
+		e.rv.morale -= 5
 	}
 	e.rv.hitRoll--
 }
 
-// snakesHandler = O064:00DC: the snakes eat the character's attacks.
+// snakesHandler = O0A4:02FF: the snakes eat the character's attacks.
 func (e *Engine) snakesHandler(c *Character, a *Affect, flag byte) {
 	n := c.Attacks[0] + c.Attacks[1]
 	if a.Data > n {
@@ -325,57 +307,28 @@ func (e *Engine) snakesHandler(c *Character, a *Affect, flag byte) {
 	e.endTurn(c)
 }
 
-// wardEnchantedHandler = O064:015F.
-func (e *Engine) wardEnchantedHandler(c *Character, a *Affect, flag byte) {
-	if e.selected().Pad331&creatureEnchanted != 0 {
+// dispellingEvilHandler = O0A4:0394: enchanted attackers are hampered.
+func (e *Engine) dispellingEvilHandler(c *Character, a *Affect, flag byte) {
+	if flag == 0 && e.selected().CreatureFlags&creatureEnchanted != 0 {
 		e.rv.hitRoll -= 7
 	}
 }
 
-// Monster kinds the bane and bonus affects look at.
-const (
-	kindBane1  = 10
-	kindBane2a = 9
-	kindBane2b = 12
-	kindBane3  = 4
-	kindKind3  = 3
-	kindKind8  = 8
-	kindKind19 = 19
-)
-
-// kindBaneHandler = O064:017A: to hit and damage by the target's kind.
-func (e *Engine) kindBaneHandler(c *Character, a *Affect, flag byte) {
-	e.v6826 = targetOf(c)
-	var k byte
-	switch e.v6826.Kind {
-	case kindBane1:
-		k = 1
-	case kindBane2a, kindBane2b:
-		k = 2
-	case kindBane3:
-		k = 3
+// electricityImmuneHandler = O0A4:03B7.
+func (e *Engine) electricityImmuneHandler(c *Character, a *Affect, flag byte) {
+	if flag == 0 && e.rv.dmgType&dmgElectricity != 0 {
+		e.blockAffect(0)
 	}
-	e.rv.hitRoll += int8(k)
-	e.rv.damage += k
-	e.rv.dmgType = dmgFire | dmgMagic
 }
 
-// Armour values (60 - armour class).
-const (
-	acCeiling     = 60
-	acShield      = 57
-	acCoughFloor  = 50
-	acArmourBonus = 2
-)
-
-// armourBonusHandler = O064:01DF: two better, up to armour class 0.
-func (e *Engine) armourBonusHandler(c *Character, a *Affect, flag byte) {
-	for i := range c.AC {
-		if c.AC[i] < acCeiling-acArmourBonus {
-			c.AC[i] += acArmourBonus
-		} else {
-			c.AC[i] = acCeiling
-		}
+// gnomeVsFoesHandler = O0A4:03D6.
+func (e *Engine) gnomeVsFoesHandler(c *Character, a *Affect, flag byte) {
+	if flag != 0 {
+		return
+	}
+	e.rv.target = targetOf(c)
+	if e.rv.target.MonsterFlags&monsterGnomeFoe != 0 {
+		e.rv.hitRoll++
 	}
 }
 
@@ -392,54 +345,63 @@ const (
 	alignChaoticEvil
 )
 
-// protFromEvilHandler = O064:0224: evil attackers.
+// protFromEvilHandler = O0A4:0413: evil attackers.
 func (e *Engine) protFromEvilHandler(c *Character, a *Affect, flag byte) {
-	if e.selectedAligned(alignLawfulEvil, alignNeutralEvil, alignChaoticEvil) {
+	if flag == 0 && e.selectedAligned(alignLawfulEvil, alignNeutralEvil, alignChaoticEvil) {
 		e.rv.save += 2
 		e.rv.hitRoll -= 2
 	}
 }
 
-// protFromGoodHandler = O064:0259: good attackers.
+// protFromGoodHandler = O0A4:0450: good attackers.
 func (e *Engine) protFromGoodHandler(c *Character, a *Affect, flag byte) {
-	if e.selectedAligned(alignLawfulGood, alignNeutralGood, alignChaoticGood) {
+	if flag == 0 && e.selectedAligned(alignLawfulGood, alignNeutralGood, alignChaoticGood) {
 		e.rv.save += 2
 		e.rv.hitRoll -= 2
 	}
 }
 
-// resistColdHandler = O064:028E.
-func (e *Engine) resistColdHandler(c *Character, a *Affect, flag byte) {
-	if e.rv.dmgType&dmgCold != 0 {
-		e.rv.damage >>= 1
+// halveAndSave: damage of the type is halved and saves are better.
+func (e *Engine) halveAndSave(flag, dmgType byte) {
+	if flag == 0 && e.rv.dmgType&dmgType != 0 {
+		e.rv.damage /= 2
 		e.rv.save += 3
 	}
 }
 
-// Charm data bits: the charmed one's own side, the charm taken hold, the
-// side it now fights for.
+// resistColdHandler = O0A4:048D.
+func (e *Engine) resistColdHandler(c *Character, a *Affect, flag byte) {
+	e.halveAndSave(flag, dmgCold)
+}
+
+// resistFireHandler = O0A4:06CA.
+func (e *Engine) resistFireHandler(c *Character, a *Affect, flag byte) {
+	e.halveAndSave(flag, dmgFire)
+}
+
+// Charm data bits: the charm taken hold, the side the charmed one came
+// from, the side it now fights for.
 const (
-	charmOwnSide   = 16
-	charmTaken     = 32
-	charmSideShift = 6
-	charmSideBit   = 64
-	charmNewShift  = 7
-	charmMorale    = 100
+	charmTaken   = 32
+	charmSideBit = 64
+	charmNewSide = 128
+	charmMorale  = 100
 )
 
-// charmHandler = O064:02AD: the character fights for the charmer; on
+// charmHandler = O0A4:04B8: the character fights for the charmer; on
 // removal back to its own side.
 func (e *Engine) charmHandler(c *Character, a *Affect, flag byte) {
 	if flag != 0 {
-		c.Side = (a.Data & charmSideBit) >> charmSideShift
+		c.Side = a.Data & charmSideBit / charmSideBit
 		if c.Control == controlCharmed {
 			c.Control = 0
+			c.Auto = 0
 		}
 		return
 	}
 	if a.Data&charmTaken == 0 {
 		a.Data = a.Data + charmTaken + c.Side*charmSideBit
-		c.Side = a.Data >> charmNewShift
+		c.Side = a.Data / charmNewSide
 		c.Auto = 1
 		if c.Control <= controlHired {
 			c.Control = controlCharmed
@@ -447,16 +409,18 @@ func (e *Engine) charmHandler(c *Character, a *Affect, flag byte) {
 		combatInfo(c).Target = nil
 		e.countSides()
 	}
-	e.v6825 = charmMorale
+	e.rv.morale = charmMorale
 }
 
-// suffocateHandler = O064:0379.
-func (e *Engine) suffocateHandler(c *Character, a *Affect, flag byte) {
-	if a.Data == 0 {
-		e.killWithMessage(c, statusDead, "Suffocates")
+// barkskinHandler = O0A4:05AC.
+func (e *Engine) barkskinHandler(c *Character, a *Affect, flag byte) {
+	if flag != 0 {
 		return
 	}
-	a.Data--
+	if e.rv.dmgType&dmgMagic == 0 {
+		e.rv.save++
+	}
+	e.rv.hitRoll--
 }
 
 // Poison and wasting timers.
@@ -466,9 +430,11 @@ const (
 	healingTime      = 60
 )
 
-// poisonDamageHandler = O064:03BC: a point of damage, again later.
+// poisonDamageHandler = O0A4:05D5: a point of damage. What comes back
+// later is affect 26 (the dwarf's bonus), not this one: the original's
+// slip, kept.
 func (e *Engine) poisonDamageHandler(c *Character, a *Affect, flag byte) {
-	if e.addAffectNow(c, affectPoisonDamage, a.Data, poisonDamageTime) && c.HP > 1 {
+	if flag == 0 && e.addAffectNow(c, affectDwarfVsFoes, a.Data, poisonDamageTime) && c.HP > 1 {
 		e.rv.dmgType = 0
 		e.damagePerson(c, 1, saveNone, false)
 		if e.gameState != stateCombat {
@@ -477,9 +443,18 @@ func (e *Engine) poisonDamageHandler(c *Character, a *Affect, flag byte) {
 	}
 }
 
-// shieldHandler = O064:041F: armour class 3 at least, saves up; magic
-// missiles (spell 15) do nothing.
+// Armour values (60 - armour class).
+const (
+	acShield     = 57
+	acCoughFloor = 50
+)
+
+// shieldHandler = O0A4:0665: armour class 3 at least, saves up; magic
+// missiles do nothing.
 func (e *Engine) shieldHandler(c *Character, a *Affect, flag byte) {
+	if flag != 0 {
+		return
+	}
 	if c.AC[0] < acShield {
 		c.AC[0] = acShield
 	}
@@ -489,36 +464,54 @@ func (e *Engine) shieldHandler(c *Character, a *Affect, flag byte) {
 	}
 }
 
-// vsGoblinoidHandler = O064:044A.
-func (e *Engine) vsGoblinoidHandler(c *Character, a *Affect, flag byte) {
-	e.v6826 = targetOf(c)
-	if e.v6826.Pad331&creatureGoblinoid != 0 {
-		e.rv.hitRoll++
+// resistCharmAndSleep: the chance in a hundred of shrugging off charm and
+// sleep.
+func (e *Engine) resistCharmAndSleep(flag byte, pct int) {
+	if flag == 0 && e.Dice(1, 100) <= pct {
+		e.blockAffect(affectCharmed)
+		e.blockAffect(affectAsleep)
 	}
 }
 
-// resistFireHandler = O064:0480.
-func (e *Engine) resistFireHandler(c *Character, a *Affect, flag byte) {
-	if flag == 0 && e.rv.dmgType&dmgFire != 0 {
-		e.rv.damage >>= 1
-		e.rv.save += 3
+// halfElfResistHandler = O0A4:069E: 30%.
+func (e *Engine) halfElfResistHandler(c *Character, a *Affect, flag byte) {
+	e.resistCharmAndSleep(flag, 30)
+}
+
+// elfResistHandler = O0A4:2F77: 90%.
+func (e *Engine) elfResistHandler(c *Character, a *Affect, flag byte) {
+	e.resistCharmAndSleep(flag, 90)
+}
+
+// noCharmSleepHandler = O0A4:2FA5.
+func (e *Engine) noCharmSleepHandler(c *Character, a *Affect, flag byte) {
+	if flag == 0 {
+		e.blockAffect(affectCharmed)
+		e.blockAffect(affectAsleep)
 	}
 }
 
-// silencedHandler = O064:04B1.
+// silencedHandler = O0A4:06F5.
 func (e *Engine) silencedHandler(c *Character, a *Affect, flag byte) {
+	if flag != 0 {
+		return
+	}
 	ci := combatInfo(c)
 	if ci.CanUse != 0 {
-		e.combatName(c, "is silenced", combatMsgRow, true)
+		e.combatName(c, "is "+affectNameOf(affectSilenced), combatMsgRow, true)
 	}
 	ci.CanUse = 0
 	ci.CanCast = 0
 }
 
-// slowPoisonHandler = O064:0517: when it ends, the poison kills.
+// slowPoisonHandler = O0A4:077A: when it ends, the poison kills.
 func (e *Engine) slowPoisonHandler(c *Character, a *Affect, flag byte) {
+	if flag != 0 {
+		return
+	}
 	if e.FindAffect(c, affectPoisoned) != nil {
 		e.killWithMessage(c, statusDead, "dies from poison")
+		e.RemoveAffect(c, affectPoisoned, nil)
 	}
 	e.rv.cure = 1
 	e.RemoveAffect(c, affectPoisonDamage, nil)
@@ -527,16 +520,15 @@ func (e *Engine) slowPoisonHandler(c *Character, a *Affect, flag byte) {
 
 // The spiritual hammer item.
 const (
-	hammerType   = 20
-	hammerWord1  = 20
-	hammerWord2  = 243
+	hammerType   = 6
+	hammerWord1  = 6
+	hammerWord2  = 121
 	hammerPlus   = 1
-	hammerFlags  = 160
+	hammerFlags  = 128
 	maxItemsHeld = 16
-	hammerAffect = affectSpiritualHammer
 )
 
-// spiritualHammerHandler = O064:0583: the hammer appears in the caster's
+// spiritualHammerHandler = O0A4:080A: the hammer appears in the caster's
 // hand and goes with the spell.
 func (e *Engine) spiritualHammerHandler(c *Character, a *Affect, flag byte) {
 	var found *Item
@@ -550,57 +542,85 @@ func (e *Engine) spiritualHammerHandler(c *Character, a *Affect, flag byte) {
 		e.loseItem(c, found)
 	}
 	if flag == 0 && found == nil && c.ItemCount < maxItemsHeld {
-		tmp := &Item{Type: hammerType, Plus: hammerPlus}
-		tmp.Words[1] = hammerWord1
-		tmp.Words[2] = hammerWord2
-		tmp.Spells[1] = hammerAffect
-		tmp.Spells[2] = hammerFlags
-		e.AddItemCopy(c, tmp)
-		e.readyItem(tmp) // the original readies its template, not the copy
-		e.combatName(c, "Gains an item", combatMsgRow, true)
+		hammer := &Item{itemRecord: itemRecord{Type: hammerType, Plus: hammerPlus}}
+		hammer.Words[1] = hammerWord1
+		hammer.Words[2] = hammerWord2
+		hammer.Spells[1] = affectSpiritualHammer
+		hammer.Spells[2] = hammerFlags
+		added := e.AddItemCopy(c, hammer)
+		if added != nil && c.Slots[0] == nil {
+			saved := e.partySel
+			e.partySel = e.partyIndex(c)
+			e.readyItem(added)
+			added.Readied = 1
+			e.partySel = saved
+		}
+		e.combatName(c, "gains an item", combatMsgRow, true)
 	}
 	e.ApplyItems(c)
 }
 
-// invisibleHandler = O064:06C6: attackers who cannot see it are hampered.
+// unseenBy: the attacker cannot see the character, and hits it less.
+func (e *Engine) unseenBy() {
+	e.rv.unseen = 1
+	e.rv.hitRoll -= 4
+}
+
+// invisibleHandler = O0A4:0A03: attackers who cannot see it are hampered.
 func (e *Engine) invisibleHandler(c *Character, a *Affect, flag byte) {
 	if flag == 0 && e.FindAffect(e.selected(), affectDetectInvisibility) == nil {
-		e.v681E = 1
-		e.rv.hitRoll -= 4
+		e.unseenBy()
 	}
 }
 
-// vsOrcHandler = O064:06FB.
-func (e *Engine) vsOrcHandler(c *Character, a *Affect, flag byte) {
-	e.v6826 = targetOf(c)
-	if e.v6826.Pad331&creatureOrc != 0 {
+// dwarfVsFoesHandler = O0A4:0A38.
+func (e *Engine) dwarfVsFoesHandler(c *Character, a *Affect, flag byte) {
+	if flag != 0 {
+		return
+	}
+	e.rv.target = targetOf(c)
+	if e.rv.target.CreatureFlags&creatureDwarfFoe != 0 {
 		e.rv.hitRoll++
 	}
 }
 
 // Mirror image data: the images in the high nibble.
-const imageShift = 4
+const (
+	imageStep = 16
+	imageLow  = 15
+)
 
-// mirrorImageHandler = O064:073F: a single-target spell or blow may strike
-// an image instead.
+// mirrorImageHandler = O0A4:0A83: a blow or a single-target spell may
+// strike an image instead.
 func (e *Engine) mirrorImageHandler(c *Character, a *Affect, flag byte) {
-	if e.Dice(1, int(a.Data>>imageShift)+1) > 1 && e.curSpell > 0 && e.rv.areaSpell == 0 {
-		e.blockAffect(0)
-		e.combatName(c, "lost an image", combatMsgRow, true)
-		a.Data--
-		if a.Data == 0 {
-			e.RemoveAffect(c, affectMirrorImage, nil)
-		}
+	if flag != 0 || e.Dice(1, int(a.Data/imageStep)+1) <= 1 {
+		return
+	}
+	if e.curSpell > 0 && (e.rv.areaSpell != 0 || spellTableData[e.curSpell][spellImageField] == 0) {
+		return
+	}
+	e.blockAffect(0)
+	e.combatName(c, "lost an image", combatMsgRow, true)
+	images := a.Data/imageStep - 1
+	if images == 0 {
+		e.RemoveAffect(c, affectMirrorImage, nil)
+		return
+	}
+	a.Data = a.Data&imageLow | images*imageStep
+}
+
+// enfeebledHandler = O0A4:0B5D.
+func (e *Engine) enfeebledHandler(c *Character, a *Affect, flag byte) {
+	if flag == 0 {
+		e.rv.damage -= e.rv.damage / 4
 	}
 }
 
-// quarterLessHandler = O064:07C0.
-func (e *Engine) quarterLessHandler(c *Character, a *Affect, flag byte) {
-	e.rv.damage -= e.rv.damage >> 1 >> 1
-}
-
-// coughingHandler = O064:07E8: no spells or items, and worse armour.
+// coughingHandler = O0A4:0B8F: no spells or items, and worse armour.
 func (e *Engine) coughingHandler(c *Character, a *Affect, flag byte) {
+	if flag != 0 {
+		return
+	}
 	ci := combatInfo(c)
 	if ci.CanUse != 0 {
 		e.combatName(c, "is coughing", combatMsgRow, true)
@@ -619,75 +639,66 @@ func (e *Engine) coughingHandler(c *Character, a *Affect, flag byte) {
 	}
 }
 
-// Animated creatures' data: the side in the high nibble.
-const (
-	collapseSideShift = 4
-	animatedMove      = 12
-)
-
-// collapseHandler = O064:089E: the animated creature falls; brought back to
-// a plain fighter of the side it was raised for.
-func (e *Engine) collapseHandler(c *Character, a *Affect, flag byte) {
-	a.Call = 0
-	if e.rv.cure == 0 {
-		e.killWithMessage(c, statusDead, "collapses")
+// dispelEvilHandler = O0A4:0C8B: the enchanted foe is sent away unless it
+// saves, and the spell is spent.
+func (e *Engine) dispelEvilHandler(c *Character, a *Affect, flag byte) {
+	if flag != 0 {
+		return
 	}
-	c.Side = a.Data >> collapseSideShift
-	c.Auto = 1
-	c.Undead = 0
-	usable := byte(0)
-	if oldClassUsable(c) {
-		usable = 1
+	t := targetOf(c)
+	e.rv.target = t
+	if t.CreatureFlags&creatureEnchanted != 0 && !e.SavingThrow(t, saveVsSpell, 0) {
+		e.killWithMessage(t, statusDisintegrated, "is dispelled")
+		e.RemoveAffect(c, affectDispellingEvil, nil)
+		e.RemoveAffect(c, affectDispelEvil, nil)
+		return
 	}
-	c.FightLevel = c.Levels[clsFighter] + c.OldLevels[clsFighter]*usable
-	c.BaseMove = animatedMove
-	if c.Control == controlCharmed {
-		c.Control = 0
-	}
-	c.Kind = 0
+	e.combatName(t, "resists dispel evil", combatMsgRow, true)
 }
 
-// dazzledHandler = O064:0951.
-func (e *Engine) dazzledHandler(c *Character, a *Affect, flag byte) {
+// blindHandler = O0A4:0D51.
+func (e *Engine) blindHandler(c *Character, a *Affect, flag byte) {
+	if flag != 0 {
+		return
+	}
 	e.rv.hitRoll -= 4
 	c.AC[0] -= 4
 	c.AC[1] -= 4
 	e.rv.save -= 4
 }
 
-// weakAndWastingHandler = O064:0974.
-func (e *Engine) weakAndWastingHandler(c *Character, a *Affect, flag byte) {
-	e.callAffect(affectWeakened, c, a, flag)
-	e.callAffect(affectWasting, c, a, flag)
+// diseasedHandler = O0A4:0D82: weakness and wasting.
+func (e *Engine) diseasedHandler(c *Character, a *Affect, flag byte) {
+	if flag == 0 {
+		e.callAffect(affectWeakened, c, a, flag)
+		e.callAffect(affectWasting, c, a, flag)
+	}
 }
 
-// Run-away and berserk times.
+// Times of the fits of confusion.
 const (
 	runAwayTime = 10
 	berserkTime = 1
 )
 
-// confusedHandler = O064:09D9: each round the confused run, stand dazed,
+// confusedHandler = O0A4:0DED: each round the confused run, stand dazed,
 // go berserk or rage; a saving throw may end it.
 func (e *Engine) confusedHandler(c *Character, a *Affect, flag byte) {
+	if flag != 0 {
+		return
+	}
 	switch r := e.Dice(1, 100); {
 	case r <= 10:
 		e.RemoveAffect(c, affectConfused, nil)
-		ci := combatInfo(c)
-		ci.Turned = 1
-		c.Auto = 1
-		if c.Control <= controlHired {
-			c.Control = controlCharmed
-		}
-		ci.Target = nil
-		e.isUnaffected(c, affectRunningAway, runAwayTime, 0, 1, 1, false, "runs away")
+		e.startFleeing(c)
+		e.isUnaffected(c, affectFrightened, runAwayTime, 0, 1, 1, false, "runs away")
 	case r <= 60:
 		e.hitMessage(c, true, "is confused")
 		e.clearCombatText()
 		e.loseTurnHandler(c, a, 0)
 	case r <= 80:
-		e.isUnaffected(c, affectBerserkFoe, berserkTime, c.Side, 1, 1, false, "goes berserk")
-		e.callAffect(affectBerserkFoe, c, nil, 0)
+		e.isUnaffected(c, affectBerserk, berserkTime, c.Side, 1, 1, false, "goes berserk")
+		e.callAffect(affectBerserk, c, nil, 0)
 	default:
 		e.hitMessage(c, true, "is enraged")
 		e.clearCombatText()
@@ -697,17 +708,31 @@ func (e *Engine) confusedHandler(c *Character, a *Affect, flag byte) {
 	}
 }
 
-// hamperedHandler = O064:0B6F.
-func (e *Engine) hamperedHandler(c *Character, a *Affect, flag byte) {
-	e.rv.hitRoll -= 4
-	e.rv.save -= 4
+// startFleeing: the character turns to run, under the computer's control
+// and with no target.
+func (e *Engine) startFleeing(c *Character) {
+	ci := combatInfo(c)
+	ci.Turned = 1
+	c.Auto = 1
+	if c.Control <= controlHired {
+		c.Control = controlCharmed
+	}
+	ci.Target = nil
 }
 
-// stumblingHandler = O064:0B80 has_action_timedout: with no initiative
-// left the attack misses.
-func (e *Engine) stumblingHandler(c *Character, a *Affect, flag byte) {
-	if combatInfo(c).Delay == 0 {
-		e.v681E = 1
+// cursedHandler = O0A4:0FB9.
+func (e *Engine) cursedHandler(c *Character, a *Affect, flag byte) {
+	if flag == 0 {
+		e.rv.hitRoll -= 4
+		e.rv.save -= 4
+	}
+}
+
+// blinkingHandler = O0A4:0FD2: blinked away before its initiative came,
+// it cannot be hit.
+func (e *Engine) blinkingHandler(c *Character, a *Affect, flag byte) {
+	if flag == 0 && combatInfo(c).Delay == 0 {
+		e.rv.unseen = 1
 		e.rv.hitRoll = -1
 	}
 }
@@ -715,34 +740,46 @@ func (e *Engine) stumblingHandler(c *Character, a *Affect, flag byte) {
 // Haste data: aged once.
 const hasteAged = 16
 
-// hasteHandler = O064:0BA5 spl_age: a year older the first time, twice as
-// fast.
+// hasteHandler = O0A4:1002: a year older the first time, twice as fast.
 func (e *Engine) hasteHandler(c *Character, a *Affect, flag byte) {
+	if flag != 0 {
+		return
+	}
 	if a.Data&hasteAged == 0 {
 		a.Data += hasteAged
 		e.combatName(c, "ages", combatMsgRow, true)
 		c.Age++
+		e.ageCheckDue = true
 	}
-	e.v681A *= 2
+	e.rv.moves *= 2
+	e.rv.attacks *= 2
 }
 
-// avoidPlainWeaponsHandler = O064:0FE0: a non-magical weapon misses.
-func (e *Engine) avoidPlainWeaponsHandler(c *Character, a *Affect, flag byte) {
+// protNormalMissilesHandler = O0A4:13E5: a missile without a plus misses.
+func (e *Engine) protNormalMissilesHandler(c *Character, a *Affect, flag byte) {
+	if flag != 0 {
+		return
+	}
 	if w := e.readiedWeapon(e.selected()); w != nil && w.Plus == 0 {
 		e.avoidDistantAttack(c, 100)
 	}
 }
 
-// slowHandler = O064:101B.
-func (e *Engine) slowHandler(c *Character, a *Affect, flag byte) { e.v681A >>= 1 }
+// slowHandler = O0A4:1429.
+func (e *Engine) slowHandler(c *Character, a *Affect, flag byte) {
+	if flag == 0 {
+		e.rv.moves /= 2
+		e.rv.attacks /= 2
+	}
+}
 
 // Strength floor of weakness.
 const weakestStrength = 3
 
-// weakenHandler = O064:1038 weaken: strength drops while it lasts; at the
+// weakenHandler = O0A4:145F: strength drops while it lasts; at the
 // bottom the victim retches.
 func (e *Engine) weakenHandler(c *Character, a *Affect, flag byte) {
-	if !e.addAffectNow(c, affectWeakened, a.Data, weakenTime) {
+	if flag != 0 || !e.addAffectNow(c, affectWeakened, a.Data, weakenTime) {
 		return
 	}
 	if c.Stats[statStr].Value > weakestStrength {
@@ -750,15 +787,13 @@ func (e *Engine) weakenHandler(c *Character, a *Affect, flag byte) {
 		c.Stats[statStr].Value--
 		return
 	}
-	if e.FindAffect(c, affectNausea) == nil {
-		e.AddAffect(c, affectNausea, 0, 255, 0)
-	}
+	e.AddAffect(c, affectNausea, 0, 255, 0)
 }
 
-// wastingHandler = O064:10C2: a point of damage while hit points last,
+// wastingHandler = O0A4:14F4: a point of damage while hit points last,
 // then nausea.
 func (e *Engine) wastingHandler(c *Character, a *Affect, flag byte) {
-	if !e.addAffectNow(c, affectWasting, a.Data, poisonDamageTime) {
+	if flag != 0 || !e.addAffectNow(c, affectWasting, a.Data, poisonDamageTime) {
 		return
 	}
 	if c.HP > 1 {
@@ -769,52 +804,45 @@ func (e *Engine) wastingHandler(c *Character, a *Affect, flag byte) {
 		}
 		return
 	}
-	if e.FindAffect(c, affectNausea) == nil {
-		e.AddAffect(c, affectNausea, 0, 255, 0)
-	}
+	e.AddAffect(c, affectNausea, 0, 255, 0)
 }
 
-// Creature sizes and kinds the racial affects look at.
-const (
-	sizeMask     = 127
-	sizeLarge    = 2
-	kindGiantA   = 2
-	kindGiantB   = 10
-	kindManSized = 1
-)
-
-// vsGiantsHandler = O064:1153: large giants hit a dwarf or gnome less.
-func (e *Engine) vsGiantsHandler(c *Character, a *Affect, flag byte) {
-	e.v6826 = targetOf(c)
-	sel := e.selected()
-	if (sel.Kind == kindGiantA || sel.Kind == kindGiantB) && sel.Size&sizeMask == sizeLarge {
+// dwarfDodgesHandler = O0A4:159E.
+func (e *Engine) dwarfDodgesHandler(c *Character, a *Affect, flag byte) {
+	if flag == 0 && e.selected().CreatureFlags&creatureGiantKin != 0 {
 		e.rv.hitRoll -= 4
 	}
 }
 
-// gnomeExtraHandler = O064:11A2.
-func (e *Engine) gnomeExtraHandler(c *Character, a *Affect, flag byte) {
-	sel := e.selected()
-	if sel.Kind == kindManSized && sel.Size&sizeMask == sizeLarge {
+// gnomeDodgesHandler = O0A4:15C3.
+func (e *Engine) gnomeDodgesHandler(c *Character, a *Affect, flag byte) {
+	if flag == 0 && e.selected().CreatureFlags&creatureGnomeFoe != 0 {
 		e.rv.hitRoll -= 4
 	}
 }
 
 // Prayer data: the praying side.
-const prayerSideShift = 4
+const prayerSide = 16
 
-// prayerHandler = O064:11C9: the praying side gains, the other loses.
+// prayerHandler = O0A4:15E8: the praying side gains, the other loses.
 func (e *Engine) prayerHandler(c *Character, a *Affect, flag byte) {
-	if c.Side == (a.Data&charmOwnSide)>>prayerSideShift {
-		e.saveAndHitUp()
+	if flag != 0 {
+		return
+	}
+	if c.Side == a.Data&prayerSide/prayerSide {
+		e.saveAndHitUp(flag)
 		return
 	}
 	e.rv.hitRoll--
 	e.rv.save--
 }
 
-// fireBodyHandler = O064:1212.
-func (e *Engine) fireBodyHandler(c *Character, a *Affect, flag byte) {
+// fireShieldHotHandler = O0A4:163D: cold is resisted, unsaved fire hurts
+// double.
+func (e *Engine) fireShieldHotHandler(c *Character, a *Affect, flag byte) {
+	if flag != 0 {
+		return
+	}
 	if e.rv.dmgType&dmgCold != 0 {
 		e.rv.save += 2
 		return
@@ -824,60 +852,142 @@ func (e *Engine) fireBodyHandler(c *Character, a *Affect, flag byte) {
 	}
 }
 
-// iceBodyHandler = O064:1243. The original tests DS:5D0B (the game-saved
-// flag) where its twin above tests the saving throw; the port tests the
-// saving throw (deliberate deviation).
-func (e *Engine) iceBodyHandler(c *Character, a *Affect, flag byte) {
+// fireShieldColdHandler = O0A4:1678: fire is resisted, cold hurts double.
+// The original tests the text-waiting flag where its twin tests the
+// saving throw; kept.
+func (e *Engine) fireShieldColdHandler(c *Character, a *Affect, flag byte) {
+	if flag != 0 {
+		return
+	}
 	if e.rv.dmgType&dmgFire != 0 {
 		e.rv.save += 2
 		return
 	}
-	if e.rv.dmgType&dmgCold != 0 && !e.rv.saveMade {
+	if e.rv.dmgType&dmgCold != 0 && !e.saved {
 		e.rv.damage *= 2
 	}
 }
 
-// flickerHandler = O064:127B: invisible for the next round.
-func (e *Engine) flickerHandler(c *Character, a *Affect, flag byte) {
+// invisibleRingHandler = O0A4:16BC: invisible for the next round; in a
+// fight taking the ring off ends it.
+func (e *Engine) invisibleRingHandler(c *Character, a *Affect, flag byte) {
+	if flag != 0 {
+		if e.gameState == stateCombat {
+			e.RemoveAffect(c, affectInvisible, nil)
+		}
+		return
+	}
 	e.AddAffect(c, affectInvisible, 1, 12, 0)
 }
 
-// engulfedHandler = O064:129A: no moves.
-func (e *Engine) engulfedHandler(c *Character, a *Affect, flag byte) {
-	combatInfo(c).Moves = 0
-	if e.v681D != 0 {
-		e.v681A = 0
+// Spell levels the globes stop.
+const (
+	globeMaxLevel      = 4
+	minorGlobeMaxLevel = 3
+)
+
+// stopSpellsUpTo: spells of that level and below do not get through.
+func (e *Engine) stopSpellsUpTo(flag byte, level byte) {
+	if flag == 0 && e.curSpell > 0 && spellTableData[e.curSpell][spellLevelField] <= level {
+		e.blockAffect(0)
 	}
 }
 
-// regeneratingHandler = O064:12BA.
-func (e *Engine) regeneratingHandler(c *Character, a *Affect, flag byte) {
-	e.AddAffect(c, affectRegrowth, 0, 255, 0)
+// globeHandler = O0A4:1708.
+func (e *Engine) globeHandler(c *Character, a *Affect, flag byte) {
+	e.stopSpellsUpTo(flag, globeMaxLevel)
+}
+
+// minorGlobeHandler = O0A4:1A2C.
+func (e *Engine) minorGlobeHandler(c *Character, a *Affect, flag byte) {
+	e.stopSpellsUpTo(flag, minorGlobeMaxLevel)
+}
+
+// Spells whose targeting the gaze and breath attacks borrow.
+const (
+	gazeAimSpell   = 61
+	breathAimSpell = 68
+)
+
+// Missile looks.
+const (
+	gazeColours   = 18
+	gazeFrames    = 4
+	gazeDelay     = 45
+	breathColours = 23
+	breathFrames  = 1
+	breathDelay   = 30
+)
+
+// aimWithSpell = the DS:8A8E target hook with a spell's targeting: whom the
+// attack goes for, nil when there is no one.
+func (e *Engine) aimWithSpell(spell int) *Character {
+	if !e.spellTargetHook(spell, 1) {
+		return nil
+	}
+	return e.spellTarget
+}
+
+// shootAt draws a missile of the colours from one combatant to another.
+func (e *Engine) shootAt(from, to *Character, colours, frames, delay int) {
+	e.hitColours(colours)
+	e.flyMissile(e.combatX(from), e.combatY(from), e.combatX(to), e.combatY(to), frames, delay)
+}
+
+// opposingSide = O151:2AF8 (char): the side it fights against.
+func opposingSide(c *Character) byte {
+	if c.Side == 0 {
+		return 1
+	}
+	return 0
+}
+
+// stoningGazeHandler = O0A4:1762: the one it looks at is turned to stone
+// unless it saves; a gaze that can be reflected comes back from a
+// mirror. The gaze goes off only at its own side's members: the
+// original's test, kept.
+func (e *Engine) stoningGazeHandler(c *Character, a *Affect, flag byte) {
+	if flag != 0 {
+		return
+	}
+	t := e.aimWithSpell(gazeAimSpell)
+	if t == nil || t.Side == opposingSide(c) {
+		return
+	}
+	e.rv.target = t
+	e.combatName(c, "gazes...", combatMsgRow, false)
+	e.shootAt(c, t, gazeColours, gazeFrames, gazeDelay)
+	if e.FindAffect(c, affectGazeReflectable) != nil && e.FindAffect(t, affectMirror) != nil {
+		e.combatName(t, "reflects it!", combatMsgRow+2, false)
+		e.shootAt(t, c, gazeColours, gazeFrames, gazeDelay)
+		e.rv.target = c
+	}
+	if !e.SavingThrow(e.rv.target, saveVsPetrify, 0) {
+		e.killWithMessage(e.rv.target, statusStoned, "is turned to stone")
+	}
 }
 
 // Weapon pluses that matter.
-const magicWeaponFull = 3
+const plusNeeded = 3
 
-// magicWeaponsOnlyHandler = O064:12D8: plain weapons do nothing, weak
-// magic ones half.
-func (e *Engine) magicWeaponsOnlyHandler(c *Character, a *Affect, flag byte) {
-	w := e.readiedWeapon(e.selected())
-	if w == nil || w.Plus == 0 {
-		e.rv.damage = 0
+// needsPlus3WeaponHandler = O0A4:1930.
+func (e *Engine) needsPlus3WeaponHandler(c *Character, a *Affect, flag byte) {
+	if flag != 0 {
 		return
 	}
-	if int8(w.Plus) < magicWeaponFull {
-		e.rv.damage >>= 1
+	if w := e.readiedWeapon(e.selected()); w != nil && int8(w.Plus) >= plusNeeded {
+		return
 	}
+	e.rv.damage = 0
 }
 
-// fireDamageReducedHandler = O064:132B: two less per die (at least one),
+// fireResistRingHandler = O0A4:1974: two less per die (at least one),
 // saves up; fire that is not magic is stopped.
-func (e *Engine) fireDamageReducedHandler(c *Character, a *Affect, flag byte) {
-	if e.rv.dmgType&dmgFire == 0 {
+func (e *Engine) fireResistRingHandler(c *Character, a *Affect, flag byte) {
+	if flag != 0 || e.rv.dmgType&dmgFire == 0 {
 		return
 	}
-	for i := byte(1); i <= e.rv.diceN; i++ {
+	for die := byte(1); die <= e.rv.diceN; die++ {
 		e.rv.damage -= 2
 		if e.rv.damage < e.rv.diceN {
 			e.rv.damage = e.rv.diceN
@@ -889,41 +999,144 @@ func (e *Engine) fireDamageReducedHandler(c *Character, a *Affect, flag byte) {
 	}
 }
 
-// healingOverTimeHandler = O064:1386: a hit point now and then.
+// healingOverTimeHandler = O0A4:19D7: a hit point now and then.
 func (e *Engine) healingOverTimeHandler(c *Character, a *Affect, flag byte) {
-	if e.addAffectNow(c, affectHealingOverTime, a.Data, healingTime) && e.Heal(c, 1, true) {
+	if flag == 0 && e.addAffectNow(c, affectHealingOverTime, a.Data, healingTime) && e.Heal(c, 1, true) {
 		e.healedMessage(c)
 	}
 }
 
-// Spell levels the minor globe stops.
-const globeMaxLevel = 4
-
-// minorGlobeHandler = O064:13CA.
-func (e *Engine) minorGlobeHandler(c *Character, a *Affect, flag byte) {
-	if e.curSpell > 0 && spellTableData[e.curSpell][spellLevelField] < globeMaxLevel {
-		e.blockAffect(0)
+// poisonStingHandler = O0A4:1B49.
+func (e *Engine) poisonStingHandler(c *Character, a *Affect, flag byte) {
+	if flag == 0 {
+		e.poisonAttack(c, 0)
 	}
 }
 
-func (e *Engine) poisonStingHandler(c *Character, a *Affect, flag byte)       { e.poisonAttack(c, 0) }  // O064:1520
-func (e *Engine) poisonSting4Handler(c *Character, a *Affect, flag byte)      { e.poisonAttack(c, 4) }  // O064:1534
-func (e *Engine) poisonSting2Handler(c *Character, a *Affect, flag byte)      { e.poisonAttack(c, 2) }  // O064:1548
-func (e *Engine) poisonStingMinus2Handler(c *Character, a *Affect, flag byte) { e.poisonAttack(c, -2) } // O064:1671
+// poisonStingMinus2Handler = O0A4:2B56.
+func (e *Engine) poisonStingMinus2Handler(c *Character, a *Affect, flag byte) {
+	if flag == 0 {
+		e.poisonAttack(c, -2)
+	}
+}
 
-// paralysingTouchHandler = O064:155C.
+// paralysingTouchHandler = O0A4:2B73.
 func (e *Engine) paralysingTouchHandler(c *Character, a *Affect, flag byte) {
-	e.paralyseTarget(c, e.Dice(2, 8))
+	if flag == 0 {
+		e.paralyseTarget(c, 100, 0)
+	}
+}
+
+// stoningTouchHandler = O0A4:1B79.
+func (e *Engine) stoningTouchHandler(c *Character, a *Affect, flag byte) {
+	if flag != 0 {
+		return
+	}
+	t := targetOf(c)
+	e.rv.target = t
+	if !e.SavingThrow(t, saveVsPetrify, 0) {
+		e.killWithMessage(t, statusStoned, "is turned to stone")
+	}
+}
+
+// Swallowing.
+const (
+	swallowRoll   = 75
+	swallowFrames = 9
+	swallowDelay  = 10
+	belchChance   = 50
+)
+
+// swallowsWholeHandler = O0A4:1C26: a very good roll swallows the target;
+// it flickers out and its body lies where the swallower stands.
+func (e *Engine) swallowsWholeHandler(c *Character, a *Affect, flag byte) {
+	if flag != 0 || e.rv.hitRoll < swallowRoll {
+		return
+	}
+	t := targetOf(c)
+	e.rv.target = t
+	e.combatName(t, "is swallowed whole", combatMsgRow, true)
+	e.gameDelay()
+	t.Status = statusDead
+	t.Okay = 0
+	t.HP = 0
+	e.downAffects(t)
+	idx := e.combatIndex(t)
+	if !e.combatOnScreen(t, true) {
+		e.combatCentre(e.combatX(t), e.combatY(t), 3, 8)
+	}
+	e.combatClearIcon(0, 0, idx)
+	e.PlaySound(sndFall)
+	for frame := 0; frame < swallowFrames; frame++ {
+		for part := 0; part <= 3; part++ {
+			dx, dy, ok := e.footprint(int(e.cpos[idx].size), part)
+			sx, sy := int(e.combatScreenX[idx])+dx, int(e.combatScreenY[idx])+dy
+			if ok && e.combatInView(sx, sy) {
+				e.drawPage(sx*3, sy*3, e.icons[iconDeath][frame%2], 0, true, true)
+			}
+		}
+		e.Flip()
+		e.Delay(swallowDelay)
+	}
+	e.combatName(t, "is killed", combatMsgRow, false)
+	e.combatClearIcon(0, 0, idx)
+	if combatInfo(t).Extra == 0 && e.nbodies+1 < len(e.bodies) {
+		x, y := e.combatX(c), e.combatY(c)
+		e.nbodies++
+		b := &e.bodies[e.nbodies]
+		b.ground = e.cmap.ground[y][x]
+		if b.ground != groundStinkingCloud {
+			if c.Status == statusStoned {
+				e.cmap.ground[y][x] = groundStoneBody
+			} else {
+				e.cmap.ground[y][x] = groundBody
+			}
+		}
+		b.c, b.x, b.y = t, byte(x), byte(y)
+	}
+	if e.Dice(1, 100) <= belchChance {
+		e.combatName(c, "belches in satisfaction", combatMsgRow, true)
+	} else {
+		e.combatName(t, "is digested instantly", combatMsgRow, true)
+	}
+	e.combatClearIcon(0, 0, idx)
+	e.cpos[idx].size = 0
+	e.combatRedrawMap()
+	e.combatCentre(e.cmap.viewX+3, e.cmap.viewY+3, 3, 8)
+	ci := combatInfo(t)
+	ci.Delay, ci.Moves, ci.Spell, ci.Guarding = 0, 0, 0, 0
+	e.gameDelay()
+	e.clearCombatText()
+}
+
+// breathFireCloseHandler = O0A4:2094: once the fight is old enough, fire
+// at a foe close by: 8 points, half on a save.
+func (e *Engine) breathFireCloseHandler(c *Character, a *Affect, flag byte) {
+	if flag != 0 || e.combatRound == 0 || c.BaseAttack[0] < e.combatRound {
+		return
+	}
+	e.rv.dmgType = dmgFire | dmgBreath
+	t := targetOf(c)
+	e.rv.target = t
+	if e.rangeTo(c, t) >= 2 {
+		return
+	}
+	e.combatName(c, "Breathes Fire", combatMsgRow, true)
+	e.shootAt(c, t, breathColours, breathFrames, breathDelay)
+	e.damagePerson(t, 8, saveHalf, e.SavingThrow(t, saveVsBreath, 0))
 }
 
 // Feeblemind's intelligence and wisdom.
-const feebleScore = 7
+const feebleScore = 3
 
-// feeblemindHandler = O064:1595 spell_stupid.
+// feeblemindHandler = O0A4:21BC.
 func (e *Engine) feeblemindHandler(c *Character, a *Affect, flag byte) {
+	if flag != 0 {
+		return
+	}
 	c.Stats[statInt].Value = feebleScore
 	c.Stats[statWis].Value = feebleScore
-	e.combatName(c, "is stupid", combatMsgRow, true)
+	e.combatName(c, "is made stupid", combatMsgRow, true)
 	if e.gameState != stateCombat {
 		return
 	}
@@ -936,59 +1149,75 @@ func (e *Engine) feeblemindHandler(c *Character, a *Affect, flag byte) {
 	}
 }
 
-// hiddenFromKind19Handler = O064:1636.
-func (e *Engine) hiddenFromKind19Handler(c *Character, a *Affect, flag byte) {
-	if e.selected().Kind == kindKind19 && e.FindAffect(e.selected(), affectDetectInvisibility) == nil {
-		e.v681E = 1
-		e.rv.hitRoll -= 4
+// invisibleToAnimalsHandler = O0A4:2284. The original looks at the
+// invisible one's own kind, not the attacker's; kept.
+func (e *Engine) invisibleToAnimalsHandler(c *Character, a *Affect, flag byte) {
+	if flag == 0 && c.CreatureFlags&creatureAnimalsSeen != 0 && e.FindAffect(c, affectDetectInvisibility) == nil {
+		e.unseenBy()
 	}
 }
 
-// blurHandler = O064:1685.
-func (e *Engine) blurHandler(c *Character, a *Affect, flag byte) {
-	e.v681E = 1
-	e.rv.hitRoll -= 4
-}
-
-// flicker95Handler = O064:1696.
-func (e *Engine) flicker95Handler(c *Character, a *Affect, flag byte) {
-	if e.Dice(1, 100) <= 95 {
-		e.AddAffect(c, affectInvisible, 1, 12, 0)
+// confusingGazeHandler = O0A4:22E4: a foe close by is confused for a few
+// rounds unless it saves.
+func (e *Engine) confusingGazeHandler(c *Character, a *Affect, flag byte) {
+	if flag != 0 {
+		return
+	}
+	t := e.aimWithSpell(breathAimSpell)
+	if t == nil || e.rangeTo(c, t) >= 2 {
+		return
+	}
+	e.rv.target = t
+	e.combatName(c, "gazes...", combatMsgRow, false)
+	e.shootAt(c, t, gazeColours, gazeFrames, gazeDelay)
+	if !e.SavingThrow(t, saveVsSpell, 0) {
+		e.isUnaffected(t, affectConfused, e.Dice(1, 10)+2, c.Side, 1, 1, false, "stares blankly")
 	}
 }
 
-// unaffectedByType32Handler = O064:16D2.
-func (e *Engine) unaffectedByType32Handler(c *Character, a *Affect, flag byte) {
-	if e.rv.dmgType&dmgType32 > 0 {
+// highlightedHandler = O0A4:240F: easier to hit.
+func (e *Engine) highlightedHandler(c *Character, a *Affect, flag byte) {
+	if flag == 0 {
+		c.AC[0] -= 2
+		c.AC[1] -= 2
+	}
+}
+
+// dragonBreathImmuneHandler = O0A4:2444.
+func (e *Engine) dragonBreathImmuneHandler(c *Character, a *Affect, flag byte) {
+	if flag == 0 && e.rv.dmgType&dmgBreath != 0 {
 		e.blockAffect(0)
-		e.combatName(c, "is unaffected", combatMsgRow, true)
 	}
 }
 
-// vsKind3Handler = O064:171A: a heavy blow against kind 3.
-func (e *Engine) vsKind3Handler(c *Character, a *Affect, flag byte) {
-	e.v6826 = targetOf(c)
-	if e.v6826.Kind == kindKind3 {
-		e.rv.damage = byte(e.Dice(1, 12)*3 + 4 + int(strDamage(c)))
-		e.rv.hitRoll += 2
+// magicalBootsHandler = O0A4:2465: harder to hit.
+func (e *Engine) magicalBootsHandler(c *Character, a *Affect, flag byte) {
+	if flag == 0 {
+		c.AC[0] += 2
+		c.AC[1] += 2
 	}
 }
 
-// vsKind8Handler = O064:1772.
-func (e *Engine) vsKind8Handler(c *Character, a *Affect, flag byte) {
-	e.v6826 = targetOf(c)
-	if e.v6826.Kind == kindKind8 {
-		e.rv.hitRoll += 3
-		e.rv.damage += 3
+// baneWeaponHandler = O0A4:2497: 6d6 and the strength bonus against its
+// foes.
+func (e *Engine) baneWeaponHandler(c *Character, a *Affect, flag byte) {
+	if flag != 0 {
+		return
+	}
+	t := targetOf(c)
+	e.rv.target = t
+	if t.MonsterFlags&monsterBane != 0 {
+		e.rv.damage = byte(e.RollDice(6, 6) + int(strDamage(c)))
+		e.rv.hitRoll++
 	}
 }
 
-// berserkHandler = O064:17B3 spl_berzerk: attacks the nearest one, of
-// either side.
+// berserkHandler = O0A4:250D: attacks the nearest one, of either side.
 func (e *Engine) berserkHandler(c *Character, a *Affect, flag byte) {
 	if flag != 0 {
 		if c.Control == controlCharmed {
 			c.Control = 0
+			c.Auto = 0
 		}
 		c.Side = 0
 		return
@@ -997,7 +1226,7 @@ func (e *Engine) berserkHandler(c *Character, a *Affect, flag byte) {
 	if e.gameState == stateCombat {
 		combatInfo(c).CanCast = 0
 		c.Side = targetOf(c).Side ^ 1
-		e.combatName(c, "goes berzerk", combatMsgRow, true)
+		e.combatName(c, "goes berserk", combatMsgRow, true)
 	}
 }
 
@@ -1021,53 +1250,123 @@ func (e *Engine) goBerserk(c *Character) {
 	}
 }
 
-// recoveringHandler = O064:18D9: back up when there is room, else later.
-func (e *Engine) recoveringHandler(c *Character, a *Affect, flag byte) {
-	if !e.Revive(c, c.HP) {
-		e.addAffectNow(c, affectRecovering, a.Data, 1)
+// magicalStoneHandler = O0A4:2674.
+func (e *Engine) magicalStoneHandler(c *Character, a *Affect, flag byte) {
+	if flag == 0 {
+		e.rv.save++
 	}
 }
 
-// burningTouchHandler = O064:1919.
-func (e *Engine) burningTouchHandler(c *Character, a *Affect, flag byte) {
-	e.rv.dmgType = dmgFire | dmgMagic
-	e.damagePerson(targetOf(c), e.RollDice(2, 10), saveNone, false)
+// fireHealsHandler = O0A4:2689: magical fire heals, electricity slows,
+// nothing else gets through.
+func (e *Engine) fireHealsHandler(c *Character, a *Affect, flag byte) {
+	switch {
+	case e.rv.dmgType&dmgFire != 0 && e.rv.dmgType&dmgMagic != 0:
+		e.combatName(c, "is Healed", combatMsgRow, true)
+		hp := int(c.HP) + int(e.rv.damage)
+		if hp > int(c.MaxHP) {
+			hp = int(c.MaxHP)
+		}
+		c.HP = byte(hp)
+	case e.rv.dmgType&dmgElectricity != 0:
+		e.AddAffect(c, affectSlow, 3, 255, 0)
+		e.combatName(c, "is "+affectNameOf(affectSlow), combatMsgRow, true)
+	}
+	e.blockAffect(0)
 }
 
-// acidTouchHandler = O064:194C.
-func (e *Engine) acidTouchHandler(c *Character, a *Affect, flag byte) {
+// breathFireHandler = O0A4:278C: fire at a foe in reach, 7 points, half
+// on a save.
+func (e *Engine) breathFireHandler(c *Character, a *Affect, flag byte) {
+	if flag != 0 {
+		return
+	}
+	e.rv.dmgType = dmgFire | dmgBreath
+	t := e.aimWithSpell(breathAimSpell)
+	if t == nil {
+		return
+	}
+	e.rv.target = t
+	e.combatTurn(c, byte(e.directionTo(c, t)), 1, false)
+	e.combatName(c, "Breathes Fire", combatMsgRow, true)
+	e.shootAt(c, t, breathColours, breathFrames, breathDelay)
+	e.damagePerson(t, 7, saveHalf, e.SavingThrow(t, saveVsBreath, 0))
+}
+
+// Acid spit: the nearer, the likelier.
+const spitReach = 11
+
+// spitAcidHandler = O0A4:28BC: 4d8 acid, half on a save; in the first
+// round only one time in ten.
+func (e *Engine) spitAcidHandler(c *Character, a *Affect, flag byte) {
+	if flag != 0 {
+		return
+	}
 	e.rv.dmgType = dmgAcid
-	e.damagePerson(targetOf(c), e.RollDice(1, 4), saveNone, false)
+	t := e.aimWithSpell(gazeAimSpell)
+	if t == nil {
+		return
+	}
+	e.rv.target = t
+	chance := 0
+	if r := e.rangeTo(c, t); r <= spitReach {
+		if e.combatRound == 0 {
+			chance = 10
+		} else {
+			chance = (spitReach - r) * 10
+		}
+	}
+	if chance <= 0 {
+		return
+	}
+	if e.Dice(1, 100) <= chance {
+		e.combatName(c, "Spits...", combatMsgRow, true)
+		e.shootAt(c, t, breathColours, breathFrames, breathDelay)
+		e.damagePerson(t, e.RollDice(4, 8), saveHalf, e.SavingThrow(t, saveVsBreath, 0))
+		return
+	}
+	e.combatName(c, "Spits and misses", combatMsgRow, true)
 }
 
-// halfDamageHandler = O064:197F.
-func (e *Engine) halfDamageHandler(c *Character, a *Affect, flag byte) { e.rv.damage >>= 1 }
+// The fear aura spares those of this level and above.
+const fearLevel = 5
 
-// Spell table fields.
+// fearAuraHandler = O0A4:2A36: foes below the level who are not fearless
+// run in terror.
+func (e *Engine) fearAuraHandler(c *Character, a *Affect, flag byte) {
+	if flag != 0 {
+		return
+	}
+	for _, foe := range e.party {
+		if foe.Side == c.Side || e.FindAffect(foe, affectFearless) != nil ||
+			e.FindAffect(foe, affectFrightened) != nil || int8(foe.MaxLevel) >= fearLevel {
+			continue
+		}
+		e.isUnaffected(foe, affectFrightened, 0, 255, 1, 1, false, "is terrified")
+		if e.FindAffect(foe, affectFrightened) != nil {
+			e.startFleeing(foe)
+		}
+	}
+}
+
+// Magical cloak data.
 const (
-	spellClassField = 0
-	spellLevelField = 1
-	spellSaveField  = 8 // what a saving throw does (0: nothing)
+	cloakUsed = 16
+	cloakKeep = 15
 )
 
-// saveVsElementsHandler = O064:1990: fire and cold are halved, or with a
-// saving throw against a spell that allows one, stopped.
-func (e *Engine) saveVsElementsHandler(c *Character, a *Affect, flag byte) {
-	if e.rv.dmgType&(dmgFire|dmgCold) == 0 {
+// magicalCloakHandler = O0A4:2B94: the first blow each round misses.
+func (e *Engine) magicalCloakHandler(c *Character, a *Affect, flag byte) {
+	if flag != 0 {
 		return
 	}
-	if e.SavingThrow(c, saveVsSpell, 0) && spellTableData[e.curSpell][spellSaveField] != 0 {
-		e.rv.damage = 0
+	if e.combatRound == 0 && e.rv.hitRoll == 0 {
+		a.Data &= cloakKeep
 		return
 	}
-	e.rv.damage >>= 1
-}
-
-// electricityHealsHandler = O064:19E1.
-func (e *Engine) electricityHealsHandler(c *Character, a *Affect, flag byte) {
-	if e.rv.dmgType&dmgElectricity != 0 {
-		e.blockAffect(0)
-		c.HP += byte(e.Dice(1, 8))
+	if a.Data&cloakUsed == 0 {
+		e.rv.hitRoll = -1
+		a.Data |= cloakUsed
 	}
 }
 
@@ -1077,382 +1376,128 @@ const (
 	itemUsesBolts  = 128
 )
 
-// arrowsScratchHandler = O064:1A14.
-func (e *Engine) arrowsScratchHandler(c *Character, a *Affect, flag byte) {
-	if w := e.readiedWeapon(e.selected()); w != nil && e.baseItem(w.Type, itemFlags) == itemUsesArrows {
-		e.rv.damage = 1
-	}
-}
-
-// First strike data.
-const (
-	firstStrikeDone = 16
-	firstStrikeKeep = 15
-)
-
-// firstStrikeHandler = O064:1A55: in the first round an attack that rolled
-// nothing still... the original's note: misses once per round.
-func (e *Engine) firstStrikeHandler(c *Character, a *Affect, flag byte) {
-	if e.combatRound == 0 && e.rv.hitRoll == 0 {
-		a.Data &= firstStrikeKeep
+// boltsHarmlessHandler = O0A4:2BE7.
+func (e *Engine) boltsHarmlessHandler(c *Character, a *Affect, flag byte) {
+	if flag != 0 {
 		return
 	}
-	if a.Data&firstStrikeDone == 0 {
-		e.rv.hitRoll = -1
-		a.Data |= firstStrikeDone
-	}
-}
-
-// fireHalvedHandler = O064:1D98.
-func (e *Engine) fireHalvedHandler(c *Character, a *Affect, flag byte) {
-	if e.rv.dmgType&dmgFire != 0 {
-		e.rv.damage >>= 1
-	}
-}
-
-// rangedHalvedHandler = O064:1DB2.
-func (e *Engine) rangedHalvedHandler(c *Character, a *Affect, flag byte) {
-	if w := e.readiedWeapon(e.selected()); w != nil && e.baseItem(w.Type, itemFlags)&(itemUsesArrows|itemUsesBolts) != 0 {
-		e.rv.damage >>= 1
-	}
-}
-
-// fallsDeadHandler = O064:1E06.
-func (e *Engine) fallsDeadHandler(c *Character, a *Affect, flag byte) {
-	a.Call = 0
-	if c.Okay != 0 {
-		e.killWithMessage(c, statusDead, "Falls dead")
-	}
-}
-
-// conSaveHandler = O064:1E42: dwarves' and halflings' constitution bonus
-// against rods and spells. Below constitution 4 the original adds an unset
-// local; the port adds nothing.
-func (e *Engine) conSaveHandler(c *Character, a *Affect, flag byte) {
-	if e.rv.saveType != saveVsSpell && e.rv.saveType != saveVsRod {
-		return
-	}
-	var bonus byte
-	switch con := c.Stats[statCon].Value; {
-	case con >= 4 && con <= 6:
-		bonus = 1
-	case con >= 7 && con <= 10:
-		bonus = 2
-	case con >= 11 && con <= 13:
-		bonus = 3
-	case con >= 14 && con <= 17:
-		bonus = 4
-	case con >= 18 && con <= 20:
-		bonus = 5
-	}
-	e.rv.save += bonus
-}
-
-// regrowthHandler = O064:1EB8.
-func (e *Engine) regrowthHandler(c *Character, a *Affect, flag byte) {
-	c.HP += 3
-	if c.HP > c.MaxHP {
-		c.HP = c.MaxHP
-	}
-}
-
-// Hit points a fallen troll gets back up with.
-const backUpHP = 6
-
-// backsUpHandler = O064:1EE8: a dying or unconscious troll gets up, to
-// fall dead a few rounds later.
-func (e *Engine) backsUpHandler(c *Character, a *Affect, flag byte) {
-	var hp byte
-	if c.Status == statusDying && combatInfo(c).Dying < backUpHP {
-		hp = backUpHP - combatInfo(c).Dying
-	}
-	if c.Status == statusUnconscious {
-		hp = backUpHP
-	}
-	if hp > 0 && e.Revive(c, hp) {
-		e.AddAffect(c, affectFallsDead, e.Dice(1, 4)+1, 255, 1)
-		a.Call = 0
-		e.RemoveAffect(c, affectBacksUp, a)
-	}
-}
-
-// regrowsHandler = O064:1F91: wounds other than fire and acid grow back.
-func (e *Engine) regrowsHandler(c *Character, a *Affect, flag byte) {
-	if e.rv.dmgType&dmgFire == 0 && e.rv.dmgType&dmgAcid == 0 {
-		e.AddAffect(c, affectRegrowing, e.Dice(3, 6), 255, 1)
-	}
-}
-
-// regeneratesHandler = O064:1FCC sp_regenerate.
-func (e *Engine) regeneratesHandler(c *Character, a *Affect, flag byte) {
-	if e.FindAffect(c, affectRegrowth) == nil && e.FindAffect(c, affectRegenerating) == nil {
-		e.AddAffect(c, affectRegenerating, 3, 255, 1)
-	}
-}
-
-// regrowingHandler = O064:201E: back up whole when there is room.
-func (e *Engine) regrowingHandler(c *Character, a *Affect, flag byte) {
-	if !e.Revive(c, c.MaxHP) {
-		e.addAffectNow(c, affectRegrowing, a.Data, 1)
-	}
-}
-
-// burnsHandler = O064:205D: d6 more unless the target resists fire.
-func (e *Engine) burnsHandler(c *Character, a *Affect, flag byte) {
-	t := targetOf(c)
-	e.v6826 = t
-	if e.FindAffect(t, affectResistFire) == nil && e.FindAffect(t, affectIceBody) == nil &&
-		e.FindAffect(t, affectFireDamageReduced) == nil {
-		e.rv.damage += byte(e.Dice(1, 6))
-	}
-}
-
-func (e *Engine) avoidRanged60Handler(c *Character, a *Affect, flag byte) {
-	e.avoidDistantAttack(c, 60)
-}                                                                         // O064:20DA
-func (e *Engine) magicResist50Handler(c *Character, a *Affect, flag byte) { e.resistRoll(50) } // O064:214F
-func (e *Engine) magicResist15Handler(c *Character, a *Affect, flag byte) { e.resistRoll(15) } // O064:215D
-
-// elfResistHandler = O064:216B: 90% against sleep and charm.
-func (e *Engine) elfResistHandler(c *Character, a *Affect, flag byte) {
-	if e.Dice(1, 100) <= 90 {
-		e.blockAffect(affectHeld)
-		e.blockAffect(affectCharmed)
-	}
-}
-
-// noCharmHoldHandler = O064:218F.
-func (e *Engine) noCharmHoldHandler(c *Character, a *Affect, flag byte) {
-	e.blockAffect(affectCharmed)
-	e.blockAffect(affectHeld)
-}
-
-// noParalysisHandler = O064:21A4.
-func (e *Engine) noParalysisHandler(c *Character, a *Affect, flag byte) {
-	e.blockAffect(affectParalyzed)
-}
-
-// coldImmuneHandler = O064:21B2.
-func (e *Engine) coldImmuneHandler(c *Character, a *Affect, flag byte) {
-	if e.rv.dmgType&dmgCold != 0 {
-		e.blockAffect(0)
-	}
-}
-
-// A save that always succeeds.
-const sureSave = 100
-
-// noPoisonParalysisHandler = O064:21C9.
-func (e *Engine) noPoisonParalysisHandler(c *Character, a *Affect, flag byte) {
-	e.blockAffect(affectPoisoned)
-	e.blockAffect(affectParalyzed)
-	if e.rv.saveType == saveVsParalysis {
-		e.rv.save = sureSave
-	}
-}
-
-// fireImmuneHandler = O064:21EA.
-func (e *Engine) fireImmuneHandler(c *Character, a *Affect, flag byte) {
-	if e.rv.dmgType&dmgFire != 0 {
-		e.blockAffect(0)
-	}
-}
-
-// fireReducedHandler = O064:2201: a point less per die, at least one.
-func (e *Engine) fireReducedHandler(c *Character, a *Affect, flag byte) {
-	if e.rv.dmgType&dmgFire == 0 {
-		return
-	}
-	for i := byte(1); i <= e.rv.diceN; i++ {
-		e.rv.damage--
-		if e.rv.damage < e.rv.diceN {
-			e.rv.damage = e.rv.diceN
-		}
-	}
-}
-
-// electricityHalvedHandler = O064:2246.
-func (e *Engine) electricityHalvedHandler(c *Character, a *Affect, flag byte) {
-	if e.rv.dmgType&dmgElectricity != 0 {
-		e.rv.damage >>= 1
-	}
-}
-
-// edgedHalvedHandler = O064:2260: melee weapons and bows do half.
-func (e *Engine) edgedHalvedHandler(c *Character, a *Affect, flag byte) {
-	if w := e.readiedWeapon(e.selected()); w != nil {
-		if f := e.baseItem(w.Type, itemFlags); f == 0 || f&itemUsesArrows != 0 {
-			e.rv.damage >>= 1
-		}
-	}
-}
-
-// magicWeaponsHalvedHandler = O064:22BF.
-func (e *Engine) magicWeaponsHalvedHandler(c *Character, a *Affect, flag byte) {
-	if w := e.readiedWeapon(e.selected()); w != nil && int8(w.Plus) > 0 {
-		e.rv.damage >>= 1
-	}
-}
-
-// Item types the defences look at.
-const (
-	itemTypeSling    = 85
-	itemTypeLongBow  = 87
-	itemTypeShortBow = 88
-	itemTypeArrow    = 28
-	slayingArrowWord = 135
-)
-
-// slingStonesHandler = O064:22F9: a sling does d6+1.
-func (e *Engine) slingStonesHandler(c *Character, a *Affect, flag byte) {
-	if w := e.selected().Slots[0]; w != nil && w.Type == itemTypeSling {
-		e.rv.damage = byte(e.RollDice(1, 6) + 1)
-	}
-}
-
-// coldHalvedHandler = O064:233C.
-func (e *Engine) coldHalvedHandler(c *Character, a *Affect, flag byte) {
-	if e.rv.dmgType&dmgCold != 0 {
-		e.rv.damage >>= 1
-	}
-}
-
-// Monster attackers' hit dice that still hurt.
-const strongMonsterDice = 4
-
-// needsMagicWeaponHandler = O064:2356: only magic weapons, or monsters of
-// four or more hit dice, hurt it.
-func (e *Engine) needsMagicWeaponHandler(c *Character, a *Affect, flag byte) {
-	w := e.readiedWeapon(e.selected())
-	sel := e.selected()
-	if (w == nil || w.Plus == 0) && (int8(sel.Race) > 0 || int8(sel.MaxLevel) < strongMonsterDice) {
+	if w := e.readiedWeapon(e.selected()); w != nil && e.baseItem(w.Type, itemFlags)&itemUsesBolts != 0 {
 		e.rv.damage = 0
 	}
 }
 
-// avoidsBowsHandler = O064:23A2.
-func (e *Engine) avoidsBowsHandler(c *Character, a *Affect, flag byte) {
-	if w := e.selected().Slots[0]; w != nil && (w.Type == itemTypeLongBow || w.Type == itemTypeShortBow) {
-		e.avoidDistantAttack(c, 50)
+// fearlessHandler = O0A4:2EB6.
+func (e *Engine) fearlessHandler(c *Character, a *Affect, flag byte) {
+	if flag == 0 {
+		e.blockAffect(affectFrightened)
 	}
 }
 
-// Acid spit.
-const (
-	spitChance  = 25
-	spitRange   = 4
-	spitColours = 23
-	spitFrames  = 1
-	spitDelay   = 30
-)
-
-// spitsAcidHandler = O064:23F6: a quarter of the time, once, at a near
-// target: 8d4, half on a save.
-func (e *Engine) spitsAcidHandler(c *Character, a *Affect, flag byte) {
-	t := targetOf(c)
-	e.v6826 = t
-	if e.Dice(1, 100) > spitChance || e.rangeTo(c, t) >= spitRange {
-		return
-	}
-	e.endTurn(c)
-	e.combatName(c, "Spits Acid", combatMsgRow, true)
-	e.hitColours(spitColours)
-	e.flyMissile(e.combatX(c), e.combatY(c), e.combatX(t), e.combatY(t), spitFrames, spitDelay)
-	dmg := e.RollDice(8, 4)
-	saved := e.SavingThrow(t, saveVsBreath, 0)
-	e.damagePerson(t, dmg, saveHalf, saved)
-	e.RemoveAffect(c, affectSpitsAcid, a)
-	e.RemoveAffect(c, affectAcidTouch, nil)
-}
-
-// paralysingGazeHandler = O064:2523 spl_paralyze.
-func (e *Engine) paralysingGazeHandler(c *Character, a *Affect, flag byte) {
-	t := targetOf(c)
-	e.v6826 = t
-	if !e.SavingThrow(t, saveVsParalysis, 0) {
-		e.AddAffect(t, affectParalyzed, 0, 255, 0)
-		e.combatName(t, "is paralyzed", combatMsgRow, true)
-	}
-}
-
-// fireTouchHandler = O064:259D.
-func (e *Engine) fireTouchHandler(c *Character, a *Affect, flag byte) {
-	e.rv.dmgType = dmgCold | dmgMagic
-	e.damagePerson(targetOf(c), e.RollDice(2, 8), saveNone, false)
-}
-
-// halfElfResistHandler = O064:25D0: 30% against sleep and charm.
-func (e *Engine) halfElfResistHandler(c *Character, a *Affect, flag byte) {
-	if e.Dice(1, 100) <= 30 {
-		e.blockAffect(affectCharmed)
-		e.blockAffect(affectHeld)
-	}
-}
-
-// noCharmHoldSleepHandler = O064:25F4.
-func (e *Engine) noCharmHoldSleepHandler(c *Character, a *Affect, flag byte) {
-	e.blockAffect(affectCharmed)
-	e.blockAffect(affectHeld)
-	e.blockAffect(affectParalyzed)
-	e.blockAffect(affectPoisoned)
-	if e.rv.saveType == saveVsParalysis {
-		e.rv.save = sureSave
-	}
-}
-
-// magicImmuneHandler = O064:2623.
-func (e *Engine) magicImmuneHandler(c *Character, a *Affect, flag byte) {
-	if e.rv.affVal == 0 && e.rv.dmgType&dmgMagic == 0 {
-		return
-	}
-	e.blockAffect(0)
-}
-
-// slainByArrowHandler = O064:2643: an arrow of slaying kills outright.
-func (e *Engine) slainByArrowHandler(c *Character, a *Affect, flag byte) {
-	var it *Item
-	if e.ammoFor(e.selected(), &it) && it != nil && it.Type == itemTypeArrow && it.Words[2] == slayingArrowWord {
-		c.Status = statusGone
-		c.Okay = 0
-		c.HP = 0
-		e.downAffects(c)
-		e.affectGroup(c, grpDown)
-		if c.Okay == 0 {
-			e.combatRemoveFromMap(c)
-		}
-	}
-}
-
-// noMindAffectsHandler = O064:2750.
-func (e *Engine) noMindAffectsHandler(c *Character, a *Affect, flag byte) {
-	e.blockAffect(affectRunningAway)
-	e.blockAffect(affectQuarterLessDamage)
-	e.blockAffect(affectFeebleminded)
-	if e.rv.dmgType&dmgType64 != 0 {
+// fireImmuneHandler = O0A4:2ECE.
+func (e *Engine) fireImmuneHandler(c *Character, a *Affect, flag byte) {
+	if flag == 0 && e.rv.dmgType&dmgFire != 0 {
 		e.blockAffect(0)
 	}
 }
 
-// rangerVsGiantsHandler = O064:277C: a point per ranger level against
-// giants.
+// coldImmuneHandler = O0A4:3045.
+func (e *Engine) coldImmuneHandler(c *Character, a *Affect, flag byte) {
+	if flag == 0 && e.rv.dmgType&dmgCold != 0 {
+		e.blockAffect(0)
+	}
+}
+
+// constitutionSaveBonus: the hardy races' bonus, a point for each 3.5
+// points of constitution. Below 4 the original adds an unset local; the
+// port adds nothing.
+func constitutionSaveBonus(c *Character) byte {
+	switch con := c.Stats[statCon].Value; {
+	case con >= 18:
+		return 5
+	case con >= 14:
+		return 4
+	case con >= 11:
+		return 3
+	case con >= 7:
+		return 2
+	case con >= 4:
+		return 1
+	}
+	return 0
+}
+
+// hardyAllHandler = O0A4:2EEF: against paralysis and poison, rods and
+// spells.
+func (e *Engine) hardyAllHandler(c *Character, a *Affect, flag byte) {
+	if flag != 0 {
+		return
+	}
+	if t := e.rv.saveType; t == saveVsSpell || t == saveVsRod || t == saveVsParalysis {
+		e.rv.save += constitutionSaveBonus(c)
+	}
+}
+
+// conSaveHandler = O0A4:2FC4: against rods and spells.
+func (e *Engine) conSaveHandler(c *Character, a *Affect, flag byte) {
+	if flag != 0 {
+		return
+	}
+	if t := e.rv.saveType; t == saveVsSpell || t == saveVsRod {
+		e.rv.save += constitutionSaveBonus(c)
+	}
+}
+
+// A saving throw nothing fails.
+const certainSave = 100
+
+// poisonImmuneHandler = O0A4:3066.
+func (e *Engine) poisonImmuneHandler(c *Character, a *Affect, flag byte) {
+	if flag != 0 {
+		return
+	}
+	e.blockAffect(affectPoisoned)
+	e.blockAffect(affectHeld)
+	if e.rv.saveType == saveVsParalysis {
+		e.rv.save = certainSave
+	}
+}
+
+// The level below which a monster's plain weapon cannot hurt.
+const plainWeaponLevel = 4
+
+// plainWeaponsImmuneHandler = O0A4:3553: a weapon without a plus does
+// nothing in the hands of a player race or a low-level monster.
+func (e *Engine) plainWeaponsImmuneHandler(c *Character, a *Affect, flag byte) {
+	if flag != 0 {
+		return
+	}
+	sel := e.selected()
+	if w := e.readiedWeapon(sel); w != nil && w.Plus != 0 {
+		return
+	}
+	race := int8(sel.Race)
+	if race > raceTribble && race < raceMonster || int8(sel.MaxLevel) < plainWeaponLevel {
+		e.rv.damage = 0
+	}
+}
+
+// rangerVsGiantsHandler = O0A4:35B2: a point per ranger level against
+// giant-class foes close by.
 func (e *Engine) rangerVsGiantsHandler(c *Character, a *Affect, flag byte) {
-	e.v6826 = targetOf(c)
-	if e.v6826.Pad331&creatureGiant != 0 {
+	if flag != 0 {
+		return
+	}
+	t := targetOf(c)
+	e.rv.target = t
+	if e.rangeTo(c, t) > 1 {
+		return
+	}
+	if t.CreatureFlags&creatureRangerFoe != 0 {
 		e.rv.damage += c.Levels[clsRanger]
 	}
 }
 
-// electricityImmuneHandler = O064:27B5.
-func (e *Engine) electricityImmuneHandler(c *Character, a *Affect, flag byte) {
-	if e.rv.dmgType&dmgElectricity != 0 {
-		e.blockAffect(0)
-	}
-}
-
-// rootedHandler = O064:27CC.
-func (e *Engine) rootedHandler(c *Character, a *Affect, flag byte) { combatInfo(c).Moves = 0 }
-
-// berserkFoeHandler = O064:27E0: attacks the nearest; afterwards back to
+// berserkFoeHandler = O0A4:3637: attacks the nearest; afterwards back to
 // the side its data keeps.
 func (e *Engine) berserkFoeHandler(c *Character, a *Affect, flag byte) {
 	if flag != 0 {
@@ -1463,20 +1508,20 @@ func (e *Engine) berserkFoeHandler(c *Character, a *Affect, flag byte) {
 		return
 	}
 	e.goBerserk(c)
-	if e.gameState == stateCombat {
-		c.Side = targetOf(c).Side ^ 1
-	}
+	c.Side = targetOf(c).Side ^ 1
 }
 
-// alwaysInvisibleHandler = O064:28D0 add_affect_19.
+// alwaysInvisibleHandler = O0A4:3757.
 func (e *Engine) alwaysInvisibleHandler(c *Character, a *Affect, flag byte) {
-	e.AddAffect(c, affectInvisible, 255, 255, 0)
+	if flag == 0 {
+		e.AddAffect(c, affectInvisible, 255, 255, 0)
+	}
 }
 
 // Paladin cures: one a week per five levels.
 const paladinCureLevels = 5
 
-// paladinCuresHandler = O064:28EF: when the week ends, the cures are back.
+// paladinCuresHandler = O0A4:3784: when the week ends, the cures are back.
 func (e *Engine) paladinCuresHandler(c *Character, a *Affect, flag byte) {
 	if flag == 0 {
 		return
@@ -1485,12 +1530,12 @@ func (e *Engine) paladinCuresHandler(c *Character, a *Affect, flag byte) {
 	if oldClassUsable(c) {
 		usable = 1
 	}
-	lvl := int(int8(c.Levels[clsPaladin])) + int(int8(c.OldLevels[clsPaladin]))*usable
-	c.PaladinCures = byte((lvl-1)/paladinCureLevels + 1)
+	level := int(int8(c.Levels[clsPaladin])) + int(int8(c.OldLevels[clsPaladin]))*usable
+	c.PaladinCures = byte((level-1)/paladinCureLevels + 1)
 }
 
-// runningAwayHandler = O064:2932.
-func (e *Engine) runningAwayHandler(c *Character, a *Affect, flag byte) {
+// frightenedHandler = O0A4:37D5: when the fear goes, so does the flight.
+func (e *Engine) frightenedHandler(c *Character, a *Affect, flag byte) {
 	if flag == 0 {
 		return
 	}
@@ -1501,206 +1546,33 @@ func (e *Engine) runningAwayHandler(c *Character, a *Affect, flag byte) {
 	combatInfo(c).Turned = 0
 }
 
-// zapsHandler = O064:2975: a close attacker takes double the damage it
+// zapsHandler = O0A4:3826: a close attacker takes double the damage it
 // dealt, as magic.
 func (e *Engine) zapsHandler(c *Character, a *Affect, flag byte) {
 	sel := e.selected()
-	if e.rangeTo(sel, c) >= 2 {
+	if flag != 0 || e.rangeTo(sel, c) >= 2 {
 		return
 	}
-	dmg, typ := e.rv.damage, e.rv.dmgType
+	dealt := e.rv.damage
 	e.rv.damage *= 2
+	if e.rv.damage == 0 {
+		return
+	}
+	dmgType := e.rv.dmgType
 	e.rv.dmgType = dmgMagic
 	e.combatName(sel, "gets zapped", combatMsgRow, true)
 	e.damagePerson(sel, int(e.rv.damage), saveNone, false)
-	e.rv.damage, e.rv.dmgType = dmg, typ
+	e.rv.damage, e.rv.dmgType = dealt, dmgType
 }
 
-// dispelEvilHandler = O064:2A19 sp_dispel_evil.
-func (e *Engine) dispelEvilHandler(c *Character, a *Affect, flag byte) {
-	t := targetOf(c)
-	e.v6826 = t
-	if t.Pad331&creatureEnchanted != 0 && !e.SavingThrow(t, saveVsSpell, 0) {
-		e.killWithMessage(t, statusGone, "is dispelled")
-		e.RemoveAffect(e.selected(), affectWardEnchanted, nil)
-		e.RemoveAffect(e.selected(), affectDispelEvil, nil)
-		return
-	}
-	e.combatName(t, "resists dispel evil", combatMsgRow, true)
-}
-
-// --- O08D's handlers --------------------------------------------------------
-
-// Engulf and hug.
-const (
-	engulfAttacks = 2
-	hugAttacks    = 1
-	grabDice      = 2
-	grabSides     = 8
-	hugMinRoll    = 18
-)
-
-// engulfsHandler = O08D:4032 engulfs: two hits engulf the target, which
-// then suffocates.
-func (e *Engine) engulfsHandler(c *Character, a *Affect, flag byte) {
-	t := targetOf(c)
-	if e.hits6822[1] != 2 || t.Okay == 0 || e.FindAffect(t, affectEngulfed) != nil ||
-		e.FindAffect(t, affectSuffocating) != nil {
-		return
-	}
-	e.combatName(c, "engulfs "+t.Name(), combatMsgRow+2, true)
-	e.AddAffect(t, affectEngulfed, 0, byte(e.combatIndex(t)), 0)
-	e.callAffect(affectEngulfed, t, nil, 0)
-	e.AddAffect(t, affectSuffocating, 0, byte(e.Dice(2, 4)), 0)
-	e.AddAffect(c, affectEngulfing, 0, byte(e.combatIndex(t)), 1)
-}
-
-// holdTarget is the shared body of the engulfing and hugging handlers
-// (O08D:45C6 and 46FC): the held one is hit every round until either
-// falls; flag set or a fall frees it.
-func (e *Engine) holdTarget(c *Character, a *Affect, flag byte, self byte, extra []byte, attacks byte) {
-	e.v6826 = e.combatant(a.Data)
-	t := e.v6826
-	if t == nil {
-		t = &Character{}
-	}
-	free := func() {
-		for _, x := range extra {
-			e.RemoveAffect(t, x, nil)
-		}
-	}
-	if flag != 0 || c.Okay == 0 || t.Okay == 0 {
-		free()
-		if flag == 0 {
-			a.Call = 0
-			e.RemoveAffect(c, self, a)
-		}
-		return
-	}
-	c.Attacks[0] = attacks
-	c.Attacks[1] = 0
-	c.Dice[0] = grabDice
-	c.Sides[0] = grabSides
-	e.attackOnce(c, t, 1, nil)
-	e.endTurn(c)
-	if t.Okay == 0 {
-		e.RemoveAffect(c, self, nil)
-		free()
+// giantStrengthHandler = O0A4:38BD.
+func (e *Engine) giantStrengthHandler(c *Character, a *Affect, flag byte) {
+	if flag == 0 {
+		e.combatName(c, "gains "+affectNameOf(affectGiantStrength), combatMsgRow, true)
 	}
 }
 
-// engulfingHandler = O08D:45C6.
-func (e *Engine) engulfingHandler(c *Character, a *Affect, flag byte) {
-	e.holdTarget(c, a, flag, affectEngulfing, []byte{affectEngulfed, affectSuffocating}, engulfAttacks)
-}
-
-// huggingHandler = O08D:46FC.
-func (e *Engine) huggingHandler(c *Character, a *Affect, flag byte) {
-	e.holdTarget(c, a, flag, affectHugging, []byte{affectEngulfed}, hugAttacks)
-}
-
-// hugsHandler = O08D:480C hugs: a roll of 18 or more grabs the target.
-func (e *Engine) hugsHandler(c *Character, a *Affect, flag byte) {
-	if e.rv.hitRoll < hugMinRoll {
-		return
-	}
-	t := targetOf(c)
-	e.v6826 = t
-	e.combatName(c, "hugs "+t.Name(), combatMsgRow+2, true)
-	e.AddAffect(t, affectEngulfed, 0, byte(e.combatIndex(t)), 0)
-	e.callAffect(affectEngulfed, t, nil, 0)
-	e.AddAffect(c, affectHugging, 0, byte(e.combatIndex(t)), 1)
-}
-
-// Ray ranges and the spells the eyes cast after them.
-const (
-	rayTries          = 4
-	disintegrateRange = 2
-	stoneRange        = 3
-	deathRayRange     = 4
-	woundRange        = 5
-	rayColour         = 13
-	raySmallColours   = 5
-	rayStoneColours   = 10
-	rayFrames         = 1
-	rayDelay          = 30
-	eyeSpell1         = 84
-	eyeSpell2         = 55
-	eyeSpell3         = 21
-)
-
-// raysHandler = O08D:42F2 attack_or_kill: an eye tyrant's rays, each used
-// once, at whoever is in reach, then its spells.
-func (e *Engine) raysHandler(c *Character, a *Affect, flag byte) {
-	ci := combatInfo(c)
-	var used byte
-	tries := rayTries
-	ci.Target = nil
-	retarget := func(first bool) {
-		// O08D:41C1 also checks the line of fire, which only sets the
-		// spell's quit flag that O0C2:12E1 overwrites.
-		e.pickTarget(c, 255, 0, first)
-	}
-	shoot := func(colours byte, t *Character) {
-		e.hitColours(int(colours) + rayColour)
-		e.flyMissile(e.combatX(c), e.combatY(c), e.combatX(t), e.combatY(t), rayFrames, rayDelay)
-	}
-	retarget(true)
-	for {
-		t := ci.Target
-		r := e.rangeTo(c, t)
-		tries--
-		if t != nil {
-			var done bool
-			switch {
-			case r <= disintegrateRange && used&1 == 0:
-				used |= 1
-				e.combatName(c, "fires a disintegrate ray", combatMsgRow, true)
-				shoot(raySmallColours, t)
-				if !e.SavingThrow(t, saveVsBreath, 0) {
-					e.killWithMessage(t, statusGone, "is disintergrated")
-				}
-				retarget(false)
-			case r <= stoneRange && used&2 == 0:
-				used |= 2
-				e.combatName(c, "fires a stone to flesh ray", combatMsgRow, true)
-				shoot(rayStoneColours, t)
-				if !e.SavingThrow(t, saveVsPetrify, 0) {
-					e.killWithMessage(t, statusStoned, "is Stoned")
-				}
-				retarget(false)
-			case r <= deathRayRange && used&4 == 0:
-				used |= 4
-				e.combatName(c, "fires a death ray", combatMsgRow, true)
-				shoot(raySmallColours, t)
-				if !e.SavingThrow(t, saveVsParalysis, 0) {
-					e.killWithMessage(t, statusDead, "is killed")
-				}
-				retarget(false)
-			case r <= woundRange && used&8 == 0:
-				used |= 8
-				e.combatName(c, "wounds you", combatMsgRow, true)
-				shoot(raySmallColours, t)
-				e.damagePerson(t, e.RollDice(2, 8)+1, saveNone, false)
-				retarget(false)
-			case used&16 == 0:
-				e.castInnate(eyeSpell1, 1, 1, &done)
-				used |= 16
-			case used&32 == 0:
-				e.castInnate(eyeSpell2, 1, 1, &done)
-				used |= 32
-			case used&64 == 0:
-				e.castInnate(eyeSpell3, 1, 1, &done)
-				used |= 64
-			}
-		}
-		if tries <= 0 || ci.Target == nil {
-			break
-		}
-	}
-}
-
-// forgetSpellOf = O0ED:1520 (char, spell): its first memorised copy goes.
+// forgetSpellOf = O151:149F (char, spell): its first memorised copy goes.
 func forgetSpellOf(c *Character, sp byte) {
 	for i := range c.Memorized {
 		if c.Memorized[i] == sp {
@@ -1710,17 +1582,56 @@ func forgetSpellOf(c *Character, sp byte) {
 	}
 }
 
-// Bridges to the combat overlays, until O08D and O0C2 are ported:
-// attackOnce = O08D:19DB, pickTarget = O08D:3E44, castInnate = O0C2:12E1.
+// Breaths a fight allows (the affect's data counts them down).
+const breathsPerCombat = 3
 
-func (e *Engine) attackOnce(c, t *Character, flag int, it *Item) { e.fullAttack(c, t, flag, it) }
+// The cone a breath fills.
+const (
+	breathConeWidth  = 3
+	coldConeLength   = 7
+	fireConeLength   = 9
+	breathConeColour = 18
+)
 
-func (e *Engine) pickTarget(c *Character, rng, a int, first bool) bool {
-	b := 0
-	if first {
-		b = 1
+// breathWeaponHandler = O113:61AE (affects 83 and 104): a cone of cold or
+// fire at the chosen square, as long as it catches only foes; each takes
+// the breather's full hit points, half on a save. Three breaths a fight.
+func (e *Engine) breathWeaponHandler(c *Character, a *Affect, flag byte) {
+	if e.combatRound == 0 || a.Data > breathsPerCombat {
+		a.Data = breathsPerCombat
 	}
-	return e.pickAttackTarget(c, rng, a, b)
+	if a.Data == 0 {
+		return
+	}
+	length, what := coldConeLength, "cold"
+	e.rv.dmgType = dmgCold | dmgBreath
+	if a.Type == affectBreathWeapon2 {
+		length, what = fireConeLength, "Fire"
+		e.rv.dmgType = dmgFire | dmgBreath
+	}
+	x, y := e.combatX(c), e.combatY(c)
+	if e.aimWithSpell(gazeAimSpell) == nil {
+		return
+	}
+	e.coneTargets(x, y, e.tgtX, e.tgtY, breathConeWidth, length)
+	for i := 1; i <= e.nSpellTargets; i++ {
+		if t := e.tgt(i); t != nil && t.Side != opposingSide(c) {
+			return
+		}
+	}
+	if e.nSpellTargets == 0 {
+		return
+	}
+	e.combatName(c, "breathes "+what, combatMsgRow, true)
+	dir := e.directionTo(c, e.spellTarget)
+	e.combatPanel(c)
+	e.combatTurn(c, byte(dir), 1, false)
+	e.shootAt(c, e.spellTarget, breathConeColour, breathFrames, breathDelay)
+	for i := 1; i <= e.nSpellTargets; i++ {
+		if t := e.tgt(i); t != nil {
+			e.damagePerson(t, int(c.MaxHP), saveHalf, e.SavingThrow(t, saveVsBreath, 0))
+		}
+	}
+	a.Data--
+	e.endTurn(c)
 }
-
-func (e *Engine) castInnate(spell, a, b int, quit *bool) { e.spellMenuTargets(spell, a, quit) }

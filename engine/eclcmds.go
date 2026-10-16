@@ -253,9 +253,9 @@ func (e *Engine) cmdLoadCharacter() {
 	n &^= partyMemberFlag
 	if int(n) < len(e.party) {
 		e.partySel = int(n)
-		s.justJoined = false
+		s.noMember = false
 	} else {
-		s.justJoined = true
+		s.noMember = true
 	}
 	if drop && s.activeCleared && s.nameCleared {
 		if s.savedSelected == e.selected() {

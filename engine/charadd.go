@@ -1,18 +1,13 @@
 package engine
 
-import (
-	"os"
-	"strings"
-)
+import "strings"
 
-// Adding saved characters to the party (units O0A7 / O0A1 of the
-// reconstruction).
+// Adding saved characters to the party (O0EF:34D7 and O0F8:2676).
 
-// Where AddPlayer loads characters from (b759E).
+// Where characters are loaded from (b8DBA).
 const (
-	fromCurse    = 0
-	fromPool     = 1
-	fromHillsfar = 2
+	fromCurse        = 0 // Curse of the Azure Bonds' .guy files
+	fromSilverBlades = 1 // Silver Blades' own .who files and saved games
 )
 
 // Party limits.
@@ -36,32 +31,7 @@ func filepathExt(name string) string {
 	return ""
 }
 
-// loadSavedCharacter = O0A1:22A0 import_char01 for the Curse source: the
-// record, its items (.SWG) and affects (.FX); then the items and class values
-// are worked out again.
-func (e *Engine) loadSavedCharacter(file string, c *Character) bool {
-	e.DisplayString(0, statusRow, colourGreen, "Loading...Please Wait")
-	b, err := os.ReadFile(e.savePath(file))
-	if err != nil {
-		e.fileError("read", e.savePath(file))
-		return false
-	}
-	c.setRecord(b)
-	c.Items, c.Affects = nil, nil
-	base := strings.TrimSuffix(file, filepathExt(file))
-	if b, err := os.ReadFile(e.savePath(base + extItems)); err == nil {
-		c.Items = readRecords[Item](b, itemRecSize)
-	}
-	if b, err := os.ReadFile(e.savePath(base + extAffects)); err == nil {
-		c.Affects = readAffects(b)
-	}
-	e.ClearKeyboard()
-	e.ApplyItems(c)
-	e.recalcClassBonuses(c)
-	return true
-}
-
-// AddToParty = O0A1:360A (c): append to the party, select it, give it the
+// AddToParty = O0F8:2676 (c): append to the party, select it, give it the
 // lowest free icon order 0..7 and count it; hired NPCs get their class values
 // worked out.
 func (e *Engine) AddToParty(c *Character) {
@@ -84,7 +54,7 @@ func (e *Engine) AddToParty(c *Character) {
 	}
 }
 
-// AddCharacter = O0A7:3648 AddPlayer: pick saved characters to join the
+// AddCharacter = O0EF:34D7: pick saved characters to join the
 // party, with the party's rules: at most six player characters and eight in
 // all, a paladin does not join evil company, no more than three rangers, no
 // evil character joins a paladin.
@@ -93,14 +63,12 @@ func (e *Engine) AddCharacter() {
 	var paladinName string
 	rangers := 0
 	e.ClearCells(1, 1, 38, 22)
-	k, _ := e.DisplayInput("Add from where? ", "Curse Pool Hillsfar Exit", colourLightMagenta, colourGreen, colourWhite, false, false)
+	k, _ := e.DisplayInput("Add from where? ", "Secret Curse Exit", colourLightMagenta, colourGreen, colourWhite, false, false)
 	switch k {
+	case 'S':
+		e.addSource = fromSilverBlades
 	case 'C':
 		e.addSource = fromCurse
-	case 'P':
-		e.addSource = fromPool
-	case 'H':
-		e.addSource = fromHillsfar
 	case 'E', 0:
 		return
 	}
@@ -120,11 +88,7 @@ func (e *Engine) AddCharacter() {
 		if (key == 13 || key == 'A') && sel != nil && sel.Text[0] != '*' {
 			e.ClearRow24()
 			c := &Character{}
-			if e.addSource == fromCurse {
-				e.loadSavedCharacter(roster[index].file, c)
-			} else {
-				e.importCharacter(roster[index].file, c)
-			}
+			e.LoadCharacter(roster[index].file, c)
 			sel.Text = "* " + sel.Text
 			players = 0
 			if len(e.party) == 0 {

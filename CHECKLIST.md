@@ -22,6 +22,9 @@ data segment by content.
 - [ ] M5 world: 3D view, area map, ECL interpreter (SotSB opcode set), adventuring loop
 - [ ] M6 camp, shops, temples, training
 - [ ] M7 combat
+  - [x] spell overlay O113: target setup, CastSpell, applySpell, all 117 handlers (incl. Death Spell,
+    Disintegrate, Stone/Flesh, Delayed Blast, Mass Invisibility, Power Word Stun), scroll/bag use
+  - [x] rules overlay O145, affect handlers and types moved to SotSB; training O0EF (hit points, levels)
 - [ ] M8 sound
 - [ ] M9 goplay: games.js, deploy.sh build rule, README tables, wasm build
 - [ ] M10 publish (public deploy: only with the user's go-ahead)

@@ -394,7 +394,7 @@ func (e *Engine) loadMonsterRecord(block byte) *Character {
 		c.Affects = readAffects(b)
 	}
 	if b := e.daxBlock(name+"ITM", int(block)); b != nil {
-		c.Items = readRecords[Item](b, itemRecSize)
+		c.Items = readItems(b, itemRecSize)
 	}
 	e.loadingMonster = false
 	e.ClearKeyboard()

@@ -292,28 +292,28 @@ func (e *Engine) spellMenuTargets(spell, a int, quit *bool) {
 	}
 }
 
-// Weapons a thief backstabs with.
+// Weapons a thief backstabs with (item types, which are also their name
+// words): club, dagger, broad, long and short sword.
 const (
-	itemTypeClub        = 97
-	itemTypeBackstab7   = 7
-	itemTypeBackstab8   = 8
-	itemTypeBackstabLow = 35
-	itemTypeBackstabTop = 37
+	itemTypeClub       = 3
+	itemTypeDagger     = 4
+	itemTypeBroadSword = 17
+	itemTypeShortSword = 19
 )
 
-// canBackstab = O08D:28D7 (c, target): a thief with no weapon or a short
-// one, behind a man-sized target that others are already fighting.
+// sizeLarge: the Size bit of a combatant counted as large.
+const sizeLarge = 128
+
+// canBackstab = O0C9:2783 (c, target): a thief with no weapon or a short
+// one, behind a man-sized target next to it that others are already
+// fighting.
 func (e *Engine) canBackstab(c, target *Character) bool {
-	w := c.Slots[0]
-	var wt byte // unset in the original when there is no weapon
-	if w != nil {
-		wt = w.Type
-	}
+	w := c.Slots[slotWeapon]
 	thief := int8(c.Levels[clsThief]) > 0 || int8(c.OldLevels[clsThief]) > 0 && oldClassUsable(c)
-	weapon := w == nil || wt == itemTypeClub || wt == itemTypeBackstab7 || wt == itemTypeBackstab8 ||
-		wt >= itemTypeBackstabLow && wt <= itemTypeBackstabTop
-	return thief && weapon && target.Combat.Attackers > 1 && target.Size&sizeMask <= 1 &&
-		byte(e.directionTo(c, target)) == target.Combat.Facing
+	weapon := w == nil || w.Type == itemTypeClub || w.Type == itemTypeDagger ||
+		w.Type >= itemTypeBroadSword && w.Type <= itemTypeShortSword
+	return thief && weapon && target.Combat.Attackers > 1 && e.rangeTo(c, target) < 2 &&
+		target.Size&^sizeLarge <= 1 && byte(e.directionTo(c, target)) == target.Combat.Facing
 }
 
 // Slopes (times 256) of the borders between the eight directions:
@@ -373,67 +373,72 @@ const (
 	sndAnimThrow = 12
 )
 
-// Item types with their own missile pictures.
+// Item types (which are also their name words) with their own missile
+// pictures.
 const (
-	itemTypeDagger         = 9
-	itemTypeDart           = 21
-	itemTypeSpear          = 28
-	itemTypeJavelin        = 31
-	itemTypeHammer         = 73
-	itemTypeThrownOnceKind = 100
-	itemTypeBreathFire     = 2
-	itemTypeBreathCold     = 7
-	itemTypeBreathAcid     = 20
-	itemTypeSpitLightning1 = 85
-	itemTypeSpitLightning2 = 86
-	itemTypeSlingStone     = 47
-	itemTypeBoulder        = 98
-	itemTypeSpitAcid       = 101
+	itemTypeHandAxe     = 2
+	itemTypeDart        = 5
+	itemTypeHammer      = 6
+	itemTypeJavelin     = 7
+	itemTypeQuarrel     = 12
+	itemTypeSling       = 28
+	itemTypeSlingStaff  = 29
+	itemTypeArrow       = 30
+	itemTypeHornetsNest = 66
 )
 
-// attackAnimation = O08D:2BF1 (from, to, weapon): the weapon's sprite
-// flies from one combatant to the other.
+// Missile pictures: icon slots from missileIconBase and how they fly.
+const (
+	missileIconBase    = 13
+	missileSpinOffset  = 3 // a spinning weapon (hit colours)
+	missileStoneOffset = 8 // a sling stone
+	missileOtherOffset = 7 // anything else
+	missileDelay       = 10
+	spinFrames         = 4
+	spinDelay          = 50
+	otherDelay         = 20
+)
+
+// attackAnimation = O0C9:2872 (from, to, weapon): the weapon's picture
+// flies from one combatant to the other: arrows, quarrels, darts and
+// javelins point their way, thrown axes, clubs and hammers spin, sling
+// stones and everything else tumble.
 func (e *Engine) attackAnimation(from, to *Character, weapon *Item) {
 	e.PlaySound(sndAnimThrow)
 	dir := e.directionTo(from, to)
-	frames, delay, base := 1, 10, 13
+	frames, delay := 1, missileDelay
 	switch weapon.Type {
-	case itemTypeDagger, itemTypeDart, itemTypeThrownOnceKind, itemTypeSpear, itemTypeJavelin, itemTypeHammer:
+	case itemTypeHornetsNest, itemTypeDart, itemTypeJavelin, itemTypeQuarrel, itemTypeArrow:
 		switch {
-		case dir&1 == 1 && (dir == 3 || dir == 5):
-			e.iconToSprite(base+1, 1, 0, dir == 5)
-		case dir&1 == 1:
-			e.iconToSprite(base+1, 0, 0, dir == 7)
+		case dir%2 == 1 && (dir == 3 || dir == 5):
+			e.iconToSprite(missileIconBase+1, 1, 0, dir == 5)
+		case dir%2 == 1:
+			e.iconToSprite(missileIconBase+1, 0, 0, dir == 7)
 		default:
-			e.iconToSprite(base+dir%4, dir>>2, 0, false)
+			e.iconToSprite(missileIconBase+dir%4, dir/4, 0, false)
 		}
 		e.PlaySound(sndAnimThrow)
-	case itemTypeBreathFire, itemTypeBreathCold, itemTypeBreathAcid:
-		e.hitColours(base + 3)
-		frames, delay = 4, 50
+	case itemTypeHandAxe, itemTypeClub, itemTypeHammer:
+		e.hitColours(missileIconBase + missileSpinOffset)
+		frames, delay = spinFrames, spinDelay
 		e.PlaySound(sndAnimBlast)
-	case itemTypeSpitLightning1, itemTypeSpitLightning2:
-		e.hitColours(base + 4)
-		frames, delay = 4, 50
-		e.PlaySound(sndAnimSwish)
-	case itemTypeSpitAcid, itemTypeSlingStone, itemTypeBoulder:
-		base++
-		e.iconToSprite(base+7, 0, 0, false)
-		e.iconToSprite(base+7, 1, 1, false)
-		frames, delay = 2, 10
+	case itemTypeSling, itemTypeSlingStaff:
+		e.iconToSprite(missileIconBase+missileStoneOffset, 0, 0, false)
+		e.iconToSprite(missileIconBase+missileStoneOffset, 1, 1, false)
+		frames = 2
 		e.PlaySound(sndAnimSwish)
 	default:
-		e.iconToSprite(base+7, 0, 0, false)
-		e.iconToSprite(base+7, 1, 1, false)
-		frames, delay = 2, 20
+		e.iconToSprite(missileIconBase+missileOtherOffset, 0, 0, false)
+		e.iconToSprite(missileIconBase+missileOtherOffset, 1, 1, false)
+		frames, delay = 2, otherDelay
 		e.PlaySound(sndAnimBlast)
 	}
 	e.flyMissile(e.combatX(from), e.combatY(from), e.combatX(to), e.combatY(to), frames, delay)
 }
 
-// monsterHPPercent = O08D:2E00: DS:75F3 = the monsters' remaining hit points in
-// five percent steps (20 * hp / maximum, times 5; dead ones count in the
-// maximum).
+// monsterHPPercent = O0C9:2A58: the party's morale is the monsters'
+// remaining hit points in five percent steps (20 * hp / maximum, times 5;
+// dead ones count in the maximum).
 func (e *Engine) monsterHPPercent() {
 	var hp, max uint16
 	for _, c := range e.party {
@@ -445,7 +450,7 @@ func (e *Engine) monsterHPPercent() {
 		}
 	}
 	if max != 0 {
-		e.v6E2F = byte(20 * hp / max * 5) // the 16-bit product, dx cleared before the divide
+		e.partyMorale = byte(20 * hp / max * 5) // the 16-bit product, dx cleared before the divide
 	}
 }
 

@@ -24,25 +24,32 @@ type CombatInfo struct {
 	Extra      byte       // +0x13 not one of the saved party
 	Fleeing    byte       // +0x14
 	Pattern    byte       // +0x15 AI move pattern, row of DS:02AE
+	HasSpells  byte       // 22 has memorised spells the computer may cast
 }
 
-// Rule globals (DS:6816..682A).
+// Rule globals (DS:87D2..87E8): what the affect handlers work on.
 type ruleVars struct {
-	save      byte    // DS:6816 saving throw total
-	affVal    byte    // DS:6817 affect being added (0 = blocked)
-	damage    byte    // DS:6818
-	dmgType   byte    // DS:6819 1 fire 2 cold 4 electricity 8 magic 0x10 acid
-	diceN     byte    // DS:681C
-	hitRoll   int8    // DS:6822
-	saveType  byte    // DS:682A
-	cure      byte    // DS:6FB6 set while the temple removes affects
-	saveMade  bool    // DS:6FC2 the last saving throw succeeded
-	areaSpell byte    // DS:6FB7 an area spell: no image is lost
-	side      [2]int8 // DS:6814 standing members per side
+	save      byte       // b87D2 saving throw total
+	affVal    byte       // b87D3 affect being added (0 = blocked)
+	damage    byte       // b87D4
+	dmgType   byte       // b87D5 1 fire 2 cold 4 electricity 8 magic 16 acid
+	attacks   byte       // b87D6 attacks per round being worked out
+	moves     byte       // b87D7 moves being worked out
+	diceN     byte       // b87D9 dice of the damage roll
+	unseen    byte       // b87DB the attacker cannot see its target
+	cure      byte       // b87DC set while affects are being cured
+	areaSpell byte       // b87DD an area spell: no image is lost
+	hitRoll   int8       // b87DF
+	hits      [3]byte    // b87E0+i, i = 1..2: hits of each attack slot
+	morale    byte       // b87E2 flee/surrender roll
+	target    *Character // p87E3 the one the handler looks at
+	saveType  byte       // b87E7
+	saveMade  bool       // b87E8 the last saving throw succeeded
+	side      [2]int8    // standing members per side
 }
 
-// callAffect = O0E3:00C7 (type, char, affect, flag): with DS:759C set
-// the readied item's handler runs instead.
+// callAffect = O145:0423 (type, char, affect, flag): while an item is
+// being used its handler runs instead.
 func (e *Engine) callAffect(typ byte, c *Character, a *Affect, flag byte) {
 	if e.itemCall {
 		e.itemHandler(c, e.callItem, flag)
@@ -53,7 +60,7 @@ func (e *Engine) callAffect(typ byte, c *Character, a *Affect, flag byte) {
 	}
 }
 
-// FindAffect = O0ED:2345 (out, type, char): first affect of the type.
+// FindAffect = O151:28C8 (out, type, char): first affect of the type.
 func (e *Engine) FindAffect(c *Character, typ byte) *Affect {
 	for _, a := range c.Affects {
 		if a.Type == typ {
@@ -63,9 +70,9 @@ func (e *Engine) FindAffect(c *Character, typ byte) *Affect {
 	return nil
 }
 
-// RemoveAffect = O0E3:010A (char, type, affect): affect nil means the first
+// RemoveAffect = O145:00A6 (char, type, affect): affect nil means the first
 // one of the type. Its handler runs first when the node asks for it; losing
-// a charisma or strength affect recomputes that stat.
+// friendliness or a strength affect recomputes that stat.
 func (e *Engine) RemoveAffect(c *Character, typ byte, a *Affect) {
 	if a == nil {
 		a = e.FindAffect(c, typ)
@@ -83,7 +90,7 @@ func (e *Engine) RemoveAffect(c *Character, typ byte, a *Affect) {
 		}
 	}
 	switch typ {
-	case affectCharisma:
+	case affectFriendly:
 		e.statAffects(c, statCha)
 	case affectEnlarge, affectStrengthSpell, affectGiantStrength:
 		e.statAffects(c, statStr)
@@ -93,24 +100,32 @@ func (e *Engine) RemoveAffect(c *Character, typ byte, a *Affect) {
 // RemoveEffect is the old name of RemoveAffect used by the clock code.
 func (e *Engine) RemoveEffect(c *Character, a *Affect) { e.RemoveAffect(c, a.Type, a) }
 
-// AddAffect = O0E3:13F0 (char, type, time, data, call): append a node.
+// AddAffect = O145:1235 (char, type, time, data, call): append a node.
 func (e *Engine) AddAffect(c *Character, typ byte, time int, data, call byte) {
 	a := &Affect{affectRecord: affectRecord{Type: typ, Time: uint16(time), Data: data, Call: call}}
 	c.Affects = append(c.Affects, a)
 }
 
-// auraAffect = O0E3:027A's set: affects that also work on everyone near the
-// one who has them (prayer, chant ...).
-func auraAffect(t byte) bool { return t == 0x15 || t == 0x2D || t == 0x2E || t == 0x31 }
+// auraAffect = O145:0287's set: affects that also work on everyone near
+// the one who has them.
+func auraAffect(t byte) bool {
+	return t == affectSilenced || t == affectProtFromEvil10 || t == affectProtFromGood10 || t == affectPrayer
+}
 
-// checkAffect = O0E3:027A (char, type): run the handler (flag 0) when the
+// Squares an aura reaches: a prayer works further than the others.
+const (
+	auraRange   = 1
+	prayerRange = 6
+)
+
+// checkAffect = O145:0287 (char, type): run the handler (flag 0) when the
 // character has the affect, or for an aura affect when anyone in range
 // (anyone at all outside combat) has it.
 func (e *Engine) checkAffect(c *Character, typ byte) {
 	a := e.FindAffect(c, typ)
 	found := a != nil
 	if !found && auraAffect(typ) {
-		saved := e.nearList // DS:671B, 0xD8 bytes
+		saved := e.nearList
 		for _, p := range e.party {
 			if found {
 				break
@@ -120,13 +135,13 @@ func (e *Engine) checkAffect(c *Character, typ byte) {
 				continue
 			}
 			a = pa
-			if e.gameState != 5 {
+			if e.gameState != stateCombat {
 				found = true
 				continue
 			}
-			r := 1
-			if typ == 0x31 {
-				r = 6
+			r := auraRange
+			if typ == affectPrayer {
+				r = prayerRange
 			}
 			e.nearCombatants(p, e.combatX(p), e.combatY(p), r)
 			me := e.combatIndex(c)
@@ -143,54 +158,47 @@ func (e *Engine) checkAffect(c *Character, typ byte) {
 	}
 }
 
-// affectGroups = the lists of O0E3:0414: which affects take part in each
-// kind of check (the group number is the caller's).
+// affectGroups = the lists of O145:0466: which affects take part in each
+// kind of check (the group number is the caller's). The damage and the
+// add-affect checks try magic resistance first.
 var affectGroups = [][]byte{
-	grpAttackerExtra: {affectStumbling, affectInvisible, affectBlur, affectHiddenFromKind19},
-	grpOnHit: {affectBurningTouch, affectAcidTouch, affectDispelEvil, affectEngulfs, affectHugs,
-		affectParalysingGaze, affectFireTouch},
-	grpOnDamage: {affectPoisonSting, affectPoisonSting4, affectPoisonSting2, affectParalysingTouch,
-		affectPoisonStingMinus2, affectBurningTouch, affectRays},
-	grpDamageBonus: {affectQuarterLessDamage, affectKindBane, affectBurns, affectVsKind3, affectVsKind8,
-		affectRangerVsGiants},
-	grpWeaponDamage: {affectMirrorImage, affectAvoidPlainWeapons, affectAvoidRanged60, affectAvoidsBows,
-		affectRegenerates, affectEdgedHalved, affectMagicWeaponsHalved, affectNeedsMagicWeapon,
-		affectRangedHalved, affectSlingStones, affectMagicWeaponsOnly, affectHalfDamage,
-		affectSaveVsElements, affectArrowsScratch, affectSlainByArrow, affectZapsAttackers},
-	grpDamage: {affectFireReduced, affectFireDamageReduced, affectResistCold, affectResistFire,
-		affectMagicResist50, affectMagicResist15, affectFireImmune, affectElectricityHalved,
-		affectColdHalved, affectShield, affectFireHalved, affectRegenerates, affectMirrorImage,
-		affectColdImmune, affectUnaffectedByType32, affectSaveVsElements, affectElectricityHeals,
-		affectMagicImmune, affectNoMindAffects, affectElectricityImmune, affectMinorGlobe},
-	grpTurn: {affectSleep, affectParalyzed, affectHeld, affectNausea, affectSticksToSnakes,
-		affectStunned, affectRooted},
-	grpRound: {affectBacksUp, affectSaveVsElements, affectFirstStrike, affectFlicker95, affectFlicker},
-	grpAddAffect: {affectMagicResist50, affectMagicResist15, affectElfResistSleep, affectNoCharmHold,
-		affectNoParalysis, affectColdImmune, affectNoPoisonParalysis, affectFireImmune,
-		affectHalfElfResistance, affectNoCharmHoldSleep, affectMinorGlobe, affectMagicImmune},
-	grpAttacker: {affectBless, affectCurse, affectDazzled, affectHampered, affectPrayer, affectKindBane,
-		affectGnomeVsManSized, affectDwarfVsOrc, affectVsKind3, affectVsKind8},
-	grpArmour: {affectDazzled, affectShield, affectProtFromEvil, affectProtFromGood,
-		affectProtFromEvil10, affectProtFromGood10, affectCoughing, affectArmourBonus},
-	grpSave: {affectProtFromEvil, affectProtFromGood, affectResistCold, affectShield, affectResistFire,
-		affectDazzled, affectHampered, affectProtFromEvil10, affectProtFromGood10, affectPrayer,
-		affectFireDamageReduced, affectNoPoisonParalysis, affectNoCharmHoldSleep, affectConSavingBonus,
-		affectFireBody, affectIceBody},
-	grpDown: {affectBacksUp, affectRegrows, affectVsKind3},
-	grpAI:   {83, 88, affectSpitsAcid, 86, affectRays, 90, 126, 128, 131, 132, affectEngulfing},
-	grpUse:  {affectSilenced, affectCoughing, affectCharmed, affectSuffocating, affectBerserk},
-	grpDefender: {affectInvisible, affectBlur, affectStumbling, affectVsGiants, affectGnomeExtra,
-		affectFirstStrike, affectWardEnchanted},
-	grpMorale:          {affectBless, affectCurse, affectCharmed},
-	grpSpeed:           {affectHaste, affectSlow, affectEngulfed},
-	grpRest:            {affectRegrowth, affectSpiritualHammer, affectFlicker95, affectFlicker, affectCharmed},
-	grpUnsavedDamage:   {affectFireBody, affectIceBody},
-	grpConfusion:       {affectConfused},
-	grpAlwaysInvisible: {affectAlwaysInvisible},
-	grpUnused:          {74},
+	grpAttackerExtra: {affectInvisible, affectBlinking, affectInvisibleToAnimals},
+	grpOnHit:         {affectStoningTouch, affectPoisonStingMinus2, affectParalysingTouch},
+	grpOnDamage:      {affectPoisonSting, affectStoningTouch, affectPoisonStingMinus2, affectParalysingTouch},
+	grpDamageBonus:   {affectEnfeebled, affectSwallowsWhole, affectBaneWeapon, affectRangerVsGiants, affectDispelEvil},
+	grpWeaponDamage: {affectMirrorImage, affectProtNormalMissiles, affectNeedsPlus3Weapon, affectBoltsHarmless,
+		affectPlainWeaponsImmune, affectZapsAttackers},
+	grpDamage: {affectElectricityImmune, affectResistCold, affectShield, affectResistFire, affectMirrorImage,
+		affectFireResistRing, affectMinorGlobe, affectGlobe, affectDragonBreathImmune, affectFireHeals,
+		affectFireImmune, affectColdImmune},
+	grpTurn:  {affectSticksToSnakes, affectBefuddled, affectNausea, affectImmobile, affectHeld, affectAsleep},
+	grpRound: {affectInvisibleRing, affectFearAura, affectMagicalCloak, affectAlwaysInvisible},
+	grpAddAffect: {affectHalfElfResistance, affectMirrorImage, affectMinorGlobe, affectDiseaseImmune,
+		affectFireHeals, affectFearless, affectElfResistance, affectNoCharmSleep, affectPoisonImmune},
+	grpAttacker: {affectBless, affectCurse, affectGnomeVsFoes, affectDwarfVsFoes, affectBlind, affectCursed,
+		affectPrayer, affectBaneWeapon},
+	grpArmour: {affectDispellingEvil, affectProtFromEvil, affectProtFromGood, affectBarkskin, affectShield,
+		affectCoughing, affectBlind, affectProtFromEvil10, affectProtFromGood10, affectDwarfDodges,
+		affectGnomeDodges, affectHighlighted, affectMagicalBoots},
+	grpSave: {affectProtFromEvil, affectProtFromGood, affectResistCold, affectBarkskin, affectShield,
+		affectResistFire, affectBlind, affectCursed, affectProtFromEvil10, affectProtFromGood10, affectPrayer,
+		affectFireShieldHot, affectFireShieldCold, affectFireResistRing, affectMagicalStone, affectHardyAll},
+	grpDown: {},
+	grpAI: {affectStoningGaze, affectBreathFireClose, affectConfusingGaze, affectBreathFire, affectSpitAcid,
+		affectBreathWeapon, affectBreathWeapon2, affectBerserkFoe},
+	grpUse: {affectSticksToSnakes, affectDetectMagic, affectCharmed, affectSilenced, affectBefuddled,
+		affectCoughing, affectBerserk, affectStunned, affectInvisible, affectBlinking, affectDwarfDodges,
+		affectGnomeDodges, affectInvisibleToAnimals, affectMagicalCloak},
+	grpDefender:      {},
+	grpMorale:        {affectBless, affectCurse, affectCharmed},
+	grpSpeed:         {affectHaste, affectSlow},
+	grpRest:          {affectCharmed, affectSpiritualHammer, affectInvisibleRing, affectDelayedBlast},
+	grpUnsavedDamage: {affectFireShieldHot, affectFireShieldCold},
+	grpConfusion:     {affectConfused},
+	grpMovement:      {affectHaste, affectSlow, affectMagicalBoots},
 }
 
-// Affect check groups by use (the O0E3:0414 selector).
+// Affect check groups by use (the O145:0466 selector).
 const (
 	grpNone = iota
 	grpAttackerExtra
@@ -214,12 +222,14 @@ const (
 	grpRest
 	grpUnsavedDamage
 	grpConfusion
-	grpAlwaysInvisible
-	grpUnused
+	grpMovement
 )
 
-// affectGroup = O0E3:0414 (group, char).
+// affectGroup = O145:0466 (group, char).
 func (e *Engine) affectGroup(c *Character, group int) {
+	if group == grpDamage || group == grpAddAffect {
+		e.magicResistance(c)
+	}
 	if group < len(affectGroups) {
 		for _, t := range affectGroups[group] {
 			e.checkAffect(c, t)
@@ -227,11 +237,38 @@ func (e *Engine) affectGroup(c *Character, group int) {
 	}
 }
 
+// Affects magic resistance never stops outright.
+const (
+	resistKeepsCloudkill = affectCloudkill
+	resistKeepsFear      = affectFearAura
+)
+
+// magicResistance = O145:01E1 (char): an affect (with no damage, or with
+// magical damage) is stopped by the character's magic resistance, which
+// is 5% better for each caster level below 11.
+func (e *Engine) magicResistance(c *Character) {
+	if c.MagicResistance == 0 || e.rv.affVal == 0 {
+		return
+	}
+	if e.rv.damage != 0 && e.rv.dmgType&dmgMagic == 0 {
+		return
+	}
+	chance := int(c.MagicResistance) + (11-e.casterLevel(int(e.curSpell)))*5
+	if e.Dice(1, 100) <= chance {
+		e.rv.damage = 0
+		if e.rv.affVal != resistKeepsCloudkill && e.rv.affVal != resistKeepsFear {
+			e.rv.affVal = 0
+		}
+	}
+}
+
 // Cloud grounds.
 const (
-	groundStinkingCloud = 30
-	groundPoisonCloud   = 28
-	groundBody          = 31
+	groundDelayedBlast  = 26 // a delayed blast fireball waiting
+	groundPoisonCloud   = 27
+	groundStoneBody     = 28 // a body turned to stone
+	groundStinkingCloud = 29
+	groundBody          = 30
 	groundPlain         = 23 // what groundAt starts from
 )
 
@@ -259,7 +296,10 @@ const (
 	cloudSaveMalus  = -4
 )
 
-// inPoisonCloud = O0E3:0E47 (char, stinking): a character in a stinking
+// Monsters the fumes of a stinking cloud do not touch.
+const monsterNoBreath = 8
+
+// inPoisonCloud = O145:0C52 (char, stinking): a character in a stinking
 // cloud coughs (save) or is overcome by nausea, the selected character for
 // the time being the cloud's caster; in a poison cloud the weak die.
 func (e *Engine) inPoisonCloud(c *Character, checkStinking bool) {
@@ -267,9 +307,8 @@ func (e *Engine) inPoisonCloud(c *Character, checkStinking bool) {
 		return
 	}
 	stinking, poison := e.cloudsUnder(c)
-	if stinking && checkStinking && e.FindAffect(c, affectNausea) == nil &&
-		e.FindAffect(c, affectCollapse) == nil && e.FindAffect(c, affectNoPoisonParalysis) == nil &&
-		e.FindAffect(c, affectNoCharmHoldSleep) == nil {
+	if stinking && checkStinking && c.Undead == 0 && e.FindAffect(c, affectNausea) == nil &&
+		e.FindAffect(c, affectPoisonImmune) == nil && c.MonsterFlags&monsterNoBreath == 0 {
 		saved := e.SavingThrow(c, saveVsParalysis, 0)
 		owner := e.cloudOwner(e.combatX(c), e.combatY(c), e.stinkingClouds, cloudSquares4[:])
 		e.withSelected(owner, func() {
@@ -309,7 +348,7 @@ func (e *Engine) inPoisonCloud(c *Character, checkStinking bool) {
 	e.killWithMessage(c, statusDead, "is killed")
 }
 
-// AttackHits = O0E3:1245 (attacker, defender, need): attacking ends
+// AttackHits = O145:103A (attacker, defender, need): attacking ends
 // invisibility; d20 + THAC0 + the side's modifier must reach need.
 func (e *Engine) AttackHits(att, def *Character, need int) bool {
 	e.removeInvisibility(att)
@@ -329,7 +368,7 @@ func (e *Engine) AttackHits(att, def *Character, need int) bool {
 	return e.rv.hitRoll >= 0 && int(e.rv.hitRoll)+int(att.THAC0)+adj >= int(byte(need))
 }
 
-// SavingThrow = O0E3:12F1 do_saving_throw (char, type, bonus): 1 always fails, 20 always
+// SavingThrow = O145:1137 (char, type, bonus): 1 always fails, 20 always
 // saves, otherwise d20 + bonus + the character's save bonus must reach the
 // target for the type (0 paralysis ... 4 spells).
 func (e *Engine) SavingThrow(c *Character, typ, bonus int) bool {
@@ -349,13 +388,13 @@ func (e *Engine) SavingThrow(c *Character, typ, bonus int) bool {
 	return e.rv.saveMade
 }
 
-// RollDice = O0E3:13CC (n, sides): Dice that also remembers n (DS:6FB2).
+// RollDice = O145:1211 (n, sides): Dice that also remembers n.
 func (e *Engine) RollDice(n, sides int) int {
 	e.rv.diceN = byte(n)
 	return e.Dice(n, sides)
 }
 
-// killWithMessage = O0E3:0014 (char, status, message): the dead, stoned
+// killWithMessage = O145:0000 (char, status, message): the dead, stoned
 // and gone stay as they are; others fall with the status.
 func (e *Engine) killWithMessage(c *Character, status byte, msg string) {
 	e.combatName(c, msg, combatMsgRow, false)
@@ -367,7 +406,6 @@ func (e *Engine) killWithMessage(c *Character, status byte, msg string) {
 	c.Okay = 0
 	c.HP = 0
 	e.downAffects(c)
-	e.affectGroup(c, grpDown)
 	if c.Okay == 0 {
 		e.combatRemoveFromMap(c)
 	}
@@ -378,10 +416,16 @@ func (e *Engine) killWithMessage(c *Character, status byte, msg string) {
 	}
 }
 
-// KillCharacter = O0E3:14A7 (char, status, message): leaves the fight
+// Longest message a character line shows.
+const maxMessageLen = 40
+
+// Status of one who ran away: it keeps its hit points.
+const statusFled = 3
+
+// KillCharacter = O145:12E5 (char, status, message): leaves the fight
 // (running away, surrendering) without a body.
 func (e *Engine) KillCharacter(c *Character, status byte, msg string) {
-	msg = cut(msg, 0x28)
+	msg = cut(msg, maxMessageLen)
 	if c.Okay == 0 {
 		return
 	}
@@ -390,7 +434,7 @@ func (e *Engine) KillCharacter(c *Character, status byte, msg string) {
 	e.combatName(c, msg, combatMsgRow, true)
 	c.Okay = 0
 	c.Status = status
-	if c.Status != 3 {
+	if c.Status != statusFled {
 		c.HP = 0
 	}
 	e.combatClearIcon(0, 0, idx)
@@ -402,15 +446,15 @@ func (e *Engine) KillCharacter(c *Character, status byte, msg string) {
 	}
 }
 
-// removeInvisibility = O0E3:1573.
+// removeInvisibility = O145:13B1.
 func (e *Engine) removeInvisibility(c *Character) {
 	for a := e.FindAffect(c, affectInvisible); a != nil; a = e.FindAffect(c, affectInvisible) {
 		e.RemoveAffect(c, affectInvisible, a)
 	}
 }
 
-// downAffects = O0E3:15AB: the affects a fall ends (DS:0A31); a berserk
-// computer-charmed one returns to its side.
+// downAffects = O145:13E9: the affects a fall ends; a berserk charmed one
+// returns to its side.
 func (e *Engine) downAffects(c *Character) {
 	for _, t := range downAffectData[1:] {
 		e.RemoveAffect(c, t, nil)
@@ -420,23 +464,13 @@ func (e *Engine) downAffects(c *Character) {
 	}
 }
 
-// heldAffects = DS:0A45: the affects of holding and being held.
-var heldAffects = [4]byte{affectSuffocating, affectEngulfed, affectEngulfing, affectHugging}
-
-// releaseHeld = O0E3:160D.
-func (e *Engine) releaseHeld(c *Character) {
-	for _, t := range heldAffects {
-		e.RemoveAffect(c, t, nil)
-	}
-}
-
 // CureAffect = O0E3:164D is_cured (char, type): "is Cured" and the affect goes.
 func (e *Engine) CureAffect(c *Character, typ byte) bool {
 	a := e.FindAffect(c, typ)
 	if a == nil {
 		return false
 	}
-	e.combatName(c, "is Cured", 0xA, true)
+	e.combatName(c, "is Cured", combatMsgRow, true)
 	e.RemoveAffect(c, typ, a)
 	return true
 }
@@ -448,7 +482,7 @@ const (
 	saveHalf   = 2
 )
 
-// damagePerson = O0E3:1FBA (char, damage, mode, saved): reports and
+// damagePerson = O145:1D84 (char, damage, mode, saved): reports and
 // applies damage, the lost spell, and going down.
 func (e *Engine) damagePerson(c *Character, dmg int, mode byte, saved bool) {
 	e.rv.damage = byte(dmg)
@@ -520,29 +554,33 @@ func (e *Engine) damagePerson(c *Character, dmg int, mode byte, saved bool) {
 	e.clearCombatText()
 }
 
-// isUnaffected = O0E3:22E1 (char, type, time, data, call, saveMode, saved,
+// isUnaffected = O145:20C8 (char, type, time, data, call, saveMode, saved,
 // message): adds an affect unless something blocks it (or a save negates
-// it); a timed copy already there is replaced.
+// it); one already there lasts the longer of the two times.
 func (e *Engine) isUnaffected(c *Character, typ byte, time int, data, call, saveMode byte, saved bool, msg string) {
-	msg = cut(msg, 0x28)
+	msg = cut(msg, maxMessageLen)
 	e.rv.affVal = typ
 	e.affectGroup(c, grpAddAffect)
 	if e.rv.affVal == 0 || saved && saveMode == saveNegate {
 		e.combatName(c, "is Unaffected", combatMsgRow, true)
 		return
 	}
-	if a := e.FindAffect(c, typ); a != nil && a.Time > 0 {
-		e.RemoveAffect(c, typ, a)
+	if a := e.FindAffect(c, e.rv.affVal); a != nil {
+		if a.Time != 0 && uint16(time) > a.Time {
+			a.Time = uint16(time)
+		}
+	} else {
+		e.AddAffect(c, typ, time, data, call)
 	}
-	e.AddAffect(c, typ, time, data, call)
 	if msg != "" {
 		e.hitMessage(c, true, msg)
 		e.clearCombatText()
 	}
 }
 
-// Heal = O0E3:23D5 heal_player (char, amount, magical): only the living
-// (okay, animated, unconscious, dying) heal; magic only the hurt.
+// Heal = O145:21BF (char, amount, magical): only the living (okay,
+// animated, unconscious, dying) heal; magic only the hurt. The dying stop
+// bleeding, and outside combat the unconscious wake up.
 func (e *Engine) Heal(c *Character, amount int, magical bool) bool {
 	switch c.Status {
 	case statusOkay, statusAnimated, statusUnconscious, statusDying:
@@ -561,7 +599,8 @@ func (e *Engine) Heal(c *Character, amount int, magical bool) bool {
 			c.Status = statusUnconscious
 		}
 		if c.Status == statusUnconscious && e.gameState != stateCombat {
-			e.callAffect(affectRecovering, c, nil, 0)
+			c.Status = statusOkay
+			c.Okay = 1
 		}
 	}
 	return true
@@ -575,14 +614,14 @@ func (e *Engine) Revive(c *Character, hp byte) bool {
 	c.Status = 0
 	c.Okay = 1
 	c.HP = hp
-	if e.gameState == 5 {
+	if e.gameState == stateCombat {
 		e.combatRedrawChar(c, 3, 0)
 	}
 	msg := "gets back up"
 	if c.Side == 1 {
 		msg = "stands up and grins"
 	}
-	e.combatName(c, msg, 0xA, true)
+	e.combatName(c, msg, combatMsgRow, true)
 	e.countSides()
 	return true
 }

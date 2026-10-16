@@ -95,6 +95,7 @@ type Engine struct {
 	picFrame               byte                            // b729B
 	spriteFrame            byte                            // b72A5
 	textWaiting            bool                            // b5D0B
+	ageCheckDue            bool                            // b7D44 someone aged: see who dies of old age
 	duelling               bool                            // b8B70: the duel instead of a fight
 	forcePicture           bool                            // b4FD9: the encounter picture shows even during ENCOUNTER
 	gameSpeed              byte                            // game_speed_var_4FC2
@@ -113,7 +114,7 @@ type Engine struct {
 	rosterHi   *Character   // SelectCharacter: O0ED:07A2 highlights this one (nil: partySel)
 	rosterNone bool         // ... or no one (who = nil)
 	loadedGame bool         // DS:49F8
-	saved      bool         // DS:557D
+	saved      bool         // b7523 nothing has happened since the game was saved
 	debug      bool         // DS:470C
 
 	game, area, aux, ecl []byte // DS:49D6, 49D2, 49DA, 49DE records
@@ -169,39 +170,39 @@ type Engine struct {
 	terrain        byte                // DS:465A wilderness square of the battle
 	stinkingClouds []*cloudRecord      // DS:7575
 	poisonClouds   []*cloudRecord      // DS:7579
-	v6E30          byte
-	thrownItem     *Item // p6528: the thrown item that ends the treasure monsters left
-	v49F7          byte  // DS:49F7 debug display (never set)
+	delayedBlasts  []*cloudRecord      // DS:8D8D delayed blast fireballs waiting
+	computerMagic  bool                // b8E14 the computer casts for party members too
+	thrownItem     *Item               // p6528: the thrown item that ends the treasure monsters left
+	v49F7          byte                // DS:49F7 debug display (never set)
 
 	// combat overlays (ovr10/13/14/23)
-	spellTarget         *Character              // DS:6C95 target slot 1
-	spellList           []*ListNode             // DS:4766 spell menu lines (O0C2)
-	spellIDs            []byte                  // DS:476A spell of each non-header line
-	spellItems          [0x31]*Item             // DS:477F scroll of each line
-	spellItemCount      int                     // DS:4843
-	spellTargets        [0x49]*Character        // DS:6C91+4i targets 2..; slot 1 is spellTarget
-	nSpellTargets       int                     // DS:6C94
-	spellCaster         *Character              // DS:6DB5
-	curSpell            byte                    // DS:681B spell being cast
-	tgtX, tgtY          int                     // DS:6DB9/6DBA target square
-	combatTargets       bool                    // DS:72BA points at O08D:2231 (set by Combat), else O0C2:114D
-	whoVar              bool                    // SelectCharacter's who is DS:5D92 itself (opWho)
-	spellFx             [len(spellNames)]func() // DS:6B84 spell effect table (slot 0 unused)
-	v4844, v4845        byte                    // DS:4844/4845 spell scratch
-	v681A, v681D, v681E byte                    // DS:681A speed value, 681D, 681E affect scratch
-	panelDirty          bool                    // DS:75FF the side panel is to be redrawn
-	showMoves           bool                    // DS:7600 the acting combatant's moves are drawn
-	itemCall            bool                    // DS:759C the next affect call is a readied item's
-	callItem            *Item                   // the item it is for
-	combatRound         byte                    // DS:75A7 rounds since the fight (or the last wait) began
-	roundLimit          byte                    // DS:75A8 the fight ends at this round (15 after the last attack)
-	v6825               byte                    // DS:6825 flee/surrender roll
-	hits6822, shots6E2C [3]byte                 // DS:6822+i / 6E2C+i, i = 1..2 attack slots
-	v443C, v443D, v443E byte                    // DS:443C..443E computer-turn movement state
-	v6DE2               byte                    // DS:6DE2
-	v6826               *Character              // DS:6826 scratch target
-	v6E2F               byte                    // DS:6E2F
-	aiEngaged           bool                    // DS:75FE the computer's combatant has a target in reach
+	spellTarget            *Character              // DS:6C95 target slot 1
+	spellList              []*ListNode             // DS:4766 spell menu lines (O0C2)
+	spellIDs               []byte                  // DS:476A spell of each non-header line
+	spellItems             [0x31]*Item             // DS:477F scroll of each line
+	spellItemCount         int                     // DS:4843
+	spellTargets           [0x49]*Character        // DS:6C91+4i targets 2..; slot 1 is spellTarget
+	nSpellTargets          int                     // DS:6C94
+	spellCaster            *Character              // DS:6DB5
+	curSpell               byte                    // DS:681B spell being cast
+	tgtX, tgtY             int                     // DS:6DB9/6DBA target square
+	combatTargets          bool                    // DS:72BA points at O08D:2231 (set by Combat), else O0C2:114D
+	whoVar                 bool                    // SelectCharacter's who is DS:5D92 itself (opWho)
+	spellFx                [len(spellNames)]func() // DS:6B84 spell effect table (slot 0 unused)
+	v4844, v4845           byte                    // DS:4844/4845 spell scratch
+	v681D                  byte                    // DS:681D the speed affects are working out the moves
+	panelDirty             bool                    // DS:75FF the side panel is to be redrawn
+	showMoves              bool                    // DS:7600 the acting combatant's moves are drawn
+	itemCall               bool                    // DS:759C the next affect call is a readied item's
+	callItem               *Item                   // the item it is for
+	combatRound            byte                    // DS:75A7 rounds since the fight (or the last wait) began
+	roundLimit             byte                    // DS:75A8 the fight ends at this round (15 after the last attack)
+	shots6E2C              [3]byte                 // DS:6E2C+i, i = 1..2 attack slots
+	lastStep               int                     // b59C6 the computer's last step direction
+	stuckCount, stuckSteps byte                    // b59C7, b59C8 its steps that went back
+	v6DE2                  byte                    // DS:6DE2
+	partyMorale            byte                    // b8E13 the party's morale this round
+	aiEngaged              bool                    // DS:75FE the computer's combatant has a target in reach
 
 	// H
 	areaIconTick byte  // DS:6DDC area map party icon pose counter

@@ -234,7 +234,6 @@ func (e *Engine) rangeTo(c, t *Character) int {
 }
 
 // Spell classes beyond spellids.go's: a monster's innate power.
-const spellClassInnate = 3
 
 // Levels at which paladins and rangers cast: their level less these.
 const (

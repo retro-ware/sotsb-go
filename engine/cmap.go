@@ -833,7 +833,7 @@ func (e *Engine) BuildCharIcon(c *Character, recolour bool) {
 		}
 		for i := 1; i <= len(c.IconColour); i++ {
 			v := c.IconColour[i-1]
-			pos := defaultIconColours[i-1] // the icon part's colour index
+			pos := defaultIconColours[i] // the icon part's colour index
 			to[pos] = v & 15
 			to[int(pos)+8] = v >> 4
 		}

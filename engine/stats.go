@@ -204,7 +204,7 @@ func (e *Engine) statAffects(c *Character, stat int) {
 			c.Stats[statDex].Value = value
 		}
 	case statCha:
-		if a := e.FindAffect(c, affectCharisma); a != nil {
+		if a := e.FindAffect(c, affectFriendly); a != nil {
 			value += a.Data
 		}
 		c.Stats[statCha].Value = value

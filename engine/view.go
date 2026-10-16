@@ -249,22 +249,15 @@ func (e *Engine) readyItem(it *Item) {
 
 // Item powers itemReadyEffect knows beyond classcalc.go's.
 const (
-	effectGrantsAffect   = 0 // the affect Spells[1] names
-	effectAlignmentBurn  = 4 // Spells[1]: alignment (low nibble), damage (high)
-	effectStrength       = 5
-	effectConstitution   = 6
-	effectScore          = 8 // Spells[1]: the score
-	effectHammer         = 9 // unready: the spiritual hammer goes
-	effectDexterity      = 10
-	effectIntelligence   = 12
-	effectStrAndInt      = 13
-	alignmentMask        = 15
-	alignmentDamageShift = 4
-	wizardrySlots        = 3 // the first mage slot levels the ring doubles
-	mageSlotLevels       = 5
+	effectGrantsAffect  = 0 // the affect Spells[1] names
+	effectStrength      = 3
+	effectGiantStrength = 5
+	effectHammer        = 9 // put away: the spiritual hammer goes
+	wizardrySpellLevel  = 5 // the magic-user spell level the ring doubles
+	wizardryFirstLevel  = 9 // the class level the first of those spells comes at
 )
 
-// itemReadyEffect = O0AF:1B04 (item, ready): what a magic item does as it
+// itemReadyEffect = O100:1A23 (item, ready): what a magic item does as it
 // is readied (ready) or put away.
 func (e *Engine) itemReadyEffect(it *Item, ready bool) {
 	c := e.selected()
@@ -276,72 +269,38 @@ func (e *Engine) itemReadyEffect(it *Item, ready bool) {
 		if !ready {
 			flag = 1
 		}
-		e.callAffect(itemEffect(it), c, nil, flag)
+		e.callAffect(it.Spells[1], c, nil, flag)
 	case effectWizardry:
+		slot := slotIndex(spellClassMage, wizardrySpellLevel)
 		if ready {
-			for s := 0; s < wizardrySlots; s++ {
-				c.SpellSlots[slotsMage+s] *= 2
-			}
+			c.SpellSlots[slot] *= 2
 			break
 		}
-		lvl := int(int8(c.Levels[clsMage]))
+		level := int(int8(c.Levels[clsMage]))
 		if oldClassUsable(c) {
-			lvl += int(int8(c.OldLevels[clsMage]))
+			level += int(int8(c.OldLevels[clsMage]))
 		}
-		for s := 0; s < mageSlotLevels; s++ {
-			c.SpellSlots[slotsMage+s] = 0
+		c.SpellSlots[slot] = 0
+		for l := wizardryFirstLevel; l <= level; l++ {
+			c.SpellSlots[slot] += slotsGained(mageSlotData[:], l, wizardrySpellLevel)
 		}
-		c.SpellSlots[slotsMage] = 1
-		for l := 2; l <= lvl; l++ {
-			for s := 1; s <= mageSlotLevels; s++ {
-				c.SpellSlots[slotsMage+s-1] += mageSlotData[l*mageSlotLevels+s]
+		// Memorised fifth-level spells beyond the slots are forgotten (the
+		// original counts from a value it never set; the port counts from 0).
+		count := 0
+		for i, spell := range c.Memorized {
+			if spell != 0 && spellClass(spell) == spellClassMage && spellLevel(spell) == wizardrySpellLevel {
+				count++
+				if count > int(c.SpellSlots[slot]) {
+					c.Memorized[i] = 0
+				}
 			}
 		}
-		// memorized spells beyond the slots are forgotten
-		var used [mageSlotLevels + 1]int
-		for i, sp := range c.Memorized {
-			if sp == 0 || spellClass(sp) != spellClassMage {
-				continue
-			}
-			l := int(spellLevel(sp))
-			used[l]++
-			if used[l] > int(c.SpellSlots[slotsMage+l-1]) {
-				c.Memorized[i] = 0
-			}
-		}
-	case effectFreeAction:
-		e.statAffects(c, statDex)
-		e.thiefSkills(c)
-	case effectAlignmentBurn:
-		if it.Spells[1]&alignmentMask != c.Alignment {
-			it.Readied = 0
-			e.rv.dmgType = dmgMagic
-			if e.gameState == stateCombat {
-				e.combatUseHook()
-			}
-			e.damagePerson(c, int(it.Spells[1]>>alignmentDamageShift), 0, false)
-			e.itemsRedraw = true
-		}
-	case effectStrength:
+	case effectStrength, effectGiantStrength:
 		e.statAffects(c, statStr)
-	case effectConstitution:
-		e.statAffects(c, statCon)
-		e.statAffects(c, statCha)
-	case effectScore:
-		e.statAffects(c, int(it.Spells[1]))
 	case effectHammer:
 		if !ready {
 			e.RemoveAffect(c, affectSpiritualHammer, nil)
 		}
-	case effectDexterity:
-		e.statAffects(c, statDex)
-	case effectThievery:
-		e.thiefSkills(c)
-	case effectIntelligence:
-		e.statAffects(c, statInt)
-	case effectStrAndInt:
-		e.statAffects(c, statStr)
-		e.statAffects(c, statInt)
 	}
 }
 

@@ -1,58 +1,50 @@
-// Command tablefind looks for each tablespec table of Curse of the Azure Bonds in
-// Silver Blades' data segment by content (a porting aid, not part of the game).
+// Command tablefind looks for each table still read from Curse of the Azure
+// Bonds in Silver Blades' data segment, by its bytes (a porting aid).
 //
-//	tablefind CURSE-START.EXE BLADES-START.EXE ds_map.tsv
+//	tablefind BLADES-START.EXE CURSE-START.EXE
 package main
 
 import (
-	"bufio"
 	"bytes"
 	"fmt"
 	"log"
 	"os"
-	"strconv"
-	"strings"
 
 	"sotsb/exe"
 	"sotsb/tablespec"
 )
 
 func main() {
-	curse, err := exe.LoadCurse(os.Args[1])
+	blades, err := exe.LoadBlades(os.Args[1])
 	if err != nil {
 		log.Fatal(err)
 	}
-	blades, err := exe.LoadBlades(os.Args[2])
+	curse, err := exe.LoadCurse(os.Args[2])
 	if err != nil {
 		log.Fatal(err)
 	}
-	moved := map[int]int{}
-	if f, err := os.Open(os.Args[3]); err == nil {
-		sc := bufio.NewScanner(f)
-		for sc.Scan() {
-			p := strings.Fields(sc.Text())
-			c, _ := strconv.ParseInt(p[0], 16, 32)
-			s, _ := strconv.ParseInt(p[1], 16, 32)
-			moved[int(c)] = int(s)
-		}
-	}
-	segment := blades.Mem[blades.DS:]
+	data := blades.Mem[blades.DS:]
 	for _, t := range tablespec.Tables {
-		n := t.Len
+		if !t.Curse {
+			continue
+		}
+		size := t.Len * t.Kind.Size()
 		if t.Cols > 0 {
-			n *= t.Cols
+			size *= t.Cols
 		}
-		want := curse.Bytes(t.At, n*t.Kind.Size())
-		var hits []string
-		for i := 0; i+len(want) <= len(segment) && i < 1<<16; i++ {
-			if bytes.Equal(segment[i:i+len(want)], want) {
-				hits = append(hits, strconv.Itoa(i))
+		if t.Stride > 0 {
+			size = t.Len * t.Stride
+		}
+		want := curse.Bytes(t.At, size)
+		var found []int
+		for at := 0; ; {
+			i := bytes.Index(data[at:], want)
+			if i < 0 {
+				break
 			}
+			found = append(found, at+i)
+			at += i + 1
 		}
-		guess := "-"
-		if s, ok := moved[t.At]; ok {
-			guess = strconv.Itoa(s)
-		}
-		fmt.Printf("%s\t%d\tmap=%s\tcontent=%s\n", t.Name, t.At, guess, strings.Join(hits, ","))
+		fmt.Printf("%-24s curse %6d size %5d  blades %v\n", t.Name, t.At, size, found)
 	}
 }

@@ -223,3 +223,75 @@ func (e *Engine) stinkingCloudEndHandler(c *Character, a *Affect, flag byte) {
 func (e *Engine) cloudkillEndHandler(c *Character, a *Affect, flag byte) {
 	e.clearCloud(e.poisonKind(), c, a)
 }
+
+// The delayed blast fireballs (DS:8D8D) wait on one square each.
+var delayedBlastSquares = [1]byte{centreDirection}
+
+// centreDirection is the step that stays on the square.
+const centreDirection = 8
+
+// The burst of a delayed blast fireball.
+const (
+	delayedBlastRadius  = 3
+	delayedBlastColours = 23
+	delayedBlastFrames  = 4
+	delayedBlastPause   = 70
+	delayedBlastStep    = 30
+)
+
+// delayedBlastHandler = O0A4:30B1: when the caster's waiting fireball
+// goes off, everyone within three squares takes the caster's level plus
+// that many d6 of magical fire, half on a save. The burst is drawn with
+// the missile colours until the magic overlay's burst icons are ported.
+func (e *Engine) delayedBlastHandler(c *Character, a *Affect, flag byte) {
+	if flag == 0 || e.gameState != stateCombat {
+		return
+	}
+	number := a.Data / imageStep
+	var blast *cloudRecord
+	at := -1
+	for i, r := range e.delayedBlasts {
+		if r.caster == c && r.number == number {
+			blast, at = r, i
+			break
+		}
+	}
+	if blast == nil {
+		return
+	}
+	e.rv.areaSpell = 1
+	usable := 0
+	if oldClassUsable(c) {
+		usable = 1
+	}
+	level := int(int8(c.Levels[clsMage])) + int(int8(c.OldLevels[clsMage]))*usable
+	x, y := int(blast.x), int(blast.y)
+	e.buildNear(x, y, delayedBlastRadius, 255, 1)
+	var caught []*Character
+	for _, n := range e.near.list {
+		caught = append(caught, e.combatant(n.index))
+	}
+	e.combatCentre(x, y, 255, 8)
+	e.gameDelay()
+	e.hitColours(delayedBlastColours)
+	for frame := 0; frame < delayedBlastFrames; frame++ {
+		if frame == 1 {
+			e.printMessage("Delayed Blast Fireball goes off")
+		}
+		e.Flip()
+		e.Delay(frame*delayedBlastStep + delayedBlastPause)
+	}
+	if blast.covered[0] != 0 {
+		e.cmap.ground[y][x] = e.groundUnderBody(x, y, blast.ground[0])
+	}
+	e.delayedBlasts = append(e.delayedBlasts[:at], e.delayedBlasts[at+1:]...)
+	e.combatCentre(x, y, 0, 8)
+	e.rv.dmgType = dmgFire | dmgMagic
+	damage := level + e.RollDice(level, 6)
+	for _, t := range caught {
+		if t != nil {
+			e.damagePerson(t, damage, saveHalf, e.SavingThrow(t, saveVsSpell, 0))
+		}
+	}
+	e.rv.dmgType = 0
+}

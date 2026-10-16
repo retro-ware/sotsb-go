@@ -5,23 +5,35 @@ import (
 	"strings"
 )
 
-// Saved characters (unit O0A1 of the reconstruction): NAME.GUY holds the
-// record, NAME.SWG the items (63 bytes each), NAME.FX the affects (9 bytes
-// each). Saved games keep their characters as .SAV files. The original
-// writes its memory pointers into the files; the port writes zeros there
-// (they are never read back).
+// Saved characters (unit O0F8): NAME.WHO holds the record, NAME.STF the
+// items (67 bytes each, a bag followed by its contents), NAME.SFX the
+// affects (9 bytes each). A saved game keeps its characters as .SAV files
+// with the same .STF and .SFX companions. The original writes its memory
+// pointers into the files; the port writes zeros there (they are never
+// read back).
 
 const (
-	extCharacter     = ".guy"
-	extItems         = ".swg"
-	extAffects       = ".fx"
+	extCharacter     = ".who"
+	extItems         = ".stf"
+	extAffects       = ".sfx"
 	extGameCharacter = ".sav"
 	maxFileName      = 8
 )
 
-// SaveCharacter = O0A1:0DFC (c, name): name "" saves to the roster under the
-// character's name (asking before overwriting), else name.sav for a saved game.
+// removeCharacterFiles = O0F8:0C33 (c): the roster files of a character
+// now kept in the saved game.
+func (e *Engine) removeCharacterFiles(c *Character) {
+	base := makeFileName(c.Name())
+	for _, ext := range []string{extCharacter, extItems, extAffects} {
+		os.Remove(e.savePath(base + ext))
+	}
+}
+
+// SaveCharacter = O0F8:0DA0 (c, name): name "" saves to the roster under
+// the character's name (asking before overwriting; a new file name also
+// becomes the character's name), else name.sav for a saved game.
 func (e *Engine) SaveCharacter(c *Character, name string) {
+	e.addSource = fromSilverBlades
 	if !e.saveDirReady() {
 		return
 	}
@@ -30,13 +42,14 @@ func (e *Engine) SaveCharacter(c *Character, name string) {
 		base, ext = name, extGameCharacter
 	}
 	for name == "" && e.fileExists(e.savePath(base+ext)) {
-		if e.YesNo(colourYellow, colourGreen, colourWhite, "Overwrite "+base+"? ") == 'Y' {
+		if e.YesNo(colourYellow, colourGreen, colourWhite, "Overwrite "+base+"? ") != 'N' {
 			break
 		}
 		base = ""
 		for base == "" {
 			base = e.InputString("New file name: ", colourGreen, maxFileName)
 		}
+		c.SetName(base)
 	}
 	if err := os.WriteFile(e.savePath(base+ext), c.record(), 0o644); err != nil {
 		e.fileError("write", e.savePath(base+ext))
@@ -44,7 +57,7 @@ func (e *Engine) SaveCharacter(c *Character, name string) {
 	}
 	os.Remove(e.savePath(base + extItems))
 	if len(c.Items) > 0 {
-		os.WriteFile(e.savePath(base+extItems), writeRecords(c.Items), 0o644)
+		os.WriteFile(e.savePath(base+extItems), writeItems(c.Items), 0o644)
 	}
 	os.Remove(e.savePath(base + extAffects))
 	if len(c.Affects) > 0 {
@@ -56,7 +69,7 @@ func (e *Engine) SaveCharacter(c *Character, name string) {
 	}
 }
 
-// saveDirReady = O0A1:0655 save: make sure the save directory exists (the
+// saveDirReady = O0F8:04F3: make sure the save directory exists (the
 // original asks for the save disk until it does).
 func (e *Engine) saveDirReady() bool {
 	if err := os.MkdirAll(e.Cfg.SaveDir, 0o755); err != nil {
@@ -66,27 +79,55 @@ func (e *Engine) saveDirReady() bool {
 	return true
 }
 
-// LoadCharacter (name, c, fromGame): read NAME.GUY (or NAME.SAV from a saved
-// game) with its items and affects. False when the file is missing.
-func (e *Engine) LoadCharacter(name string, c *Character, fromGame bool) bool {
-	nm := strings.TrimSuffix(makeFileName(name), "")
-	ext := extCharacter
-	if fromGame {
-		ext = extGameCharacter
-	}
-	b, err := os.ReadFile(e.savePath(nm + ext))
+// LoadCharacter = O0F8:1CEB (file, c): a character from a Silver Blades
+// file (.who, or .sav of a saved game) or, when adding from Curse of the
+// Azure Bonds, its .guy record made into a Silver Blades one; then its
+// items (Silver Blades files only) and affects, and the values the items
+// and classes give are worked out again. A paladin may cure disease once
+// more; a paladin from Curse also gets the protection from evil and a
+// ranger the bonus against giants that Silver Blades keeps as affects.
+func (e *Engine) LoadCharacter(file string, c *Character) bool {
+	e.DisplayString(0, statusRow, colourGreen, "Loading...Please Wait")
+	b, err := os.ReadFile(e.savePath(file))
 	if err != nil {
-		e.fileError("read", e.savePath(nm+ext))
+		e.fileError("read", e.savePath(file))
 		return false
 	}
-	c.setRecord(b)
-	c.Items, c.Affects = nil, nil
-	if b, err := os.ReadFile(e.savePath(nm + extItems)); err == nil {
-		c.Items = readRecords[Item](b, itemRecSize)
+	*c = Character{}
+	paladin := func() bool {
+		return int8(c.Levels[clsPaladin]) > 0 || c.OldClass == clsPaladin && oldClassUsable(c)
 	}
-	if b, err := os.ReadFile(e.savePath(nm + extAffects)); err == nil {
-		c.Affects = readAffects(b)
+	ranger := func() bool {
+		return int8(c.Levels[clsRanger]) > 0 || c.OldClass == clsRanger && oldClassUsable(c)
+	}
+	if e.addSource == fromSilverBlades {
+		c.setRecord(b)
+		if paladin() {
+			c.PaladinCures = 1
+		}
+	} else {
+		c.fromCurse(readCurseRecord(b))
+		if ranger() {
+			e.AddAffect(c, affectRangerVsGiants, 0, permanent, 0)
+		}
+		if paladin() {
+			c.PaladinCures = 1
+			e.AddAffect(c, affectProtFromEvil, 0, permanent, 0)
+		}
+	}
+	base := strings.TrimSuffix(file, filepathExt(file))
+	if e.addSource == fromSilverBlades {
+		if b, err := os.ReadFile(e.savePath(base + extItems)); err == nil {
+			c.Items = readItems(b, itemFileRecSize)
+		}
+	}
+	// The original links the .sfx affects after the ones added above
+	// through a pointer it never set; the port simply appends them.
+	if b, err := os.ReadFile(e.savePath(base + extAffects)); err == nil {
+		c.Affects = append(c.Affects, readAffects(b)...)
 	}
 	e.ClearKeyboard()
+	e.ApplyItems(c)
+	e.recalcClassBonuses(c)
 	return true
 }

@@ -25,7 +25,7 @@ func (e *Engine) cmdTreasure() {
 			e.Exit()
 			return
 		}
-		for _, it := range readRecords[Item](b, itemRecSize) {
+		for _, it := range readItems(b, itemRecSize) {
 			e.treasureItems = append([]*Item{it}, e.treasureItems...)
 		}
 		return

@@ -9,10 +9,10 @@ func (e *Engine) turnSetup(c *Character) {
 	cb := c.Combat
 	cb.Spell, cb.CanCast, cb.CanUse, cb.Attacked, cb.AttackSlot = 0, 1, 1, 0, 2
 	e.setSpeed(c)
-	e.v681A = c.BaseAttack[1]
+	e.rv.attacks = c.BaseAttack[1]
 	e.v681D = 0
 	e.affectGroup(c, grpSpeed)
-	c.Attacks[1] = byte(e.halfUp(e.v681A))
+	c.Attacks[1] = byte(e.halfUp(e.rv.attacks))
 	cb.Sweeps = c.FightLevel
 	if c.Okay != 0 {
 		cb.Delay = byte(int(dexMissile(c)) + e.Dice(1, 6))
@@ -42,10 +42,10 @@ func (e *Engine) turnMoveRate(c *Character) int {
 	if v < 1 || v > 0x60 {
 		v = 1
 	}
-	e.v681A = v << 1
+	e.rv.attacks = v << 1
 	e.affectGroup(c, grpSpeed)
 	e.v681D = 0
-	return int(e.v681A)
+	return int(e.rv.attacks)
 }
 
 // rollDamage = O08D:0192 (att, vic, slot): damage roll of the attack slot (1 or 2),
@@ -214,81 +214,71 @@ func (e *Engine) stepSquare(c *Character, dir int) {
 	}
 }
 
-// leaveAttacks = O08D:0954 (char, dir): the mover steps (virtually) one square in dir; the
-// enemies that were next to it and no longer are get a free attack.
+// leaveAttacks = O0C9:0902 (char, dir): the mover steps (virtually) one
+// square in dir; the enemies next to it that are able to fight and would
+// no longer be next to it get a free attack, if they face it or have not
+// yet acted or been attacked this round.
 func (e *Engine) leaveAttacks(c *Character, dir int) {
-	var lst [0x0D]byte // bp-0xD+i, i = 1..: the DS:6DE4 list before the move
 	idx := e.combatIndex(c)
-	n := e.nearEnemies(c, 1)
-	if n == 0 {
-		return
+	var watching []byte
+	for i := 1; i <= e.nearEnemies(c, 1); i++ {
+		t := e.combatant(e.targets[i])
+		if !e.isHelpless(t) && t.Combat.Turned == 0 {
+			watching = append(watching, e.targets[i])
+		}
 	}
-	for i := 1; i <= n; i++ {
-		lst[i] = e.targets[i]
+	if len(watching) == 0 {
+		return
 	}
 	dx, dy := byte(stepX[dir]), byte(stepY[dir])
 	e.cpos[idx].x += dx
 	e.cpos[idx].y += dy
-	m := e.nearEnemies(c, 1)
+	stillNear := e.nearEnemies(c, 1)
 	e.cpos[idx].x -= dx
 	e.cpos[idx].y -= dy
-	for i := 1; i <= n; i++ {
-		found := false
-		for j := 1; j <= m; j++ {
-			if e.targets[j] == lst[i] {
-				found = true
+	for i := range watching {
+		for j := 1; j <= stillNear; j++ {
+			if e.targets[j] == watching[i] {
+				watching[i] = 0
 			}
 		}
-		if found {
-			lst[i] = 0
-		}
 	}
-	for i := 1; i <= n; i++ {
-		if lst[i] == 0 || c.Okay == 0 {
+	for _, w := range watching {
+		if w == 0 || c.Okay == 0 {
 			continue
 		}
 		e.panelDirty, e.showMoves = true, true
-		t := e.combatant(lst[i])
-		if e.isHelpless(t) || !e.mayAct(t, c) {
+		t := e.combatant(w)
+		if !e.mayAct(t, c) || e.rangedWeapon(t) && !e.throwable(t) {
 			continue
 		}
-		// (affect 75 is the bonus against kind 3 and 74 is unused: Pool's
-		// held and holding numbers, kept by CotAB)
-		if e.FindAffect(t, affectVsKind3) != nil || e.FindAffect(t, 74) != nil {
-			continue
-		}
-		attacked := false
 		tcb := t.Combat
 		for k := int(tcb.Facing) + 6; k <= int(tcb.Facing)+10; k++ {
-			if attacked {
+			if int8(tcb.Delay) <= 0 && tcb.Attackers != 0 &&
+				!e.inArc(e.combatX(t), e.combatY(t), e.combatX(c), e.combatY(c), k%8) {
 				continue
 			}
-			if int8(tcb.Delay) <= 0 && tcb.Attackers != 0 {
-				if !e.inArc(e.combatX(t), e.combatY(t), e.combatX(c), e.combatY(c), k%8) {
-					continue
-				}
-			}
-			w := 1
+			hand := 1
 			if t.BaseAttack[0] == 0 {
-				w = 2
+				hand = 2
 			}
-			for s := 1; s <= 2; s++ {
-				if t.Attacks[s-1] > 0 {
-					w = s
+			for h := 1; h <= 2; h++ {
+				if t.Attacks[h-1] > 0 {
+					hand = h
 				}
 			}
-			if t.Attacks[w-1] == 0 {
-				t.Attacks[w-1] = 1
+			if t.Attacks[hand-1] == 0 {
+				t.Attacks[hand-1] = 1
 			}
-			tcb.AttackSlot = byte(w)
-			saved := t.Combat.Target
+			tcb.AttackSlot = byte(hand)
+			saved := tcb.Target
 			e.fullAttack(t, c, 1, nil)
-			attacked = true
-			t.Combat.Target = saved
+			tcb.Target = saved
 			if c.Okay != 0 {
 				e.panelDirty = true
 				e.combatPanel(c)
 			}
+			break
 		}
 	}
 }
@@ -331,13 +321,13 @@ func (e *Engine) setSpeed(c *Character) {
 		if v < 2 {
 			v = 2
 		}
-		e.v681A = v
+		e.rv.attacks = v
 	} else {
-		e.v681A = c.Attacks[0]
+		e.rv.attacks = c.Attacks[0]
 	}
 	e.v681D = 0
 	e.affectGroup(c, 0x12)
-	r := byte(e.halfUp(e.v681A))
+	r := byte(e.halfUp(e.rv.attacks))
 	if flag && it != nil {
 		w := byte(1)
 		if it.Count > w {
@@ -416,15 +406,15 @@ func (e *Engine) mayAct(t, c *Character) bool {
 	if t == c {
 		return true
 	}
-	e.v681E = 0
+	e.rv.unseen = 0
 	e.affectGroup(c, grpAttackerExtra)
-	if e.v681E == 0 {
+	if e.rv.unseen == 0 {
 		saved := t.Combat.Target
 		t.Combat.Target = c
 		e.affectGroup(t, grpNone)
 		t.Combat.Target = saved
 	}
-	return e.v681E == 0
+	return e.rv.unseen == 0
 }
 
 // turnUndead = O08D:1228 turn_undead (char): a cleric turns undead.
@@ -514,7 +504,7 @@ func (e *Engine) weakestFoe(c *Character, out **Character) bool {
 func (e *Engine) attackSlots(a, b *Character, w int, it *Item) (done bool) {
 	acb := a.Combat
 	done = false
-	e.hits6822[1], e.hits6822[2] = 0, 0
+	e.rv.hits[1], e.rv.hits[2] = 0, 0
 	e.shots6E2C[1], e.shots6E2C[2] = 0, 0
 	any, stop := false, false
 	e.rv.damage = 0
@@ -570,7 +560,7 @@ func (e *Engine) attackSlots(a, b *Character, w int, it *Item) (done bool) {
 				acb.AttackSlot = byte(s)
 				e.shots6E2C[s]++
 				if e.AttackHits(a, b, int(need)) || e.isHelpless(b) {
-					e.hits6822[s]++
+					e.rv.hits[s]++
 					e.PlaySound(sndBump)
 					any = true
 					e.rollDamage(a, b, s)

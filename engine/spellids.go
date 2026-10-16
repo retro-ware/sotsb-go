@@ -37,7 +37,7 @@ const (
 	spellRayOfEnfeeblement             = 33
 	spellStinkingCloud                 = 34
 	spellStrength                      = 35
-	spellAnimateDead                   = 36
+	spellHeal                          = 36
 	spellCureBlindness                 = 37
 	spellCauseBlindness                = 38
 	spellCureDisease                   = 39
@@ -57,7 +57,7 @@ const (
 	spellProtectFromGood10Radius       = 53
 	spellProtectFromNormalMissiles     = 54
 	spellSlow                          = 55
-	spellRestoration                   = 56
+	spellHarm                          = 56
 	spellSpell57                       = 57
 	spellCureSeriousWounds             = 58
 	spellSpell59                       = 59
@@ -90,25 +90,46 @@ const (
 	spellFumble                        = 86
 	spellIceStorm                      = 87
 	spellMinorGlobeOfInvulnerability   = 88
-	spellSpell89                       = 89
-	spellSpell90                       = 90
+	spellRemoveCurseMU                 = 89
+	spellBarkskin                      = 90
 	spellCloudKill                     = 91
 	spellConeOfCold                    = 92
 	spellFeeblemind                    = 93
 	spellHoldMonsters                  = 94
 	spellSpell95                       = 95
-	spellSpell96                       = 96
+	spellCharmPersonOrMammal           = 96
 	spellSpell97                       = 97
-	spellSpell98                       = 98
+	spellCureLightWoundsDruid          = 98
 	spellSpell99                       = 99
 	spellBestowCurseMU                 = 100
+	spellSpell101                      = 101
+	spellSpell102                      = 102
+	spellSpell103                      = 103
+	spellSpell104                      = 104
+	spellSpell105                      = 105
+	spellSpell106                      = 106
+	spellSpell107                      = 107
+	spellSpell108                      = 108
+	spellSpell109                      = 109
+	spellDeathSpell                    = 110
+	spellDisintegrate                  = 111
+	spellGlobeOfInvulnerability        = 112
+	spellStoneToFlesh                  = 113
+	spellFleshToStone                  = 114
+	spellDelayedBlastFireball          = 115
+	spellMassInvisibility              = 116
+	spellPowerWordStun                 = 117
 )
 
-// Spell classes in the spell table.
+// Spell classes in the spell table; each has seven spell levels of
+// SpellSlots (the third group is unused).
 const (
 	spellClassCleric = iota
 	spellClassDruid
+	_
 	spellClassMage
+	spellClassInnate // monster powers
+	spellLevels      = 7
 )
 
 // Spell table record fields (spellRec).
