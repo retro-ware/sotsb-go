@@ -23,7 +23,7 @@ func (e *Engine) normalizeClock(t *[7]int) {
 	}
 }
 
-// AdvanceClock = O0B6:03FA (count, unit): add count units to the area
+// AdvanceClock = O10C:033B (count, unit): add count units to the area
 // clock (area+0x18C, 7 words), then run down timed effects.
 func (e *Engine) AdvanceClock(count, unit int) {
 	var t [7]int
@@ -40,7 +40,7 @@ func (e *Engine) AdvanceClock(count, unit int) {
 	e.tickEffects(count, unit)
 }
 
-// tickEffects = O0B6:001E (count, unit): count down the timed entries in
+// tickEffects = O10C:0000 (count, unit): count down the timed entries in
 // each member's effect list (+0x7F) in steps of up to 10 rounds; expired
 // ones are removed. While camping only members flagged in DS:471D are
 // looked at.
@@ -92,8 +92,8 @@ func (e *Engine) tickEffects(count, unit int) {
 				continue
 			}
 			r.effTick[i+1] = 0
-			cur, pred := head(c), head(c) // bp-1B, bp-13
-			var last *Affect              // bp-0F: the tail when the walk starts
+			cur := head(c)
+			var last *Affect // the tail when the walk starts
 			for a := cur; a != nil; a = next(c, a) {
 				last = a
 			}
@@ -109,22 +109,11 @@ func (e *Engine) tickEffects(count, unit int) {
 					cur = next(c, cur)
 				default:
 					after := next(c, cur)
-					e.RemoveEffect(c, cur) // O0E3:010A
-					// Pool ovr21:0203 quirk: when the node before the removed one
-					// is the head, the walk restarts at the head.
-					if pred == head(c) {
-						cur = head(c)
-					} else {
-						cur = after
-					}
-				}
-				// O0B6:025E: pred = the node before cur (or cur itself).
-				pred = head(c)
-				for pred != nil && pred != cur && next(c, pred) != cur {
-					pred = next(c, pred)
+					e.RemoveAffect(c, cur.Type, cur)
+					cur = after
 				}
 			}
-			for ; cur != nil; cur = next(c, cur) { // O0B6:02B3
+			for ; cur != nil; cur = next(c, cur) {
 				if cur.Time > 0 {
 					r.effTick[i+1] = 1
 				}

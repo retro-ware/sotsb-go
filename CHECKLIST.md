@@ -29,6 +29,8 @@ data segment by content.
   - [x] combat turn O0C9 (turn setup, attacks, thrown weapons, sweeps, aiming with the cursor-based menu);
     no Turn Undead in Silver Blades
   - [x] combat loop O089 (turn order queue, Delay moves to the end, Alt+A, old-age deaths after battle)
+  - [x] combat map O18B/O186 (stone bodies)
+  - [x] resting O10C (year carry ages the party, effect expiry via RemoveAffect, scribing from bags of scrolls)
 - [ ] M8 sound
 - [ ] M9 goplay: games.js, deploy.sh build rule, README tables, wasm build
 - [ ] M10 publish (public deploy: only with the user's go-ahead)

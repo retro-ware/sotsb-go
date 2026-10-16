@@ -1,6 +1,6 @@
 package engine
 
-// Encamp (unit O09D) and resting (unit O0B6): the camp menu, Magic (cast,
+// Encamp (unit O09D) and resting (unit O10C): the camp menu, Magic (cast,
 // memorize, scribe, display), Rest, Alter (order, drop, speed, icon, pics)
 // and Fix, with the rest clock, healing and study.
 
@@ -852,9 +852,9 @@ func (e *Engine) campMenu() bool {
 	return interrupted
 }
 
-// ---- O0B6: resting ----
+// ---- O10C: resting ----
 
-// subtractRest = O0B6:049F (count, unit): take count units off the rest
+// subtractRest = O10C:03E0 (count, unit): take count units off the rest
 // time, borrowing from the larger units; all of it when that runs out.
 func (e *Engine) subtractRest(count byte, unit int) {
 	r := &e.camp.rest
@@ -880,7 +880,7 @@ func (e *Engine) subtractRest(count byte, unit int) {
 	e.normalizeRest()
 }
 
-// carryClock = O0B6:0317 (time): each unit at its limit carries one into
+// carryClock = O10C:0240 (time): each unit at its limit carries one into
 // the next; a year passing ages the party.
 func (e *Engine) carryClock(t *[7]uint16) {
 	for i := 0; i <= 6; i++ {
@@ -891,6 +891,8 @@ func (e *Engine) carryClock(t *[7]uint16) {
 			for _, c := range e.party {
 				c.Age++
 			}
+			t[i] -= clockLimits[i]
+			e.ageCheckDue = true
 			continue
 		}
 		t[i+1]++
@@ -898,7 +900,7 @@ func (e *Engine) carryClock(t *[7]uint16) {
 	}
 }
 
-// normalizeRest = O0B6:03C8: carries, months fold into days, at most 99.
+// normalizeRest = O10C:0307: carries, months fold into days, at most 99.
 func (e *Engine) normalizeRest() {
 	r := &e.camp.rest
 	e.carryClock(r)
@@ -920,7 +922,7 @@ func twoDigits(n uint16) string {
 	return s[:2]
 }
 
-// showRest = O0B6:0615 (unit): "Rest Time:" days:hours:minutes, the unit
+// showRest = O10C:0553 (unit): "Rest Time:" days:hours:minutes, the unit
 // being changed in white.
 func (e *Engine) showRest(unit int) {
 	var col [7]int
@@ -939,7 +941,7 @@ func (e *Engine) showRest(unit int) {
 	e.displayStringBg(x+1, 17, col[restTens], colourBlack, twoDigits(10*r[restTens]+r[restMinutes]))
 }
 
-// restTimeMenu = O0B6:0751: set the rest time; true to rest.
+// restTimeMenu = O10C:0691: set the rest time; true to rest.
 func (e *Engine) restTimeMenu() bool {
 	unit := restMinutes + 1
 	for {
@@ -1003,7 +1005,7 @@ func (e *Engine) restTimeMenu() bool {
 // Five-minute steps to a day of rest (when everyone heals 1 point).
 const stepsPerDay = 288
 
-// healTick = O0B6:08A1 (showing): every day of rest everyone heals 1 point.
+// healTick = O10C:07E1 (showing): every day of rest everyone heals 1 point.
 func (e *Engine) healTick(showing bool) {
 	e.camp.healSteps++
 	if e.camp.healSteps < stepsPerDay {
@@ -1027,7 +1029,7 @@ func (e *Engine) healTick(showing bool) {
 	e.camp.healSteps = 0
 }
 
-// memorizeOne = O0B6:0960 rest_memorize (c, var learned): with learned
+// memorizeOne = O10C:089C (c, var learned): with learned
 // clear the first waiting spell is learned; set, the level of the next.
 func (e *Engine) memorizeOne(c *Character, learned *bool) byte {
 	for i := 0; i < len(c.Memorized); i++ {
@@ -1044,51 +1046,36 @@ func (e *Engine) memorizeOne(c *Character, learned *bool) byte {
 	return 0
 }
 
-// scribeOne = O0B6:0A22 reset_scribe: memorizeOne for scroll spells.
+// scribeOne = O10C:095E (c, var learned): memorizeOne for scroll spells,
+// a bag's scrolls included.
 func (e *Engine) scribeOne(c *Character, learned *bool) byte {
 	for _, it := range append([]*Item(nil), c.Items...) {
 		if !e.isScroll(it) {
 			continue
 		}
-		for k := 0; k < 3; k++ {
-			if it.Spells[k] > 128 {
-				if *learned {
-					return spellLevel(it.Spells[k])
+		scrolls := []*Item{it}
+		if it.Type == itemTypeBag {
+			scrolls = append([]*Item(nil), it.Contents...)
+		}
+		for _, sc := range scrolls {
+			for k := 0; k < 3; k++ {
+				if sc.Spells[k] <= 128 {
+					continue
 				}
-				sp := it.Spells[k] & 127
+				if *learned {
+					return spellLevel(sc.Spells[k])
+				}
+				sp := sc.Spells[k] & 127
 				c.SpellBook[sp-1] = 1
-				e.useScrollSpell(c, it, sp)
+				e.scrollUsed(c, it, sp)
 				e.showRest(0)
 				e.spellMessage(c, "has scribed", sp)
 				*learned = true
-				return 0
 			}
 		}
 	}
 	return 0
 }
-
-// useScrollSpell = O0C2:63FF (c, scroll, spell): the spell leaves the
-// scroll; an empty scroll goes.
-func (e *Engine) useScrollSpell(c *Character, it *Item, sp byte) {
-	k := -1
-	for i := 0; i < 3; i++ {
-		if it.Spells[i]&127 == sp {
-			k = i
-		}
-	}
-	if k < 0 {
-		return
-	}
-	it.Spells[k] = 0
-	it.Words[1]--
-	if it.Words[1] < wordScrollSpells {
-		e.loseItem(c, it)
-	}
-}
-
-// wordScrollSpells: "With 1 Spell" is word 210; below it the scroll is empty.
-const wordScrollSpells = 210
 
 // spellMessage = O0C2:64A1 cast_a_spell (c, text, spell): who did what
 // with which spell.
@@ -1107,7 +1094,7 @@ func (e *Engine) spellMessage(c *Character, text string, sp byte) {
 	e.clearCombatText()
 }
 
-// studyTick = O0B6:0B4D: every five minutes the members not waiting for
+// studyTick = O10C:0B8E: every five minutes the members not waiting for
 // their study hours learn what is due.
 func (e *Engine) studyTick() {
 	for i, c := range e.party {
@@ -1125,7 +1112,7 @@ func (e *Engine) studyTick() {
 	}
 }
 
-// hourTick = O0B6:0C03 (var count): every hour the study hours run down.
+// hourTick = O10C:0C3F (var count): every hour the study hours run down.
 func (e *Engine) hourTick(count *byte) {
 	*count++
 	if *count < 12 {
@@ -1153,7 +1140,7 @@ const (
 	gameWordRestChance   = 723 // percent chance of an encounter
 )
 
-// restFor = O0B6:0CEF reseting (showing): rest in five-minute steps until
+// restFor = O10C:0D25 (showing): rest in five-minute steps until
 // the time is up, a key stops it or an encounter interrupts (true).
 func (e *Engine) restFor(showing bool) bool {
 	interrupted := false
