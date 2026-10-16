@@ -20,6 +20,8 @@ const (
 	areaWordNoMonsterItems  = 739 // 1: the monsters' items are not taken
 	areaWordNoDeath         = 742 // a duel (-): the fallen get up again
 	areaWordFightFlagsFirst = 880 // .. 882: cleared after every fight
+	areaWordFirstFoeDown    = 504 // area: 1 when the first monster was beaten
+	areaWordHideExperience  = 501 // area: the result screen leaves out the experience
 	areaWordFightFlagsLast  = 882
 )
 
@@ -42,9 +44,9 @@ var (
 	treasureExpFactor  = [coinKinds]int32{1, 1, 1, 1, 5, 250, 2200}
 )
 
-// afterCombatAffects = DS:02A9[1..19]: the affects a fight leaves behind
+// afterCombatAffects = DS:1B41[1..11]: the affects a fight leaves behind
 // that go when it ends.
-var afterCombatAffects = [...]byte{3, 11, 13, 21, 23, 27, 35, 40, 51, 52, 53, 58, 91, 136, 137, 139, 142, 144, 31}
+var afterCombatAffects = [...]byte{3, 11, 21, 23, 27, 35, 40, 31, 51, 52, 53}
 
 // isMonster: the combatant is one of the encounter's monsters (combat
 // block +0x13 = 1).
@@ -149,7 +151,7 @@ func (e *Engine) giveExp(exp int32) {
 	}
 }
 
-// combatResult = O045:0556: who won, experience, and what happens to the
+// combatResult = O072:0518: who won, experience, and what happens to the
 // fallen. partyDead is left set when the whole party is lost.
 func (e *Engine) combatResult() {
 	e.ac.idle = 0
@@ -256,11 +258,13 @@ func (e *Engine) combatResult() {
 	}
 }
 
-// cleanupCombatants = O045:13C7: the monsters leave the party list (the
-// area word counts the ones that were beaten); the members drop their
-// combat blocks.
+// cleanupCombatants = O072:12B1: the monsters leave the party list (the
+// game word counts the ones that were beaten, the area word marks the first
+// of them; a fled monster makes the fight's result "fled"); the members
+// drop their combat blocks.
 func (e *Engine) cleanupCombatants() {
 	putWord(e.game, 2*areaWordMonstersBeaten, 0)
+	first := true
 	for i := 0; i < len(e.party); {
 		c := e.party[i]
 		monster := isMonster(c)
@@ -268,7 +272,14 @@ func (e *Engine) cleanupCombatants() {
 			e.ac.monstersFound = true
 			if c.Okay != 1 {
 				putWord(e.game, 2*areaWordMonstersBeaten, wordAt(e.game, 2*areaWordMonstersBeaten)+1)
+				if first {
+					putWord(e.area, 2*areaWordFirstFoeDown, 1)
+				}
 			}
+			if c.Status == statusFled && wordAt(e.game, 2*areaWordFightResult) == 0 {
+				putWord(e.game, 2*areaWordFightResult, 1)
+			}
+			first = false
 			e.partySel = i
 			e.freePlayers(monster, true)
 			continue
@@ -278,6 +289,23 @@ func (e *Engine) cleanupCombatants() {
 	}
 	e.partySel = 0
 }
+
+// monsterOnlyItems = O072:13E9: the treasure drops the item kinds only
+// monsters use (types 55..57).
+func (e *Engine) monsterOnlyItems() {
+	kept := e.treasureItems[:0]
+	for _, it := range e.treasureItems {
+		if it.Type < firstMonsterOnlyItem || it.Type > lastMonsterOnlyItem {
+			kept = append(kept, it)
+		}
+	}
+	e.treasureItems = kept
+}
+
+const (
+	firstMonsterOnlyItem = 55
+	lastMonsterOnlyItem  = 57
+)
 
 // hiredShare = O045:150E: hired NPCs take their shares (+0xF8 & 7) of
 // every kind of coin before the party gets to the treasure.
@@ -323,33 +351,31 @@ func (e *Engine) hiredShare() {
 // freeTreasureItems drops the treasure's items.
 func (e *Engine) freeTreasureItems() { e.treasureItems = nil }
 
-// showResult = O045:0ABC (exp).
+// showResult = O072:09D7 (exp): after a fight "fled" (no experience, no
+// treasure) or "won", the experience unless the area hides it, and whether
+// there is treasure.
 func (e *Engine) showResult(exp int32) {
 	e.drawScreenFrame()
 	say := func(y int, s string) { e.displayStringBg(1, y, colourGreen, 0, s) }
-	switch {
-	case !e.ac.monstersFound && !e.duelling:
-		say(3, "The party has found Treasure!")
-	case e.ac.fled:
-		say(3, "The party has fled.")
-		exp = 0
-		e.freeTreasureItems()
-		e.treasureCoins = [coinKinds]int32{}
-	case !e.ac.won && (e.duelling || wordAt(e.game, 2*areaWordNoDeath) != 0):
-		putWord(e.game, 2*areaWordFightResult, fightLost)
-		say(3, "You have lost the fight.")
-		exp = 0
-	case e.duelling:
-		say(3, "You have won the duel.")
-	default:
-		say(3, "The party has won.")
+	if e.ac.monstersFound || e.duelling {
+		if e.ac.fled {
+			say(3, "The party has fled.")
+			exp = 0
+			e.freeTreasureItems()
+			e.treasureCoins = [coinKinds]int32{}
+		} else {
+			say(3, "The party has won.")
+		}
 	}
-	s := "Each character receives "
-	if e.duelling {
-		s = "The duelist receives "
+	if wordAt(e.area, 2*areaWordHideExperience) == 0 {
+		say(5, "Each character receives "+itoa(int(exp)))
+		say(7, "experience points.")
 	}
-	say(5, s+itoa(int(exp)))
-	say(7, "experience points.")
+	if money, items := e.treasureLeft(); money || items {
+		say(10, "The party has found treasure!")
+	} else {
+		say(10, "The party has found no treasure!")
+	}
 	e.DisplayInput("", "press <enter>/<return> to continue", colourWhite, colourWhite, colourWhite, true, false)
 }
 
@@ -495,7 +521,7 @@ func (e *Engine) lootMenu() {
 	}
 }
 
-// AfterCombat = O045:17A2.
+// AfterCombat = O072:17B8.
 func (e *Engine) AfterCombat() {
 	putWord(e.game, 2*areaWordFightResult, 0)
 	e.ac.monstersFound = false
@@ -510,14 +536,17 @@ func (e *Engine) AfterCombat() {
 	for _, c := range e.party {
 		e.ApplyItems(c)
 	}
-	if !e.partyDead || e.duelling {
+	if !e.partyDead {
 		if e.ac.fled {
 			e.freeTreasureItems()
 		}
 		if !e.demo {
+			e.monsterOnlyItems()
 			e.hiredShare()
 			e.showResult(e.ac.exp)
-			e.lootMenu()
+			if money, items := e.treasureLeft(); money || items {
+				e.lootMenu()
+			}
 		}
 		e.freeTreasureItems()
 	} else {
@@ -533,4 +562,5 @@ func (e *Engine) AfterCombat() {
 	}
 	putWord(e.game, 2*areaWordNoMonsterItems, 0)
 	putWord(e.game, 2*areaWordNoDeath, 0)
+	putWord(e.area, 2*areaWordHideExperience, 0)
 }

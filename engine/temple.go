@@ -1,60 +1,39 @@
 package engine
 
-// The temple (unit O042): COMBAT with the area2 temple flag set opens it.
+// The temple (unit O06C): COMBAT with the area2 temple flag set opens it.
+
+// Silver Blades' temple heals for free: each service tells how it went
+// (Curse asked for gold and offered to cast anyway).
+
+const (
+	statusStoned = 7
+	statusGone   = 8 // left the party's world: "is not here"
+)
 
 // castCureAnyway = O113:673D (char, text): "<name> <text>" and whether to
-// cast anyway.
+// cast anyway, No preselected.
 func (e *Engine) castCureAnyway(c *Character, text string) byte {
 	e.combatName(c, text, 0, false)
-	k := e.YesNo(colourLightMagenta, colourGreen, colourWhite, "cast cure anyway: ")
+	k := e.yesNoFrom(answerNo, colourLightMagenta, colourGreen, colourWhite, "cast cure anyway: ")
 	e.clearCombatText()
 	return k
 }
 
-// payForCure = O042:00F1 (cure, price): the price from the member's coins
-// or else the pool; 'Y' when paid.
-func (e *Engine) payForCure(cure string, price uint16) byte {
-	e.msgCol, e.msgRow = textLeft, textTop
-	e.DisplayTextBlock(textLeft, textTop, textRight, textBottom, colourGreen, true,
-		cure+" will only cost "+itoa(int(price))+" gold pieces.")
-	k := e.YesNo(colourLightMagenta, colourGreen, colourWhite, "pay for cure ")
-	if k == 'Y' {
-		if gold := uint16(goldWorth(e.selected())); price <= gold {
-			e.setGold(gold - price)
-		} else if pool := poolGold(e.treasureCoins); int32(price) <= pool {
-			e.setPoolGold(uint16(pool - int32(price)))
-		} else {
-			e.printMessage("Not enough money.")
-			k = 'N'
-		}
-	}
-	if k == 'Y' {
-		e.clearCombatText()
-		e.combatName(e.selected(), "is cured.", 0, true)
-	}
-	return k
-}
+// templeSay: "<name> <text>" under the list (O151:173F at row 0, or 10).
+func (e *Engine) templeSay(c *Character, text string, row int) { e.combatName(c, text, row, true) }
 
-// templeCure: "not ..." and the question when not needed, then the price.
-func (e *Engine) templeCure(needed bool, notMsg, cure string, price uint16) bool {
-	k := byte('Y')
-	if !needed {
-		k = e.castCureAnyway(e.selected(), notMsg)
-	}
-	return k == 'Y' && e.payForCure(cure, price) == 'Y'
-}
-
-const statusStoned = 7
-
-// templeCureBlindness = O042:027E.
+// templeCureBlindness = O06C:0016.
 func (e *Engine) templeCureBlindness() {
 	c := e.selected()
-	if e.templeCure(e.FindAffect(c, affectBlind) != nil, "is not blind.", "Cure Blindness", 1000) {
+	text := "is not blind"
+	if e.FindAffect(c, affectBlind) != nil {
 		e.RemoveAffect(c, affectBlind, nil)
+		text = "can see!"
 	}
+	e.templeSay(c, text, 10)
 }
 
-// templeCureDisease = O042:0322.
+// templeCureDisease = O06C:00A3.
 func (e *Engine) templeCureDisease() {
 	c := e.selected()
 	ill := false
@@ -63,59 +42,89 @@ func (e *Engine) templeCureDisease() {
 			ill = true
 		}
 	}
-	if e.templeCure(ill, "is not Diseased.", "Cure Disease", 1000) {
+	text := "is not Diseased"
+	if ill {
+		text = "is cured"
 		e.curingDisease = true
 		for _, d := range diseaseAffects[1:] {
 			e.RemoveAffect(c, d, nil)
 		}
+		e.statAffects(c, statStr)
 		e.curingDisease = false
 	}
+	e.templeSay(c, text, 0)
 }
 
-// templeCureWounds = O042:043B (kind): light, serious, critical or Heal.
+// templeCureWounds = O06C:0201 (kind): light, serious, critical or Heal;
+// none for the dead, the stoned or the gone.
 func (e *Engine) templeCureWounds(kind int) {
 	c := e.selected()
+	text := "is healed"
+	switch c.Status {
+	case statusDead:
+		kind, text = 0, "must be raised from dead"
+	case statusStoned:
+		kind, text = 0, "can only be healed by a stonemason"
+	case statusGone:
+		kind, text = 0, "is not here"
+	}
+	full := c.HP == c.MaxHP
+	if full {
+		text = "has no need of healing"
+	}
+	var amount byte
 	switch kind {
 	case 1:
-		if e.payForCure("Cure Light Wounds", 100) == 'Y' {
-			e.healPlayer(c, byte(e.Dice(1, 8)), false)
-		}
+		amount = byte(e.Dice(1, 8))
 	case 2:
-		if e.payForCure("Cure Serious Wounds", 350) == 'Y' {
-			e.healPlayer(c, byte(e.Dice(2, 8)+1), false)
-		}
+		amount = byte(e.Dice(2, 8) + 1)
 	case 3:
-		if e.payForCure("Cure Critical Wounds", 600) == 'Y' {
-			e.healPlayer(c, byte(e.Dice(3, 8)+3), false)
-		}
+		amount = byte(e.Dice(3, 8) + 3)
 	case 4:
-		if e.payForCure("Heal", 5000) != 'Y' {
-			return
+		if !full {
+			amount = c.MaxHP - c.HP - byte(e.Dice(1, 4))
 		}
-		e.healPlayer(c, c.MaxHP-c.HP-byte(e.Dice(1, 4)), false)
-		e.RemoveAffect(c, affectBlind, nil)
-		for _, d := range diseaseAffects[1:] {
-			e.RemoveAffect(c, d, nil)
+		cured := false
+		for _, a := range append([]byte{affectBlind, affectFeebleminded}, diseaseAffects[1:]...) {
+			if e.FindAffect(c, a) != nil {
+				e.RemoveAffect(c, a, nil)
+				cured = true
+			}
 		}
-		e.RemoveAffect(c, affectFeebleminded, nil)
+		if cured {
+			e.templeSay(c, "is cured", 0)
+			if !full {
+				text = "is fully healed"
+			}
+		}
 		e.statAffects(c, statInt)
 		e.statAffects(c, statWis)
 	}
+	if !full {
+		e.healPlayer(c, amount, false)
+	}
+	e.templeSay(c, text, 0)
 }
 
-// templeRaiseDead = O042:0636: back with 1 hit point and a point of
-// constitution less; above 13 the constitution bonus to the hit points
-// shrinks with it.
+// templeRaiseDead = O06C:04C7: the dead (not elves) back with 1 hit point
+// and a point of constitution less; at 14 and above the constitution bonus
+// to the hit points shrinks with it.
 func (e *Engine) templeRaiseDead() {
 	c := e.selected()
-	dead := c.Status == statusDead || c.Status == statusAnimated
-	k := byte('Y')
-	if !dead {
-		k = e.castCureAnyway(e.selected(), "is not dead.")
+	text := "is not dead yet"
+	switch {
+	case c.Status != statusDead:
+	case c.Race == raceElf:
+		text = "cannot be raised"
+	default:
+		text = "is ressurected"
+		e.raiseDead(c)
 	}
-	if k != 'Y' || e.payForCure("Raise Dead", 5500) != 'Y' || !dead {
-		return
-	}
+	e.templeSay(c, text, 0)
+}
+
+// raiseDead: the raising itself (O06C:04C7 after its checks).
+func (e *Engine) raiseDead(c *Character) {
 	e.curingDisease = true
 	e.RemoveAffect(c, affectPoisoned, nil)
 	e.curingDisease = false
@@ -127,82 +136,95 @@ func (e *Engine) templeRaiseDead() {
 		*con--
 	}
 	var excess byte
-	if c.HPRoll < c.MaxHP {
+	if c.MaxHP > c.HPRoll {
 		excess = c.MaxHP - c.HPRoll
 	}
-	if *con <= 13 {
+	if *con < 14 {
 		return
 	}
 	var levels byte
-	for i := 0; i <= 7; i++ {
-		lvl := int8(c.Levels[i])
+	for i := 0; i <= classCount; i++ { // the eighth is the first of the old levels
+		lvl := int8(c.OldLevels[0])
+		if i < classCount {
+			lvl = int8(c.Levels[i])
+		}
 		if lvl <= 0 {
 			continue
 		}
 		switch {
-		case i == clsFighter:
-			levels += byte(int(*con-14) * int(int8(c.Levels[clsFighter])))
-		case *con < 16:
-			levels += byte(lvl)
-		default:
+		case i == clsFighter || i == clsPaladin || i == clsRanger:
+			levels += byte(int(*con-14) * int(lvl))
+		case *con > 15:
 			levels += byte(lvl) * 2
+		default:
+			levels += byte(lvl)
 		}
 	}
 	if levels != 0 {
-		excess = byte(uint32(excess) / uint32(levels))
+		excess /= levels
 	}
-	if *con < 17 || int8(c.Levels[clsFighter]) > 0 || int8(c.MulticlassLevel) < int8(c.Levels[clsFighter]) {
+	if *con < 17 || int8(c.Levels[clsFighter]) > 0 || int8(c.Levels[clsFighter]) > int8(c.MulticlassLevel) {
 		c.MaxHP -= excess
 	}
+	e.ApplyItems(c)
 }
 
-// templeNeutralizePoison = O042:088B.
+// templeNeutralizePoison = O06C:0732.
 func (e *Engine) templeNeutralizePoison() {
 	c := e.selected()
-	if e.templeCure(e.FindAffect(c, affectPoisoned) != nil, "is not poisoned.", "Neutralize Poison", 1000) {
+	text := "is not poisoned"
+	if e.FindAffect(c, affectPoisoned) != nil {
+		if c.HP == 0 {
+			c.HP = 1
+		}
 		e.curingDisease = true
 		e.RemoveAffect(c, affectPoisoned, nil)
 		e.RemoveAffect(c, affectSlowPoison, nil)
 		e.RemoveAffect(c, affectPoisonDamage, nil)
 		e.curingDisease = false
+		c.Okay = 1
+		c.Status = statusOkay
+		text = "is no longer poisoned"
 	}
+	e.templeSay(c, text, 0)
 }
 
-// templeRemoveCurse = O042:0974: cursed items or the curse affect.
+// templeRemoveCurse = O06C:0846: cursed items or the curse affect.
 func (e *Engine) templeRemoveCurse() {
 	c := e.selected()
-	cursed := false
+	cursed := e.FindAffect(c, affectCursed) != nil
 	for _, it := range c.Items {
 		if it.Cursed != 0 {
 			cursed = true
-			break
 		}
 	}
-	k := byte('Y')
-	if !cursed && e.FindAffect(c, affectCursed) == nil {
-		k = e.castCureAnyway(e.selected(), "is not cursed.")
-	}
-	if k == 'Y' && e.payForCure("Remove Curse", 3500) == 'Y' {
+	text := "is not cursed"
+	if cursed {
 		e.spellTarget = c
 		e.spellRemoveCurse()
+		text = "rejoices.  The curse has been lifted!"
 	}
+	e.templeSay(c, text, 0)
 }
 
-// templeStoneToFlesh = O042:0A62.
+// templeStoneToFlesh = O06C:092B.
 func (e *Engine) templeStoneToFlesh() {
 	c := e.selected()
-	if e.templeCure(c.Status == statusStoned, "is not stoned.", "Stone to Flesh", 2000) && c.Status == statusStoned {
+	text := "is not petrified"
+	if c.Status == statusStoned {
 		c.Status = statusOkay
 		c.Okay = 1
 		c.HP = 1
+		text = "is turned to flesh"
 	}
+	e.templeSay(c, text, 0)
 }
 
 // The temple's services (DS:00BD).
 var templeServices = [10]string{"Cure Blindness", "Cure Disease", "Cure Light Wounds", "Cure Serious Wounds",
 	"Cure Critical Wounds", "Heal", "Neutralize Poison", "Raise Dead", "Remove Curse", "Stone to Flesh"}
 
-// templeHeal = O042:0B11: the list of services.
+// templeHeal = O06C:09C5: the list of services.
 func (e *Engine) templeHeal() {
 	list := make([]*ListNode, len(templeServices))
 	for i, s := range templeServices {
@@ -244,7 +266,7 @@ func (e *Engine) templeHeal() {
 	e.playerSummary(e.selected())
 }
 
-// templeMenu = O042:0DD9 temple_shop.
+// templeMenu = O06C:0C89 temple_shop.
 func (e *Engine) templeMenu() {
 	e.gameState = stateShop
 	e.shopFrame = wordAt(e.area, 2*areaWordFreeSteps) == 0
