@@ -50,9 +50,9 @@ type Engine struct {
 	Trace     TraceFunc              // nil in normal play; see trace.go
 	tr        *traceState            // trace mode clock and key script
 
-	font   []byte        // DS:7DC8 -> 8X8D5 block 201, 8 bytes per glyph
-	sym    [5]*dax.Image // DS:5E3A symbol sets
-	start  time.Time
+	font  []byte        // DS:7DC8 -> 8X8D5 block 201, 8 bytes per glyph
+	sym   [5]*dax.Image // DS:5E3A symbol sets
+	start time.Time
 
 	pendingScan byte // ReadKey: scan code waiting after a 0 byte
 	draining    bool // ReadKeyByte is dropping typed-ahead keys
