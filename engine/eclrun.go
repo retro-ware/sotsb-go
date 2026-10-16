@@ -136,6 +136,8 @@ func (e *Engine) scriptRestart() {
 		e.spriteFrame = noPicture
 		s.restart = false
 		s.cellHere = e.MapCell(int(s.posX), int(s.posY))
+		s.wallHere = e.WallAt(int(s.posX), int(s.posY), int(s.facing))
+		s.moved = true
 		putWord(e.game, 2*gameWordSearchFlag, 0)
 		s.savedSelected = e.selected()
 		e.runEvent(s.events[4])
@@ -168,6 +170,7 @@ func (e *Engine) scriptRestart() {
 // then take commands until the game ends.
 func (e *Engine) Adventure() {
 	s := &e.sc
+	e.partyDead = e.partyAllDown()
 	s.savedSelected = e.selected()
 	e.viewReset = true
 	s.clearPicture = false
@@ -200,7 +203,7 @@ func (e *Engine) Adventure() {
 	e.loadedGame = false
 	e.runEvent(s.events[4])
 	if e.demo {
-		e.party, e.partySel = nil, 0
+		e.releaseParty(true)
 		return
 	}
 	if !s.restart {
@@ -263,6 +266,30 @@ func (e *Engine) Adventure() {
 		}
 	}
 	e.partyDead = false
+	e.releaseParty(false)
+}
+
+// partyAllDown = O050:3D56: outside the demonstration, whether no party
+// member is still up (an empty party counts as down).
+func (e *Engine) partyAllDown() bool {
+	if e.demo {
+		return false
+	}
+	for _, c := range e.party {
+		if c.Okay != 0 {
+			return false
+		}
+	}
+	return true
+}
+
+// releaseParty: the loop of O050:3DB9 that frees every member in turn
+// (O0EF:38A4); the demonstration keeps the party count.
+func (e *Engine) releaseParty(keepCount bool) {
+	for len(e.party) > 0 {
+		e.partySel = 0
+		e.freePlayers(keepCount, true)
+	}
 }
 
 // demoBlock: the script the demonstration runs.
