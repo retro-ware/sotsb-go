@@ -169,7 +169,7 @@ func (e *Engine) createCloud(k cloudKind) {
 	}
 }
 
-// clearCloud = O064:0C1D / O064:1AB9 (char, affect): the caster's cloud of
+// clearCloud = O0A4:1096 / O0A4:2C4E (char, affect): the caster's cloud of
 // that number lifts; the squares get back their ground (or a body's), and
 // the remaining clouds are laid again.
 func (e *Engine) clearCloud(k cloudKind, c *Character, a *Affect) {
@@ -197,29 +197,39 @@ func (e *Engine) clearCloud(k cloudKind, c *Character, a *Affect) {
 				body = true
 			}
 		}
-		if body {
+		switch {
+		case body && c.Status == statusStoned: // the caster's status, not the body's
+			e.cmap.ground[y][x] = groundStoneBody
+		case body:
 			e.cmap.ground[y][x] = groundBody
-		} else {
+		default:
 			e.cmap.ground[y][x] = r.ground[i]
 		}
 	}
 	*k.list = append((*k.list)[:at], (*k.list)[at+1:]...)
-	for _, o := range *k.list {
-		for i := range k.squares {
-			if o.covered[i] != 0 {
-				x, y := o.square(k.squares, i)
-				e.cmap.ground[y][x] = k.ground
+	e.layClouds()
+}
+
+// layClouds = O0A4:00DD: every cloud and waiting fireball back on its squares.
+func (e *Engine) layClouds() {
+	for _, k := range []cloudKind{e.poisonKind(), e.stinkingKind(), {list: &e.delayedBlasts, squares: delayedBlastSquares[:], ground: groundDelayedBlast}} {
+		for _, o := range *k.list {
+			for i := range k.squares {
+				if o.covered[i] != 0 {
+					x, y := o.square(k.squares, i)
+					e.cmap.ground[y][x] = k.ground
+				}
 			}
 		}
 	}
 }
 
-// stinkingCloudEndHandler = O064:0C1D.
+// stinkingCloudEndHandler = O0A4:1096.
 func (e *Engine) stinkingCloudEndHandler(c *Character, a *Affect, flag byte) {
 	e.clearCloud(e.stinkingKind(), c, a)
 }
 
-// cloudkillEndHandler = O064:1AB9.
+// cloudkillEndHandler = O0A4:2C4E.
 func (e *Engine) cloudkillEndHandler(c *Character, a *Affect, flag byte) {
 	e.clearCloud(e.poisonKind(), c, a)
 }
