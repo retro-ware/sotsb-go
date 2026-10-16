@@ -30,6 +30,7 @@ const (
 	stateCombat
 	stateAfterCombat
 	stateEndGame
+	stateVault // Silver Blades' vault
 )
 
 // Scan codes of the extended keys the menus read (displayInput's extra keys).

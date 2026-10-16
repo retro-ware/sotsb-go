@@ -185,8 +185,9 @@ const (
 	areaWordPartyOnMap    = 312 // the wilderness map still shows the party summary
 )
 
-// mapPicture: the value of mapMode while a picture is up instead of the view.
-const mapPicture = 'P'
+// mapPicture: mapMode holds the picture block shown last; block 9 is the
+// one that stands in for the view.
+const mapPicture = 9
 
 // drawView = O174:0034: draw the 3D view (or the overhead map) in a
 // dungeon, or the wilderness picture.
@@ -257,16 +258,17 @@ func (e *Engine) viewOrMap(x, y, dir int) {
 	e.Draw3DView(x, y, dir)
 }
 
-// wildernessPicture = O110:087A: the frame and the picture of the area.
+// wildernessPicture = O178:0910: the text-window frame and the big
+// picture.
 func (e *Engine) wildernessPicture() {
-	e.drawWildernessFrame()
+	e.drawTextWindowFrame()
 	e.drawBigPic()
 }
 
 // gameDelay = R4CE:0B19: the message pause for the game speed.
 func (e *Engine) gameDelay() { e.Delay(int(e.gameSpeed) * 100) }
 
-// clearTreasure = O03C:1240's part: the treasure's money and items.
+// clearTreasure = O050:1314's part: the treasure's money and items.
 func (e *Engine) clearTreasure() {
 	e.treasureCoins = [7]int32{}
 	e.treasureItems = nil
@@ -653,7 +655,7 @@ func (e *Engine) flashMessage(text string, fg, bg int) {
 	e.ClearRow24()
 }
 
-// campEvents = O03C:3094: the camp menu between the area's camp events.
+// campEvents = O050:352B: the camp menu between the area's camp events.
 func (e *Engine) campEvents() {
 	e.runEvent(e.sc.events[2])
 	ok := e.makeCamp()
@@ -662,7 +664,9 @@ func (e *Engine) campEvents() {
 		e.runEvent(e.sc.events[3])
 	}
 	e.viewReset = true
-	e.drawView()
+	if wordAt(e.area, 2*areaWordPartyOnMap) == 0 {
+		e.drawView()
+	}
 	e.textWaiting = false
 }
 

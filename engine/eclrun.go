@@ -11,8 +11,8 @@ import (
 var scriptTrace = os.Getenv("COTAB_ECLTRACE") != ""
 
 // Running the area script: init (O04C:01E8), loading (O04C:036C), the
-// event runner (O03C:3607), area changes (O03C:3677) and the adventuring
-// loop (O03C:3758).
+// event runner (O050:3BF2), area changes (O050:3C5C) and the adventuring
+// loop (O050:3DB9).
 
 // Area and area2 words the loop keeps.
 const (
@@ -83,7 +83,7 @@ func (e *Engine) loadScript(block byte) {
 	e.ClearRow24()
 }
 
-// runEvent = O03C:3607 (entry): run commands from entry until one ends the
+// runEvent = O050:3BF2 (entry): run commands from entry until one ends the
 // event or the game is over.
 func (e *Engine) runEvent(entry uint16) {
 	s := &e.sc
@@ -100,14 +100,14 @@ func (e *Engine) runEvent(entry uint16) {
 	s.stop = false
 }
 
-// skipCommand = O04C:1FD5 parse_command: step over the command at pc.
+// skipCommand = O07D:1F3D: step over the command at pc.
 func (e *Engine) skipCommand() {
 	s := &e.sc
 	s.command = s.codeByte(s.pc)
 	switch s.command {
 	case 1, 2, 10, 14, 17, 18, 29, 32, 45, 50, 52, 54, 56, 57, 60, 63, 64:
 		e.readArgs(1)
-	case 3, 8, 9, 15, 16, 31, 34:
+	case 3, 8, 9, 15, 16, 31, 34, cmdGainExp:
 		e.readArgs(2)
 	case 4, 5, 6, 7, 11, 12, 33, 40, 42, 47, 48, 53, 55, 59:
 		e.readArgs(3)
@@ -126,7 +126,7 @@ func (e *Engine) skipCommand() {
 	}
 }
 
-// scriptRestart = O03C:3677: after an event loaded another script, run the
+// scriptRestart = O050:3C5C: after an event loaded another script, run the
 // new one's start events until none loads yet another.
 func (e *Engine) scriptRestart() {
 	s := &e.sc
@@ -164,7 +164,7 @@ func (e *Engine) scriptRestart() {
 	e.lastGameState = e.gameState
 }
 
-// Adventure = O03C:3758: load the area's script, run its start events,
+// Adventure = O050:3DB9: load the area's script, run its start events,
 // then take commands until the game ends.
 func (e *Engine) Adventure() {
 	s := &e.sc

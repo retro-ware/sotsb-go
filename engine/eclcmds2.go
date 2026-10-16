@@ -3,7 +3,7 @@ package engine
 // More script commands (O03C), and the ones still to port: those step over
 // their operands (parse_command) and say so on stderr.
 
-// cmdOnGotoGosub = O03C:1AE5 (ON GOTO, ON GOSUB): jump to the n-th of the
+// cmdOnGotoGosub = O050:1D85 (ON GOTO, ON GOSUB): jump to the n-th of the
 // addresses that follow.
 func (e *Engine) cmdOnGotoGosub() {
 	s := &e.sc
@@ -24,7 +24,7 @@ func (e *Engine) cmdOnGotoGosub() {
 	}
 }
 
-// cmdCheckParty = O03C:1454: the party's affect, thief skill or movement
+// cmdCheckParty = O050:1521: the party's affect, thief skill or movement
 // census into four variables (found / lowest, highest, average, count).
 func (e *Engine) cmdCheckParty() {
 	s := &e.sc
@@ -88,7 +88,7 @@ func (e *Engine) cmdCheckParty() {
 // cvMovement: CHECK PARTY's movement census (address 32767 + 159).
 const cvMovement = 159
 
-// cmdPartySurprise = O03C:167E: whether a ranger is in the party (no one
+// cmdPartySurprise = O050:18FC: whether a ranger is in the party (no one
 // is surprised then); the second result is always 0.
 func (e *Engine) cmdPartySurprise() {
 	e.readArgs(2)
@@ -112,7 +112,7 @@ const (
 // monsters, 3 both.
 const surpriseResult = 715
 
-// cmdSurprise = O03C:171E: d6 rolls for both sides against 2 + the
+// cmdSurprise = O050:1998: d6 rolls for both sides against 2 + the
 // modifiers.
 func (e *Engine) cmdSurprise() {
 	e.readArgs(4)
@@ -150,7 +150,7 @@ func (e *Engine) cmdSpriteOff() {
 	}
 }
 
-// cmdFindItem = O03C:2856: equal when someone in the party carries an
+// cmdFindItem = O050:2CAD: equal when someone in the party carries an
 // item of the type.
 func (e *Engine) cmdFindItem() {
 	e.readArgs(1)
@@ -182,8 +182,8 @@ func (e *Engine) cmdPrintReturn() {
 	e.textNewLine = false
 }
 
-// cmdSpell = O03C:2E33: who in the party has memorized the spell: its
-// slot (255 none) and the member's place.
+// cmdSpell = O050:32BA (spell, slot, who): who in the party has memorized
+// the spell: its slot (255 none) and the member's place.
 func (e *Engine) cmdSpell() {
 	s := &e.sc
 	e.readArgs(3)
@@ -193,13 +193,9 @@ func (e *Engine) cmdSpell() {
 	slot, who := 1, byte(0)
 	found := false
 	for i, c := range e.party {
-		slot = 1
-		for !found {
-			if c.Memorized[slot-1] == spell { // record offset 30 + slot
+		for slot = 0; slot < len(c.Memorized); slot++ {
+			if c.Memorized[slot] == spell {
 				found = true
-			} else if slot <= maxSpellSlot {
-				slot++
-			} else {
 				break
 			}
 		}
@@ -210,16 +206,12 @@ func (e *Engine) cmdSpell() {
 			who++
 		}
 	}
-	if slot > maxSpellSlot {
+	if !found {
 		slot = 255
 	}
 	e.setVar(slotDst, uint16(slot))
 	e.setVar(whoDst, uint16(who))
 }
-
-// maxSpellSlot: SPELL looks through the 100 bytes after the record's
-// offset 30 (the memorized spells and what follows them).
-const maxSpellSlot = 100
 
 // cmdDump = O050:3644: the selected member leaves the party.
 func (e *Engine) cmdDump() {
@@ -229,7 +221,38 @@ func (e *Engine) cmdDump() {
 	e.playerSummary(e.selected())
 }
 
-// cmdFindSpecial = O03C:32A5: equal when the selected member has the affect.
+// cmdGainExperience = O050:37F4 (whole party, points): the points, split
+// among each one's classes, go to the active members (or the selected one).
+func (e *Engine) cmdGainExperience() {
+	e.readArgs(2)
+	points := int(uint16(e.arg(2)))
+	whole := byte(e.arg(1)) != 0
+	e.msgRow, e.msgCol = textTop, textLeft
+	text := "Congratulations the party gains experience!"
+	members := e.party
+	if !whole {
+		text = "Congratulations " + e.selected().Name() + " gains experience!"
+		members = []*Character{e.selected()}
+	}
+	e.DisplayTextBlock(textLeft, textTop, textRight, textBottom, colourGreen, true, text)
+	e.gameDelay()
+	for _, c := range members {
+		classes := 0
+		for _, l := range c.Levels {
+			if int8(l) > 0 {
+				classes++
+			}
+		}
+		if classes == 0 {
+			continue // the original divides by zero
+		}
+		if c.Okay != 0 {
+			c.Exp += uint32(points / classes)
+		}
+	}
+}
+
+// cmdFindSpecial = O050:3677: equal when the selected member has the affect.
 func (e *Engine) cmdFindSpecial() {
 	e.sc.flags = [6]bool{}
 	e.readArgs(1)
@@ -240,20 +263,26 @@ func (e *Engine) cmdFindSpecial() {
 	e.sc.flags[1] = true
 }
 
-// cmdDestroyItems = O03C:32F9: every item of the type leaves the party.
+// cmdDestroyItems = O050:36C8 (type): every item of the type leaves the
+// party, readied ones put away first.
 func (e *Engine) cmdDestroyItems() {
 	e.readArgs(1)
 	typ := byte(e.arg(1))
-	for _, c := range e.party {
-		kept := c.Items[:0]
-		for _, it := range c.Items {
+	saved := e.partySel
+	for i, c := range e.party {
+		for _, it := range append([]*Item(nil), c.Items...) {
 			if it.Type != typ {
-				kept = append(kept, it)
+				continue
 			}
+			e.partySel = i
+			if it.Readied != 0 {
+				e.readyItem(it)
+			}
+			e.loseItem(c, it)
 		}
-		c.Items = kept
 		e.ApplyItems(c)
 	}
+	e.partySel = saved
 }
 
 // The duel's opponent (O04C:1B9A).
@@ -299,11 +328,12 @@ func (e *Engine) scriptDuel(win bool) {
 	e.party = append(e.party, d)
 }
 
-// cmdVerticalMenu = O03C:0EE9 (dst, text, count, items...): the text in the
+// cmdVerticalMenu = O050:0FB9 (dst, text, count, items...): the text in the
 // text window and the items as a list under it; the chosen item's index
 // goes to dst.
 func (e *Engine) cmdVerticalMenu() {
 	s := &e.sc
+	e.menuSel = 1
 	e.waitedKeyReset()
 	redraw := true
 	e.readArgs(3)
@@ -333,8 +363,8 @@ func (e *Engine) waitedKeyReset() { e.sc.waitedKey = false }
 // maxCombatants: LOAD MONSTER stops adding at this many monsters.
 const maxCombatants = 63
 
-// cmdLoadMonster = O03C:0465 (monster, count, icon): count copies of the
-// monster join the end of the party list for the coming fight, with the
+// cmdLoadMonster = O050:040E (monster, count, icon): count copies of the
+// monster (its hit points scaled by the difficulty) join the end of the party list for the coming fight, with the
 // combat icon in the next icon slot. Copies after the first get their item
 // and affect lists in reverse order (each node is pushed on the head).
 func (e *Engine) cmdLoadMonster() {
@@ -352,6 +382,7 @@ func (e *Engine) cmdLoadMonster() {
 func (e *Engine) addMonsters(block, count, icon byte) {
 	s := &e.sc
 	first := e.loadMonsterRecord(block)
+	e.scaleToDifficulty(first)
 	if count == 0 {
 		count = 1
 	}
@@ -375,6 +406,26 @@ func (e *Engine) addMonsters(block, count, icon byte) {
 	}
 	s.iconSlot++
 	s.monstersLoaded = true
+}
+
+// Difficulty levels: a monster has (level+2)/4 of its hit points.
+const (
+	difficultyLevels  = 5
+	difficultyOffset  = 2
+	difficultyDivisor = 4
+)
+
+// scaleToDifficulty: an enemy's hit points follow the difficulty, at least 1.
+func (e *Engine) scaleToDifficulty(c *Character) {
+	level := int(wordAt(e.area, 2*areaWordDifficulty))
+	if c.Side != 1 || level >= difficultyLevels {
+		return
+	}
+	c.HP = byte(int(c.HP) * (level + difficultyOffset) / difficultyDivisor)
+	c.MaxHP = byte(int(c.MaxHP) * (level + difficultyOffset) / difficultyDivisor)
+	if c.HP == 0 || c.MaxHP == 0 {
+		c.HP, c.MaxHP = 1, 1
+	}
 }
 
 // loadMonsterRecord = O0A1:329C (block): MON<area>CHA, SPC (affects) and
@@ -443,7 +494,7 @@ const (
 	reactParlay  = 4
 )
 
-// cmdEncounter = O03C:20BD (sprite, distance, picture, result, the
+// cmdEncounter = O050:2511 (sprite, distance, picture, result, the
 // reactions to COMBAT WAIT FLEE PARLAY ADVANCE, three texts, the monsters'
 // and the party's run speeds): the party meets monsters and chooses.
 func (e *Engine) cmdEncounter() {
@@ -613,7 +664,7 @@ func (e *Engine) cmdEncounter() {
 	s.inEncounter = false
 }
 
-// cmdParlay = O03C:27B7 talk_style (results for HAUGHTY SLY NICE MEEK
+// cmdParlay = O050:2C0E talk_style (results for HAUGHTY SLY NICE MEEK
 // ABUSIVE, dst): the party picks its manner; the matching result goes to
 // dst.
 func (e *Engine) cmdParlay() {
@@ -633,15 +684,12 @@ func (e *Engine) cmdParlay() {
 // PROGRAM's operand.
 const (
 	programPartyMenu = 0
-	programQuit      = 3
-	programEnding    = 8
 	programCamp      = 9
 	areaWordGameOver = 509
 	gameWordTraining = 680
 )
 
-// cmdProgram = O03C:30FE YourHaveWon (what): the party menu, the ending,
-// camping or the end of the game.
+// cmdProgram = O050:3596 (what): the party menu or camping.
 func (e *Engine) cmdProgram() {
 	s := &e.sc
 	if s.restoreSelected {
@@ -649,58 +697,54 @@ func (e *Engine) cmdProgram() {
 		s.restoreSelected = false
 	}
 	e.readArgs(1)
+	onMap := wordAt(e.area, 2*areaWordPartyOnMap) != 0
 	switch byte(e.arg(1)) {
 	case programPartyMenu:
 		e.PartyMenu()
-		if e.mapMode != mapPicture && wordAt(e.area, 2*areaWordFreeSteps) == 0 {
+		if e.mapMode != mapPicture && wordAt(e.area, 2*areaWordFreeSteps) == 0 && !onMap {
 			e.loadPicture()
 		}
-	case programEnding:
-		e.endGameText()
-		e.gameWon = true
-		putWord(e.area, 2*areaWordGameOver, 255)
-		putWord(e.game, 2*gameWordTraining, 255)
-		for _, c := range e.party {
-			c.HP = c.MaxHP
-			c.Status = statusOkay
-			c.Okay = 1
-		}
-		e.PartyMenu()
-		if e.YesNo(colourLightMagenta, colourGreen, colourWhite, "You've won. Save before quitting? ") == 'Y' {
-			e.SaveGame()
-		}
-		e.Exit()
 	case programCamp:
 		pc := s.pc
 		e.campEvents()
 		s.pc = pc
-		e.cmdExit()
-	case programQuit:
-		e.partyDead = true
-		e.cmdExit()
+		if wordAt(e.area, 2*areaWordPartyOnMap) == 0 {
+			e.cmdExit()
+		}
 	}
 }
 
-// Area2 words COMBAT reads: a shop or a temple instead of a fight.
+// Area2 words COMBAT reads: a shop or a temple instead of a fight; an
+// area word the vault.
 const (
 	gameWordShop   = 876
 	gameWordTemple = 738
 	gameWordSearch = 714
+	areaWordVault  = 508
 )
 
-// cmdCombat = O03C:17E4: with no monsters loaded the event is a shop, a
-// temple or the treasure; otherwise the fight, then the treasure.
+// cmdCombat = O050:1A60: with no monsters loaded the event is the vault, a
+// shop, a temple or the treasure; otherwise the fight, then the treasure.
+// Indoors the shops and temples leave the view as it is.
 func (e *Engine) cmdCombat() {
 	s := &e.sc
 	s.pc++
+	e.fullPicture = false
+	redraw := true
+	indoors := wordAt(e.area, 2*areaWordFreeSteps) == 0
 	if !s.monstersLoaded && !e.duelling {
 		switch {
+		case wordAt(e.area, 2*areaWordVault) == 1:
+			putWord(e.area, 2*areaWordVault, 0)
+			e.vaultMenu()
 		case wordAt(e.game, 2*gameWordShop) == 1:
 			putWord(e.game, 2*gameWordShop, 0)
 			e.shopMenu()
+			redraw = !indoors
 		case wordAt(e.game, 2*gameWordTemple) == 1:
 			putWord(e.game, 2*gameWordTemple, 0)
 			e.templeMenu()
+			redraw = !indoors
 		default:
 			e.treasureMenu()
 		}
@@ -710,12 +754,12 @@ func (e *Engine) cmdCombat() {
 		}
 		e.fight()
 		e.treasureMenu()
-		if wordAt(e.area, 2*areaWordFreeSteps) == 0 {
+		if indoors {
 			e.bigPicture(bigPicWild)
 		}
 		e.duelling = false
 	}
-	if wordAt(e.area, 2*areaWordFreeSteps) == 0 {
+	if indoors {
 		e.gameState = stateWilderness
 	} else {
 		e.gameState = stateDungeon
@@ -723,9 +767,10 @@ func (e *Engine) cmdCombat() {
 	putWord(e.game, 2*gameWordSearch, wordAt(e.game, 2*gameWordSearch)&1)
 	s.pictureShown, s.pictureBig = false, false
 	s.pictureOn = false
-	e.loadPicture()
+	if redraw {
+		e.loadPicture()
+	}
 }
 
-// The subsystems COMBAT opens (being ported: Pool of Radiance's for now).
 func (e *Engine) treasureMenu() { e.AfterCombat() } // O045:17A2
 func (e *Engine) fight()        { e.Combat() }      // O089:011D

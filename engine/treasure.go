@@ -1,6 +1,6 @@
 package engine
 
-// Treasure: the TREASURE command (O03C:1B9D load_item) and the random item
+// Treasure: the TREASURE command (O050:1E3D load_item) and the random item
 // generator (O0BA:0FCF, 1007).
 
 // TREASURE's item operand: below 128 an ITEM<area>.DAX block, 255 none,
@@ -11,7 +11,7 @@ const (
 	coinKinds      = 7
 )
 
-// cmdTreasure = O03C:1B9D (copper .. jewelry, items).
+// cmdTreasure = O050:1E3D (copper .. jewelry, items).
 func (e *Engine) cmdTreasure() {
 	e.readArgs(8)
 	for k := 0; k < coinKinds; k++ {
@@ -42,53 +42,88 @@ func (e *Engine) cmdTreasure() {
 	}
 }
 
-// randomTreasureType: O03C:1B9D's table of what a random treasure item is.
+// randomTreasureType: O050:1E3D's table of what a random treasure item is.
 func (e *Engine) randomTreasureType() byte {
 	switch r := e.Dice(1, 100); {
-	case r <= 60:
+	case r <= 31:
 		switch r2 := e.Dice(1, 100); {
-		case r2 <= 47 || r2 >= 50 && r2 <= 59:
-			if r2 == 45 {
-				return 59
-			}
-			return byte(r2)
-		case r2 >= 60 && r2 <= 90:
+		case r2 <= 20:
 			switch e.Dice(1, 10) {
-			case 1, 2, 3, 4:
-				return 36
-			case 5, 6, 7:
-				return 35
-			case 8:
-				return 34
+			case 1, 2:
+				return 6
+			case 3, 4, 5, 6:
+				return 8
+			case 7, 8:
+				return 70
 			case 9:
-				return 37
+				return 15
 			default:
-				return 38
+				return 29
 			}
-		case r2 <= 94 && r2 >= 91:
-			return 73
-		case r2 >= 95 && r2 <= 97:
-			return 93
-		case r2 >= 98:
-			return 77
+		case r2 <= 44:
+			return [...]byte{5, 12, 30}[e.Dice(1, 3)-1]
+		case r2 <= 60:
+			switch k := e.Dice(1, 20); {
+			case k <= 3:
+				return 7
+			case k <= 6:
+				return 24
+			case k <= 9:
+				return 22
+			case k <= 12:
+				return 25
+			case k <= 14:
+				return 23
+			case k <= 17:
+				return 28
+			default:
+				return 15
+			}
 		default:
-			return 59
+			if e.Dice(1, 4) < 4 {
+				switch k := e.Dice(1, 20); {
+				case k <= 8:
+					return 18
+				case k <= 13:
+					return 17
+				case k == 14:
+					return 13
+				case k == 15:
+					return 16
+				case k <= 18:
+					return 19
+				default:
+					return 20
+				}
+			}
+			return [...]byte{1, 4, 4, 9, 9, 10, 14, 71}[e.Dice(1, 8)-1]
 		}
+	case r <= 62:
+		return 39
+	case r <= 70:
+		return 40
+	case r <= 80:
+		return 37
 	case r <= 85:
-		return 61
-	case r <= 92: // 86..92 (the original's 91..98 branch is reached only by 93..98)
-		return 62
-	case r <= 98:
-		switch e.Dice(1, 15) {
-		case 1, 2, 3, 4, 5, 6, 7, 8, 9:
-			return 71
-		case 10:
-			return 84
+		return 59
+	case r <= 95:
+		switch k := e.Dice(1, 20); {
+		case k <= 3:
+			return 31
+		case k <= 11:
+			return 35
+		case k <= 16:
+			return 36
+		case k == 17:
+			return 32
+		case k == 18:
+			return 33
 		default:
-			return 79
+			return 34
 		}
+	default:
+		return [...]byte{50, 50, 47, 47, 52, 53}[e.Dice(1, 6)-1]
 	}
-	return 59
 }
 
 // itemBonus = O0BA:0FCF: +1 (70%) or +2.

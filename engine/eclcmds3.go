@@ -3,7 +3,7 @@ package engine
 // Script commands that show things: pictures, monsters approaching, the
 // area's map and walls, and CALL's special routines (O03C).
 
-// cmdSetupMonster = O03C:03C9 (sprite, distance, picture): the encounter's
+// cmdSetupMonster = O050:0372 (sprite, distance, picture): the encounter's
 // sprite at the distance (no farther than the walls allow).
 func (e *Engine) cmdSetupMonster() {
 	s := &e.sc
@@ -26,7 +26,7 @@ func (e *Engine) setEncounterDistance() {
 	putWord(e.game, 2*gameWordDistance, d)
 }
 
-// cmdApproach = O03C:0835: the monsters come one step closer.
+// cmdApproach = O050:0868: the monsters come one step closer.
 func (e *Engine) cmdApproach() {
 	s := &e.sc
 	if d := wordAt(e.game, 2*gameWordDistance); d > 0 {
@@ -115,8 +115,9 @@ func (e *Engine) showPortrait(head, body byte) {
 	e.drawPortrait(viewPicX, viewPicY, true)
 }
 
-// cmdPicture = O03C:0873 (picture): show a picture (a big one from 120
-// on), or with 255 put the view back.
+// cmdPicture = O050:08A8 (picture): show a picture (a big one from 112
+// on, which holds the screen unless it is 121), or with 255 put the view
+// back.
 func (e *Engine) cmdPicture() {
 	s := &e.sc
 	e.readArgs(1)
@@ -129,6 +130,9 @@ func (e *Engine) cmdPicture() {
 			if n >= firstBigPicture {
 				e.bigPicture(n)
 				e.wildernessPicture()
+				if n != bigPictureWithSummary {
+					e.fullPicture = true
+				}
 				e.viewReset = false
 			} else {
 				e.loadViewPicture("PIC", n, 0)
@@ -150,19 +154,24 @@ func (e *Engine) cmdPicture() {
 	s.pictureBig = false
 }
 
-const firstBigPicture = 120
+// Big pictures: from 112 on; 121 leaves the party summary up.
+const (
+	firstBigPicture       = 112
+	bigPictureWithSummary = 121
+)
 
 // Area words LOAD FILES reads.
 const (
-	areaWordGeo       = 197 // the GEO block loaded
-	areaWordWalls2Set = 231 // both set: only slots 1 and 3 are loaded
-	areaWordWalls3Set = 232
-	noBlock           = 255
-	defaultWalls      = 127
-	gameWordViewSet   = 713
+	areaWordGeo         = 197 // the GEO block loaded
+	areaWordWalls2Set   = 231 // both set: only slots 1 and 3 are loaded
+	areaWordWalls3Set   = 232
+	areaWordWalls3Slots = 233 // with both set: all three slots are loaded
+	noBlock             = 255
+	defaultWalls        = 127
+	gameWordViewSet     = 713
 )
 
-// cmdLoadFiles = O03C:0C41 (LOAD FILES 33: walls, -, map; LOAD PIECES 55:
+// cmdLoadFiles = O050:0C9F (LOAD FILES 33: walls, -, map; LOAD PIECES 55:
 // wall sets 1..3).
 func (e *Engine) cmdLoadFiles() {
 	s := &e.sc
@@ -172,15 +181,14 @@ func (e *Engine) cmdLoadFiles() {
 	for k := 1; k <= 3; k++ {
 		a[k] = byte(e.arg(k))
 	}
+	loads := func(b byte) bool { return b != noBlock && b != defaultWalls }
+	clearSlot := func(k int) { e.mapPairA[k-1], e.mapPairB[k-1] = -1, -1 }
 	if s.command == cmdLoadFiles {
 		s.mapLoaded = true
-		if a[1] != noBlock && a[1] != defaultWalls && wordAt(e.area, 2*areaWordFreeSteps) != 0 {
+		if loads(a[1]) && wordAt(e.area, 2*areaWordFreeSteps) != 0 {
 			putWord(e.area, 2*areaWordGeo, uint16(a[1]))
 			e.loadGeo(a[1])
 			putWord(e.game, 2*gameWordViewSet, 0)
-		}
-		if a[3] != noBlock && wordAt(e.area, 2*areaWordFreeSteps) == 0 && e.mapMode != mapPicture {
-			e.bigPicture(bigPicWild)
 		}
 	} else {
 		s.wallsLoaded = true
@@ -190,16 +198,27 @@ func (e *Engine) cmdLoadFiles() {
 		case wordAt(e.area, 2*areaWordWalls2Set) != 0 && wordAt(e.area, 2*areaWordWalls3Set) != 0:
 			if a[1] != noBlock {
 				e.LoadWalldef(int(a[1]), 1)
+			} else {
+				clearSlot(1)
 			}
-			if a[3] != noBlock {
+			if wordAt(e.area, 2*areaWordWalls3Slots) != 0 {
+				if loads(a[2]) {
+					e.LoadWalldef(int(a[2]), 2)
+				}
+				if loads(a[3]) {
+					e.LoadWalldef(int(a[3]), 3)
+				}
+			} else if loads(a[3]) {
 				e.LoadWalldef(int(a[3]), 3)
+			} else {
+				clearSlot(3)
 			}
 		default:
 			for k := 1; k <= 3; k++ {
-				if a[k] != noBlock {
+				if loads(a[k]) {
 					e.LoadWalldef(int(a[k]), k)
 				} else {
-					e.mapPairA[k-1], e.mapPairB[k-1] = -1, -1
+					clearSlot(k)
 				}
 			}
 		}
@@ -230,7 +249,7 @@ const (
 	soundDuelB      = 10
 )
 
-// cmdCall = O03C:2F23: a routine the engine provides, chosen by address.
+// cmdCall = O050:33C6: a routine the engine provides, chosen by address.
 func (e *Engine) cmdCall() {
 	s := &e.sc
 	e.readArgs(1)

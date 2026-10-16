@@ -5,7 +5,7 @@ import "math"
 // More script commands (O03C): ROB, CLOCK, ADD NPC, WHO, PROTECTION and
 // CLEAR BOX.
 
-// cmdRob = O03C:1F76 (who, percent, item chance): money is taken (percent)
+// cmdRob = O050:23D1 (who, percent, item chance): money is taken (percent)
 // and items may go; who 0 is the selected member, otherwise everyone.
 func (e *Engine) cmdRob() {
 	e.readArgs(3)
@@ -86,7 +86,7 @@ const real48Bits = 40
 func real48Div(a, b float64) float64 { return real48(real48(a) / real48(b)) }
 func real48Mul(a, b float64) float64 { return real48(real48(a) * real48(b)) }
 
-// cmdClock = O03C:2CDA (count, unit).
+// cmdClock = O050:312C (count, unit).
 func (e *Engine) cmdClock() {
 	e.readArgs(2)
 	count, unit := byte(e.arg(1)), byte(e.arg(2))
@@ -96,7 +96,7 @@ func (e *Engine) cmdClock() {
 // npcControl: ADD NPC's morale operand is halved into the control byte.
 const npcControl = 128
 
-// cmdAddNPC = O03C:2DCA (monster, morale): a monster joins as a hired NPC.
+// cmdAddNPC = O050:3247 (monster, morale): a monster joins as a hired NPC.
 func (e *Engine) cmdAddNPC() {
 	e.readArgs(2)
 	block := byte(e.arg(1))
@@ -119,7 +119,7 @@ func (e *Engine) addNPC(block byte) {
 	e.LoadIconPic("CPIC", int(block), int(c.Order))
 }
 
-// cmdWho = O03C:2D7F (prompt): the player picks the member.
+// cmdWho = O050:31E1 (prompt): the player picks the member.
 func (e *Engine) cmdWho() {
 	e.readArgs(1)
 	e.ClearCells(textLeft, textTop, textRight, textBottom)
@@ -166,7 +166,7 @@ func (e *Engine) selectMemberMenu(prompt string, allowExit bool, start *Characte
 
 const keyEsc = 27
 
-// cmdProtection = O03C:323F: the code wheel question (left out, as at the
+// cmdProtection = O050:363D: the code wheel question (left out, as at the
 // start), then the view is put back.
 func (e *Engine) cmdProtection() {
 	e.sc.pictureShown, e.sc.pictureBig = false, false
@@ -175,14 +175,17 @@ func (e *Engine) cmdProtection() {
 	e.loadPicture()
 }
 
-// cmdClearBox = O03C:2D38: the adventuring frame and the picture again.
+// cmdClearBox = O050:318C: the adventuring frame and the picture again.
 func (e *Engine) cmdClearBox() {
 	s := &e.sc
 	s.pc++
+	e.fullPicture = false
 	e.drawAdventureFrame()
 	e.playerSummary(e.selected())
 	e.statusLine()
-	e.drawViewPicture(viewPicX, viewPicY, true, 0)
+	if !e.demo {
+		e.drawViewPicture(viewPicX, viewPicY, true, 0)
+	}
 	e.statusLine()
 	s.firstLoad = false
 	s.inSpecial = true

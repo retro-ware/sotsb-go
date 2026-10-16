@@ -1,6 +1,6 @@
 package engine
 
-// The DAMAGE command (O03C:2958) and its helpers: the trap's hit roll
+// The DAMAGE command (O050:2D82) and its helpers: the trap's hit roll
 // (O0E3:11DD), damage with its message (O04C:2200) and damage_player
 // (O151:2953).
 
@@ -99,7 +99,7 @@ func (e *Engine) damagePlayer(c *Character, dmg byte) {
 	}
 }
 
-// cmdDamage = O03C:2958 (targets, dice, sides, bonus, save): a trap or
+// cmdDamage = O050:2D82 (targets, dice, sides, bonus, save): a trap or
 // spell hurts party members.
 func (e *Engine) cmdDamage() {
 	saved := e.partySel

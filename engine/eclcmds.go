@@ -67,6 +67,7 @@ const (
 	cmdDump        = 62
 	cmdFindSpecial = 63
 	cmdDestroy     = 64
+	cmdGainExp     = 65
 )
 
 // The text window the scripts print in.
@@ -77,14 +78,14 @@ const (
 	textBottom = 22
 )
 
-// commandTable = O03C:32F9: run the current command.
+// commandTable = O050:3980: run the current command.
 func (e *Engine) commandTable() {
 	if h := scriptCommands[e.sc.command]; h != nil {
 		h(e)
 	}
 }
 
-var scriptCommands [cmdDestroy + 1]func(*Engine)
+var scriptCommands [cmdGainExp + 1]func(*Engine)
 
 func init() {
 	c := &scriptCommands
@@ -148,9 +149,10 @@ func init() {
 	c[cmdDump] = (*Engine).cmdDump
 	c[cmdFindSpecial] = (*Engine).cmdFindSpecial
 	c[cmdDestroy] = (*Engine).cmdDestroyItems
+	c[cmdGainExp] = (*Engine).cmdGainExperience
 }
 
-// cmdExit = O03C:0050: end the event; unwinds the call stack.
+// cmdExit = O050:0000: end the event; unwinds the call stack.
 func (e *Engine) cmdExit() {
 	s := &e.sc
 	if s.clearPicture {
@@ -170,19 +172,19 @@ func (e *Engine) cmdExit() {
 	s.inSpecial = false
 }
 
-// cmdGoto = O03C:00EB.
+// cmdGoto = O050:0096.
 func (e *Engine) cmdGoto() {
 	e.readArgs(1)
 	e.sc.pc = varAddr(e.sc.argLo[1], e.sc.argHi[1])
 }
 
-// cmdGosub = O03C:0108.
+// cmdGosub = O050:00B5.
 func (e *Engine) cmdGosub() {
 	e.readArgs(1)
 	e.scriptCall(1)
 }
 
-// cmdCompare = O03C:011D: texts when either operand is text.
+// cmdCompare = O050:00CC: texts when either operand is text.
 func (e *Engine) cmdCompare() {
 	e.readArgs(2)
 	if e.sc.argType[1] >= argText || e.sc.argType[2] >= argText {
@@ -195,7 +197,7 @@ func (e *Engine) cmdCompare() {
 // areaWordRemainder: area2 word the divide leaves its remainder in.
 const areaWordRemainder = 831
 
-// cmdArithmetic = O03C:019A (add, subtract, divide, multiply).
+// cmdArithmetic = O050:0149 (add, subtract, divide, multiply).
 func (e *Engine) cmdArithmetic() {
 	e.readArgs(3)
 	a, b := e.arg(1), e.arg(2)
@@ -217,7 +219,7 @@ func (e *Engine) cmdArithmetic() {
 	e.setVar(dst, r)
 }
 
-// cmdRandom = O03C:023D: 0 .. operand.
+// cmdRandom = O050:01EC: 0 .. operand.
 func (e *Engine) cmdRandom() {
 	e.readArgs(2)
 	n := byte(e.arg(1))
@@ -228,7 +230,7 @@ func (e *Engine) cmdRandom() {
 	e.setVar(dst, uint16(e.Random(int(n))))
 }
 
-// cmdSave = O03C:029B: store a value or text.
+// cmdSave = O050:024A: store a value or text.
 func (e *Engine) cmdSave() {
 	e.readArgs(2)
 	dst := varAddr(e.sc.argLo[2], e.sc.argHi[2])
@@ -243,7 +245,7 @@ func (e *Engine) cmdSave() {
 // when the script has blanked it out.
 const partyMemberFlag = 128
 
-// cmdLoadCharacter = O03C:02E9: select party member n (0-based).
+// cmdLoadCharacter = O050:0298: select party member n (0-based).
 func (e *Engine) cmdLoadCharacter() {
 	s := &e.sc
 	s.restoreSelected = true
@@ -267,14 +269,14 @@ func (e *Engine) cmdLoadCharacter() {
 	}
 }
 
-// cmdInputNumber = O03C:095E.
+// cmdInputNumber = O050:09A5.
 func (e *Engine) cmdInputNumber() {
 	e.readArgs(2)
 	dst := varAddr(e.sc.argLo[2], e.sc.argHi[2])
 	e.setVar(dst, e.InputNumber("", colourGreen))
 }
 
-// cmdInputText = O03C:09A4: a blank answer is one space.
+// cmdInputText = O050:09EB: a blank answer is one space.
 func (e *Engine) cmdInputText() {
 	e.readArgs(2)
 	dst := varAddr(e.sc.argLo[2], e.sc.argHi[2])
@@ -285,7 +287,7 @@ func (e *Engine) cmdInputText() {
 	e.setTextVar(dst, t)
 }
 
-// cmdPrint = O03C:0A1C (PRINT, PRINTCLEAR): text into the text window,
+// cmdPrint = O050:0A63 (PRINT, PRINTCLEAR): text into the text window,
 // typed out slowly.
 func (e *Engine) cmdPrint() {
 	e.readArgs(1)
@@ -314,7 +316,7 @@ func (e *Engine) cmdReturn() {
 	e.cmdExit()
 }
 
-// cmdCompareAnd = O03C:0B0C: equal when both pairs are.
+// cmdCompareAnd = O050:0B52: equal when both pairs are.
 func (e *Engine) cmdCompareAnd() {
 	e.sc.flags = [6]bool{}
 	e.readArgs(4)
@@ -334,7 +336,7 @@ func (e *Engine) cmdIf() {
 	}
 }
 
-// cmdClearMonsters = O03C:1240.
+// cmdClearMonsters = O050:1314.
 func (e *Engine) cmdClearMonsters() {
 	s := &e.sc
 	s.pc++
@@ -344,7 +346,7 @@ func (e *Engine) cmdClearMonsters() {
 	e.clearTreasure()
 }
 
-// cmdPartyStrength = O03C:12A9: the sum over the party of
+// cmdPartyStrength = O050:137C: the sum over the party of
 // (hp + 5*(AC better than 0) + 5*(THAC0 worse than 0) + 8*mage + 4*cleric) / 10.
 func (e *Engine) cmdPartyStrength() {
 	e.readArgs(1)
@@ -379,7 +381,7 @@ const (
 	thac0Zero = 39
 )
 
-// cmdNewECL = O03C:0BE7: load another area's script and start it.
+// cmdNewECL = O050:0C2C: load another area's script and start it.
 func (e *Engine) cmdNewECL() {
 	s := &e.sc
 	e.readArgs(1)
@@ -393,7 +395,7 @@ func (e *Engine) cmdNewECL() {
 	s.pictureShown, s.pictureBig = false, false
 }
 
-// cmdAndOr = O03C:0DD0.
+// cmdAndOr = O050:0EA0.
 func (e *Engine) cmdAndOr() {
 	e.readArgs(3)
 	a, b := e.arg(1), e.arg(2)
@@ -408,7 +410,7 @@ func (e *Engine) cmdAndOr() {
 	e.setVar(dst, uint16(r))
 }
 
-// cmdGetTable = O03C:0E3F: dst := [base + index].
+// cmdGetTable = O050:0F0F: dst := [base + index].
 func (e *Engine) cmdGetTable() {
 	e.readArgs(3)
 	base := varAddr(e.sc.argLo[1], e.sc.argHi[1])
@@ -417,7 +419,7 @@ func (e *Engine) cmdGetTable() {
 	e.setVar(dst, e.getVar(uint16(i)+base))
 }
 
-// cmdSaveTable = O03C:0E9D: [base + index] := value.
+// cmdSaveTable = O050:0F6D: [base + index] := value.
 func (e *Engine) cmdSaveTable() {
 	e.readArgs(3)
 	v := e.arg(1)
@@ -426,11 +428,12 @@ func (e *Engine) cmdSaveTable() {
 	e.setVar(base+i, v)
 }
 
-// cmdHorizontalMenu = O03C:10B4: the items on the bottom row; the item's
+// cmdHorizontalMenu = O050:1183: the items on the bottom row; the item's
 // number goes to the first operand's address. A single item is "press a
 // key to continue".
 func (e *Engine) cmdHorizontalMenu() {
 	s := &e.sc
+	e.menuSel = 1
 	e.readArgs(2)
 	dst := varAddr(s.argLo[1], s.argHi[1])
 	n := byte(e.arg(2))
@@ -449,14 +452,14 @@ func (e *Engine) cmdHorizontalMenu() {
 		menu = cut(menu+"~"+s.text[k]+" ", menuTextMax)
 	}
 	menu = cut(menu+"~"+s.text[n], menuTextMax)
-	r := e.scriptMenu("", menu, colourLightRed, highlight, colourWhite, enterOK != 0, animate)
+	r := e.scriptMenu("", menu, colourLightMagenta, highlight, colourWhite, enterOK != 0, animate)
 	e.setVar(dst, uint16(r))
 	e.ClearCells(0, statusRow, screenLastCol, statusRow)
 }
 
 const menuTextMax = 50
 
-// scriptMenu = O04C:17AA (prompt, menu, colours, enterOK, animate): the
+// scriptMenu = O07D:193E (prompt, menu, colours, enterOK, animate): the
 // horizontal menu; the chosen item's number, 0 for Enter, 255 otherwise.
 func (e *Engine) scriptMenu(prompt, menu string, promptColour, normal, highlight int, enterOK, animate bool) byte {
 	menu, hot := menuHotkeys(menu)
@@ -465,8 +468,7 @@ func (e *Engine) scriptMenu(prompt, menu string, promptColour, normal, highlight
 		var extra bool
 		k, extra = e.DisplayInput(prompt, menu, promptColour, normal, highlight, true, animate)
 		if extra {
-			e.cycleSelected(k)
-			e.playerSummary(e.selected())
+			e.selectStep(k)
 			k = 0
 		}
 		if k >= '0' && k <= '9' || k >= 'A' && k <= 'Z' || k == keyEnter && enterOK {
@@ -484,7 +486,7 @@ func (e *Engine) scriptMenu(prompt, menu string, promptColour, normal, highlight
 	return 255
 }
 
-// menuHotkeys = O04C:1693: drop each "~" and collect the upcased letter after
+// menuHotkeys = O07D:1827: drop each "~" and collect the upcased letter after
 // it; every other letter or digit gets +32 (lower case; digits turn into
 // "P".."Y", as in the original).
 func menuHotkeys(menu string) (string, string) {

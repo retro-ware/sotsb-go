@@ -147,7 +147,7 @@ func (e *Engine) loadPicture() {
 	switch e.gameState {
 	case stateStartMenu:
 		e.drawScreenFrame()
-	case stateShop, stateEndGame:
+	case stateShop, stateVault:
 		if e.shopFrame {
 			e.drawAdventureFrame()
 		}
