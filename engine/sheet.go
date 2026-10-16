@@ -5,143 +5,180 @@ package engine
 
 // Rows and columns of the character sheet.
 const (
-	sheetStatsRow   = 7
-	sheetLevelRow   = 15
-	sheetCombatRow  = 17
-	sheetWeaponRow  = 20
-	sheetStatColumn = 5
-	acBase          = 60 // armour class is kept as 60 - AC
-	wordPlural      = 93 // a third name word that is already plural
+	sheetStatsRow    = 9
+	sheetLevelRow    = 7
+	sheetWeaponRow   = 21
+	sheetStatColumn  = 5
+	sheetRightColumn = 20 // the right half: status, coins, hit points, ...
+	acBase           = 60 // armour class is kept as 60 - AC
+	wordPlural       = 93 // a third name word that is already plural
 )
 
 var statLabels = [6]string{"STR ", "INT ", "WIS ", "DEX ", "CON ", "CHA "}
 
-// CharacterSheet = O0AF:0088 playerDisplayFull: the selected character's
-// sheet.
+// CharacterSheet = O100:0041 playerDisplayFull: the selected character's
+// sheet. A human who changed class shows "old/new" class and levels.
 func (e *Engine) CharacterSheet() {
 	c := e.selected()
-	e.drawScreenFrame()
+	e.drawShopFrame()
 	e.displayName(c, 1, 1, false)
-	if c.NPC() {
-		e.displayStringBg(int(c.PName[0])+3, 1, colourGreen, colourBlack, "(NPC)")
-	}
-	x := 1
-	for _, s := range []string{genderNames[c.Sex], raceNames[c.Race]} {
-		e.displayStringBg(x, 3, colourWhite, colourBlack, s)
-		x += len(s) + 1
-	}
-	e.displayStringBg(x, 3, colourWhite, colourBlack, "Age "+itoa(int(c.Age)))
+	e.displayStringBg(sheetRightColumn, 1, colourWhite, colourBlack, "Status:")
+	e.displayStringBg(27, 1, colourGreen, colourBlack, statusNames[c.Status])
+	e.displayStringBg(1, 3, colourWhite, colourBlack, genderNames[c.Sex])
+	e.displayStringBg(8, 3, colourWhite, colourBlack, itoa(int(c.Age))+" years")
 	e.displayStringBg(1, 4, colourWhite, colourBlack, alignmentNames[c.Alignment])
-	e.displayStringBg(1, 5, colourWhite, colourBlack, classNames[c.Class])
+	e.displayStringBg(sheetRightColumn, 4, colourWhite, colourBlack, raceNames[c.Race])
+	class := classNames[c.Class]
+	if c.Race == raceHuman {
+		if k, ok := formerClass(c); ok {
+			class += "/" + classNames[k]
+		}
+	}
+	e.displayStringBg(1, 5, colourWhite, colourBlack, class)
+	e.displayStringBg(1, sheetLevelRow, colourWhite, colourBlack, "Level")
+	e.displayStringBg(7, sheetLevelRow, colourWhite, colourBlack, levelsText(c))
+	e.displayStringBg(24, 6, colourWhite, colourBlack, "Experience:")
+	exp := itoa(int(int32(c.Exp)))
+	e.displayStringBg((20-len(exp))/2+sheetRightColumn, sheetLevelRow, colourGreen, colourBlack, exp)
 	for i, l := range statLabels {
 		e.displayStringBg(1, sheetStatsRow+i, colourGreen, colourBlack, l)
 		e.showStat(i, false)
 	}
 	e.showCoins()
-	e.displayStringBg(1, sheetLevelRow, colourWhite, colourBlack, "Level")
-	e.showLevels(c)
-	e.displayStringBg(17, sheetLevelRow, colourWhite, colourBlack, "Exp "+itoa(int(int32(c.Exp))))
 	e.showCombatStats()
-	row := sheetWeaponRow
 	if w := c.Slots[slotWeapon]; w != nil {
-		e.displayStringBg(1, row, colourWhite, colourBlack, "Weapon")
-		e.ItemName(c, w, 8, row, false, true)
+		e.ItemName(c, w, 1, sheetWeaponRow, false, true)
 	}
-	row++
 	if a := c.Slots[slotBodyArmour]; a != nil {
-		e.displayStringBg(2, row, colourWhite, colourBlack, "Armor")
-		e.ItemName(c, a, 8, row, false, true)
+		e.ItemName(c, a, 1, sheetWeaponRow+1, false, true)
 	}
-	row++
-	e.displayStringBg(1, row, colourWhite, colourBlack, "Status")
-	e.displayStringBg(8, row, colourGreen, colourBlack, statusNames[c.Status])
 }
 
-// levelsText: the class levels "5" or "3/3" (with a dual-classed human's
-// usable old levels added).
-func levelsText(c *Character) string {
-	levels := ""
+// formerClass: the first class a dual-classed character left behind
+// below its new class's level, if any (O100:0041).
+func formerClass(c *Character) (int, bool) {
 	first := firstClassLevel(c)
 	for k := 0; k < classCount; k++ {
-		old := int8(c.OldLevels[k])
-		if int8(c.Levels[k]) > 0 || old < first && old > 0 {
+		if old := int8(c.OldLevels[k]); old > 0 && old < first {
+			return k, true
+		}
+	}
+	return 0, false
+}
+
+// changedClass: whether any old class level is kept (O100:0041).
+func changedClass(c *Character) bool {
+	for k := 0; k < classCount; k++ {
+		if int8(c.OldLevels[k]) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+// levelsText: the class levels "5" or "3/3"; a human who changed class
+// shows the new class's level, then "/" and the old one while it is still
+// the higher.
+func levelsText(c *Character) string {
+	levels := ""
+	if c.Race == raceHuman && changedClass(c) {
+		for k := 0; k < classCount; k++ {
+			if int8(c.Levels[k]) > 0 {
+				levels += itoa(int(c.Levels[k]))
+				break
+			}
+		}
+		if k, ok := formerClass(c); ok {
+			levels += "/" + itoa(int(c.OldLevels[k]))
+		}
+		return levels
+	}
+	for k := 0; k < classCount; k++ {
+		if int8(c.Levels[k]) > 0 {
 			if levels != "" {
 				levels += "/"
 			}
-			levels += itoa(int(byte(int8(c.Levels[k]) + old)))
+			levels += itoa(int(byte(int8(c.Levels[k]) + int8(c.OldLevels[k]))))
 		}
 	}
 	return levels
 }
 
-// showLevels: the class levels in the sheet's level row.
-func (e *Engine) showLevels(c *Character) {
-	e.displayStringBg(7, sheetLevelRow, colourWhite, colourBlack, levelsText(c))
-}
-
-// showCoins = O0AF:0596: the coins carried, jewelry first, right-aligned names.
+// showCoins = O100:063A: the coins carried, copper first, values
+// right-aligned to the frame.
 func (e *Engine) showCoins() {
 	c := e.selected()
-	e.ClearCells(12, sheetStatsRow, 26, 14)
+	e.ClearCells(sheetRightColumn, sheetStatsRow, screenLastCol-1, 15)
 	row := sheetStatsRow
-	for k := coinJewelry; k >= 0; k-- {
+	for k := 0; k <= coinJewelry; k++ {
 		if c.Coins[k] > 0 {
-			e.displayStringBg(20-len(coinNames[k]), row, colourGreen, colourBlack, coinNames[k])
-			e.displayStringBg(21, row, colourGreen, colourBlack, itoa(int(c.Coins[k])))
+			v := itoa(int(c.Coins[k]))
+			e.displayStringBg(sheetRightColumn, row, colourGreen, colourBlack, coinNames[k])
+			e.displayStringBg(screenLastCol-1-len(v), row, colourGreen, colourBlack, v)
 			row++
 		}
 	}
 }
 
-// showCombatStats = O0AF:0697 display_player_stats01: AC, hit points,
-// THAC0, damage, encumbrance and movement.
+// padLeft = O100:0709: right-align s in width columns.
+func padLeft(s string, width int) string {
+	for len(s) < width {
+		s = " " + s
+	}
+	return s
+}
+
+// showCombatStats = O100:078E display_player_stats01: hit points, armour
+// class, encumbrance, THAC0, movement and damage.
 func (e *Engine) showCombatStats() {
 	c := e.selected()
 	e.ApplyItems(c)
-	y := sheetCombatRow
-	e.displayStringBg(1, y, colourWhite, colourBlack, "AC    ")
-	e.displayAC(c, 4, y)
-	e.displayStringBg(1, y+1, colourWhite, colourBlack, "HP    ")
-	e.displayHP(c, 4, y+1, false, false)
-	x := 8
-	e.displayStringBg(x+1, y, colourWhite, colourBlack, "THAC0   ")
-	e.displayStringBg(x+7, y, colourGreen, colourBlack, itoa(int(byte(acBase-int(c.THAC0)))))
+	e.displayStringBg(sheetRightColumn, 3, colourWhite, colourBlack, "Hit Points ")
+	e.ClearCells(31, 3, 37, 3)
+	e.displayHP(c, 31, 3, false, true)
+	e.displayStringBg(1, 17, colourWhite, colourBlack, "Armor Class")
+	acX := 15 // three characters: 10 and better, -10 and worse
+	switch {
+	case c.AC[0] >= 1 && c.AC[0] <= 50, c.AC[0] >= 61 && c.AC[0] <= 69:
+		acX = 16
+	case c.AC[0] >= 51 && c.AC[0] <= 60:
+		acX = 17
+	}
+	e.ClearCells(15, 17, 17, 17)
+	e.displayAC(c, acX, 17)
+	e.displayStringBg(sheetRightColumn, 17, colourWhite, colourBlack, "Encumbrance")
+	e.displayStringBg(33, 17, colourGreen, colourBlack, padLeft(itoa(int(c.Weight)), 5))
+	e.displayStringBg(1, 18, colourWhite, colourBlack, "THAC0   ")
+	e.displayStringBg(16, 18, colourGreen, colourBlack, padLeft(itoa(int(byte(acBase-int(c.THAC0)))), 2))
+	e.displayStringBg(sheetRightColumn, 18, colourWhite, colourBlack, "Movement")
+	e.moveRate(c)
+	e.displayStringBg(35, 18, colourGreen, colourBlack, padLeft(itoa(int(c.Move)), 3))
 	dmg := itoa(int(c.Dice[0])) + "d" + itoa(int(c.Sides[0]))
 	if b := int8(c.Bonus[0]); b > 0 {
-		dmg += "+" + itoa(int(c.Bonus[0]))
+		dmg += "+" + itoa(int(b))
 	} else if b < 0 {
 		dmg += "-" + itoa(int(-b))
 	}
-	e.displayStringBg(x, y+1, colourWhite, colourBlack, "Damage        ")
-	e.displayStringBg(x+7, y+1, colourGreen, colourBlack, dmg)
-	x = 22
-	e.displayStringBg(x, y, colourWhite, colourBlack, "Encumbrance      ")
-	e.displayStringBg(x+12, y, colourGreen, colourBlack, itoa(int(c.Weight)))
-	move := c.Move
-	if e.FindAffect(c, affectHaste) != nil {
-		move *= 2
-	}
-	if e.FindAffect(c, affectSlow) != nil {
-		move >>= 1
-	}
-	e.displayStringBg(x+3, y+1, colourWhite, colourBlack, "Movement   ")
-	e.displayStringBg(x+12, y+1, colourGreen, colourBlack, itoa(int(move)))
+	e.displayStringBg(1, 19, colourWhite, colourBlack, "Damage")
+	e.displayStringBg(11, 19, colourGreen, colourBlack, padLeft(dmg, 7))
 }
 
-// showStat = O0AF:09AE display_stat (stat, highlight): one ability score
-// (and exceptional strength) in its sheet row.
+// showStat = O100:0AE2 display_stat (stat, highlight): one ability score
+// (and exceptional strength) in its sheet row; "*" when it differs from
+// the character's own.
 func (e *Engine) showStat(stat int, hi bool) {
 	c := e.selected()
 	col := colourGreen
 	if hi {
 		col = colourLightMagenta
 	}
+	row := stat + sheetStatsRow
 	x := sheetStatColumn
-	e.ClearCells(x, stat+sheetStatsRow, 11, stat+sheetStatsRow)
+	e.ClearCells(x, row, 11, row)
 	if c.Stats[stat].Value < 10 {
 		x++
 	}
-	e.displayStringBg(x, stat+sheetStatsRow, col, colourBlack, itoa(int(c.Stats[stat].Value)))
+	e.displayStringBg(x, row, col, colourBlack, itoa(int(c.Stats[stat].Value)))
 	if stat == statStr && c.Stats[statStr].Value == strengthMaximum && c.Str00.Value > 0 {
 		s := itoa(int(c.Str00.Value))
 		if c.Str00.Value < 10 {
@@ -151,6 +188,9 @@ func (e *Engine) showStat(stat int, hi bool) {
 			s = "00"
 		}
 		e.displayStringBg(7, sheetStatsRow, col, colourBlack, "("+s+")")
+	}
+	if c.Stats[stat].Value != c.Stats[stat].Base || stat == statStr && c.Str00.Base != c.Str00.Value {
+		e.displayStringBg(12, row, col, colourBlack, "*")
 	}
 }
 
