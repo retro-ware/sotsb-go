@@ -353,7 +353,7 @@ func (e *Engine) showResult(exp int32) {
 	e.DisplayInput("", "press <enter>/<return> to continue", colourWhite, colourWhite, colourWhite, true, false)
 }
 
-// lootList = O045:0D2B (var key, var item, var selection, var index): the
+// lootList = O072:0BF4 (var key, var item, var selection, var index): the
 // treasure's items in a list to take from.
 func (e *Engine) lootList(index *int) (byte, *Item) {
 	e.drawScreenFrame()
@@ -364,6 +364,7 @@ func (e *Engine) lootList(index *int) (byte, *Item) {
 	}
 	redraw := true
 	var sel *ListNode
+	e.menuSel = 0
 	key := e.ListMenu("Items: ", "Take", colourLightMagenta, colourGreen, colourWhite, 1, 1, 38, 22, list, true, &redraw, index, &sel)
 	for i, n := range list {
 		if n == sel {

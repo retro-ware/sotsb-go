@@ -431,7 +431,7 @@ func (e *Engine) maxHitPoints(c *Character) byte {
 	return byte(int(sum) / n)
 }
 
-// iconPane = O0A7:3B7C (x, y) nested in the icon editor: the two poses
+// iconPane = O0EF:3AB2 (x, y) nested in the icon editor: the two poses
 // of the icon in slot 0xC at icon square (x,y), on a cleared 12 cell
 // panel (on EGA over the slot 0x19 background icons).
 func (e *Engine) iconPane(x, y int) {
@@ -440,7 +440,7 @@ func (e *Engine) iconPane(x, y int) {
 	} else {
 		e.FillRect(x*3, y*0x18, 0xC, 0x18, 0)
 		e.drawIcon(x, y, 0, 0, 0x19)
-		e.drawIcon(x+3, y, 0, 1, 0x19)
+		e.drawIcon(x+3, y, 0, 0, 0x19) // SotSB draws both background halves as the first
 	}
 	e.drawIcon(x, y, 0, 0, 0xC)
 	e.drawIcon(x+3, y, 0, 1, 0xC)

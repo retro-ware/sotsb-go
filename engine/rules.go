@@ -464,13 +464,13 @@ func (e *Engine) downAffects(c *Character) {
 	}
 }
 
-// CureAffect = O0E3:164D is_cured (char, type): "is Cured" and the affect goes.
+// CureAffect = O145:1457 is_cured (char, type): the affect goes, silently
+// (Curse said "is Cured").
 func (e *Engine) CureAffect(c *Character, typ byte) bool {
 	a := e.FindAffect(c, typ)
 	if a == nil {
 		return false
 	}
-	e.combatName(c, "is Cured", combatMsgRow, true)
 	e.RemoveAffect(c, typ, a)
 	return true
 }

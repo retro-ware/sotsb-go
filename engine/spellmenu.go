@@ -145,7 +145,7 @@ func (e *Engine) addSpellSorted(spell byte) {
 	}
 }
 
-// addScrollSpells = O0C2:0912 (unknownOnly): list the spells on the scroll
+// addScrollSpells = O113:08DD (unknownOnly): list the spells on the scroll
 // in scrollItem; with unknownOnly only those still to be scribed (+128).
 // A scroll a caster can read is identified first.
 func (e *Engine) addScrollSpells(unknownOnly bool) {
@@ -163,6 +163,9 @@ func (e *Engine) addScrollSpells(unknownOnly bool) {
 	for i := range it.Spells {
 		s := it.Spells[i]
 		if unknownOnly && s > 128 || !unknownOnly && s > 0 {
+			if !e.canUseSpell(c, s, true) {
+				return
+			}
 			e.addSpellLine(s)
 			l.scrolls[l.nScrolls] = it
 			l.nScrolls++
@@ -183,14 +186,23 @@ func (e *Engine) addBundleScrolls() {
 	l.scrollItem = bag
 }
 
-// addAllScrolls = O0C2:09F4 (unknownOnly): the spells of every scroll carried.
+// addAllScrolls = O113:0A62 (unknownOnly): the spells of every scroll carried,
+// those in a bag of scrolls too.
 func (e *Engine) addAllScrolls(unknownOnly bool) {
 	l := &e.spells
 	l.scrolls = [maxScrolls]*Item{}
 	l.nScrolls = 0
 	for _, it := range e.selected().Items {
-		l.scrollItem = it
-		if e.isScroll(it) {
+		if !e.isScroll(it) {
+			continue
+		}
+		if it.Type != itemTypeBag {
+			l.scrollItem = it
+			e.addScrollSpells(unknownOnly)
+			continue
+		}
+		for _, in := range it.Contents {
+			l.scrollItem = in
 			e.addScrollSpells(unknownOnly)
 		}
 	}
@@ -206,19 +218,19 @@ func (e *Engine) buildSpellList(kind int) bool {
 	switch kind {
 	case listMemory:
 		for _, s := range c.Memorized {
-			if s != 0 && e.canUseSpell(c, s&127) && s < 128 {
+			if s != 0 && e.canUseSpell(c, s&127, false) && s < 128 {
 				e.addSpellSorted(s)
 			}
 		}
 	case listMemorise:
 		for _, s := range c.Memorized {
-			if s >= 128 && e.canUseSpell(c, s&127) {
+			if s >= 128 && e.canUseSpell(c, s&127, false) {
 				e.addSpellSorted(s)
 			}
 		}
 	case listGrimoire:
 		for n := 1; n < len(spellTable); n++ {
-			if c.SpellBook[n-1] != 0 && e.canUseSpell(c, byte(n)) {
+			if c.SpellBook[n-1] != 0 && e.canUseSpell(c, byte(n), false) {
 				e.addSpellSorted(byte(n))
 			}
 		}
@@ -237,7 +249,7 @@ func (e *Engine) buildSpellList(kind int) bool {
 	case listToChoose:
 		for n := 1; n < len(spellTable); n++ {
 			s := spellTable[n]
-			if c.SpellSlots[int(s.class())*5+int(s.level())-1] != 0 && e.canUseSpell(c, byte(n)) && c.SpellBook[n-1] == 0 {
+			if c.SpellSlots[int(s.class())*5+int(s.level())-1] != 0 && e.canUseSpell(c, byte(n), false) && c.SpellBook[n-1] == 0 {
 				e.addSpellSorted(byte(n))
 			}
 		}
@@ -272,25 +284,31 @@ func (e *Engine) addLevelHeadings() {
 	l.lines = out
 }
 
-// canUseSpell = O0C2:001E (c, spell): whether the character's classes can
-// cast the spell (wisdom or intelligence 9 and the class level for it).
-func (e *Engine) canUseSpell(c *Character, spell byte) bool {
+// canUseSpell = O113:0000 (c, spell, fromScroll): whether the character's
+// classes can cast the spell (wisdom or intelligence 9 and the class level
+// for it); from a scroll a thief above level 10 can read mage spells too.
+func (e *Engine) canUseSpell(c *Character, spell byte, fromScroll bool) bool {
 	old := oldClassUsable(c)
+	has := func(cls int, over int8) bool {
+		return int8(c.Levels[cls]) > over || old && int8(c.OldLevels[cls]) > over
+	}
 	switch spellTable[spell&127].class() {
 	case spellClassCleric:
-		return c.Stats[statWis].Value > 8 && (int8(c.Levels[clsCleric]) > 0 ||
-			old && int8(c.OldLevels[clsCleric]) > 0 || int8(c.Levels[clsPaladin]) > 8 ||
-			int8(c.OldLevels[clsPaladin]) > 8 && old)
+		return c.Stats[statWis].Value > 8 && (has(clsCleric, 0) || has(clsPaladin, 8))
 	case spellClassDruid:
-		return c.Stats[statWis].Value > 8 && (int8(c.Levels[clsRanger]) > 6 ||
-			old && int8(c.OldLevels[clsRanger]) > 6)
+		return c.Stats[statWis].Value > 8 && has(clsRanger, 6)
 	case spellClassMage:
-		return c.Stats[statInt].Value > 8 && (c.Race != raceHuman || c.Slots[slotBodyArmour] == nil ||
-			e.gameState != stateCombat || int8(c.Levels[clsRanger]) > 8 ||
-			old && int8(c.OldLevels[clsRanger]) > 8 && (int8(c.Levels[clsMage]) > 0 || old && int8(c.OldLevels[clsMage]) > 0))
+		if c.Stats[statInt].Value <= 8 {
+			return false
+		}
+		return has(clsMage, 0) && (c.Race != raceHuman || c.Slots[slotBodyArmour] == nil || e.gameState != stateCombat) ||
+			has(clsRanger, 8) || fromScroll && has(clsThief, thiefScrollLevel)
 	}
 	return false
 }
+
+// thiefScrollLevel: thieves above it read mage scrolls.
+const thiefScrollLevel = 10
 
 // Readied slot of body armour (magic-users can't cast in it in combat).
 const slotBodyArmour = 2

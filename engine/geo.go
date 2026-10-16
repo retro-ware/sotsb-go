@@ -27,7 +27,6 @@ type geoState struct {
 	walldef  [3 * walldefSet]byte // DS:721C
 	sky      [4]byte              // DS:7224..7227: sky, horizon, band, ground
 	overhead bool                 // DS:7228: draw the top-down map instead
-	areaKind byte                 // DS:8B78: 0 or 0xA = map edges are solid
 }
 
 // dirDX/dirDY = DS:2696 / DS:269F, indexed by direction 0..8 (0 N, 2 E, 4 S, 6 W).
@@ -61,10 +60,14 @@ func wrap(v int) int {
 	return v
 }
 
+// solidEdgeBlock: the script block whose map edges are solid.
+const solidEdgeBlock = 80
+
 // offMapSolid is the guard shared by the O116 accessors: off the map the
-// answer is 0 when DS:8B78 is 0 or 0xA, otherwise the coordinates wrap.
+// answer is 0 while the script block (bA4C2) is 0 or solidEdgeBlock, otherwise
+// the coordinates wrap (O17E:079A).
 func (e *Engine) offMapSolid(x, y int) bool {
-	return !onMap(x, y) && (e.gs.areaKind == 0 || e.gs.areaKind == 0xA)
+	return !onMap(x, y) && (e.sc.block == 0 || e.sc.block == solidEdgeBlock)
 }
 
 // WallAt = O116:06A2 (x, y, dir): wall value 0..15 on that side of the cell.
