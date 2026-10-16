@@ -41,6 +41,8 @@ data segment by content.
   - [x] combat setup O097 (no wilderness battle map, DungCom tiles only, no pause before "A battle begins...", downed starters lie as body or statue tiles)
   - [x] menus O16B (Left/Right and keypad 4/6 move through the menu, extended keys always returned — letter-only menus pass over them; keys typed ahead dropped; no map cursor; Yes preselected where SotSB asks for it; list menu cursor on Up/Down; the mouse is not supported)
   - [x] party menu O0EF:01A1 (13 entries, Initialize Mouse/Joystick writes BLADES.CFG) and adventure entry O050:3DB9 (ECL2 block 17): 24 screens of load + story match DOS (pointer only)
+  - [x] Curse leftovers reviewed: every Go procedure now names its SotSB address (no O0ED/O0E3/O0C2/O0A7/O099/O110/O116/O12A tags left);
+    one member picker O151:36A2, roster O151:07C4, missiles O151:1A5E, heal_player O145:21BF, ranger hit dice O145:15AC; dead Curse code dropped
 - [x] M8 sound (R7E4: notes, envelopes, 13 songs; Tandy and speaker)
 - [x] M9 goplay: games.js, deploy.sh build rule, README tables, wasm build
 - [ ] M10 publish (public deploy: only with the user's go-ahead)

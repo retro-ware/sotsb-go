@@ -5,11 +5,11 @@ import (
 	"os"
 )
 
-// Init = O060:0054: allocate the global records, set the start state and
+// Init = O0A1:0027: allocate the global records, set the start state and
 // load the always-resident assets. Everything the DOS code zeroed with
 // FillChar is zero-valued here.
 func (e *Engine) Init() {
-	e.Randomize()                // O0A1:0027 seeds before anything else
+	e.Randomize()                // seeds before anything else
 	e.game = make([]byte, 0x800) // DS:49D6
 	e.area = make([]byte, 0x800) // DS:49D2
 	e.aux = make([]byte, 0x400)  // DS:49DA
@@ -35,7 +35,7 @@ func (e *Engine) Init() {
 		e.LoadIconPic("COMSPR", i, i+0xD) // O195:01CF
 	}
 	e.LoadIconPic("COMSPR", 0x19, 0x19)
-	e.picturesOn, e.loadingMessage = true, true // b4FD7, b4FD8 (O060:0054)
+	e.picturesOn, e.loadingMessage = true, true
 	if e.Cfg.Graphics == 'E' {
 		e.videoMode = 1 // b5000
 	}

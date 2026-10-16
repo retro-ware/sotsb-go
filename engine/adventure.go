@@ -678,7 +678,7 @@ const (
 	skyFloorY     = 7
 )
 
-// loadSkyPictures = O060:0054's part for EGA.
+// loadSkyPictures = O0A1:0027's sky blocks 250..252.
 func (e *Engine) loadSkyPictures() {
 	e.skySun = e.LoadPicMasked("sky", skySunBlock, skyMask)
 	e.skyMoon = e.LoadPicMasked("sky", skyMoonBlock, skyMask)
