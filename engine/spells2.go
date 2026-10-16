@@ -23,7 +23,7 @@ func (e *Engine) fxBane() {
 // fxCureLight = O113:1F7E and O113:5815: Cure Light Wounds on the first target, 1d8.
 func (e *Engine) fxCureLight() {
 	if e.nSpellTargets != 0 {
-		if e.Heal(e.tgt(1), e.Dice(1, 8), false) {
+		if e.healPlayer(e.tgt(1), byte(e.Dice(1, 8)), false) {
 			e.healedMessage(e.tgt(1))
 		}
 	}
@@ -348,7 +348,7 @@ func (e *Engine) fxHeal() {
 	if int(t.HP)+int(short) <= int(t.MaxHP) {
 		amount = t.MaxHP - t.HP - short
 	}
-	if e.Heal(t, int(amount), false) {
+	if e.healPlayer(t, amount, false) {
 		e.combatName(t, "is Healed", combatMsgRow, false)
 	}
 }
@@ -565,7 +565,7 @@ func (e *Engine) fxCureCritical() {
 		return
 	}
 	t := e.tgt(1)
-	if e.Heal(t, e.Dice(3, 8)+3, false) {
+	if e.healPlayer(t, byte(e.Dice(3, 8)+3), false) {
 		e.healedMessage(t)
 	}
 }

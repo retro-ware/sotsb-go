@@ -578,34 +578,6 @@ func (e *Engine) isUnaffected(c *Character, typ byte, time int, data, call, save
 	}
 }
 
-// Heal = O145:21BF (char, amount, magical): only the living (okay,
-// animated, unconscious, dying) heal; magic only the hurt. The dying stop
-// bleeding, and outside combat the unconscious wake up.
-func (e *Engine) Heal(c *Character, amount int, magical bool) bool {
-	switch c.Status {
-	case statusOkay, statusAnimated, statusUnconscious, statusDying:
-	default:
-		return false
-	}
-	if magical && c.HP >= c.MaxHP {
-		return false
-	}
-	c.HP += byte(amount)
-	if c.HP > c.MaxHP {
-		c.HP = c.MaxHP
-	}
-	if c.Okay == 0 {
-		if c.Status == statusDying {
-			c.Status = statusUnconscious
-		}
-		if c.Status == statusUnconscious && e.gameState != stateCombat {
-			c.Status = statusOkay
-			c.Okay = 1
-		}
-	}
-	return true
-}
-
 // hitMessage = O151:270F (char, magical, message): in combat the target
 // flashes (once per message delay step for magic) with a sound.
 func (e *Engine) hitMessage(c *Character, magical bool, msg string) {

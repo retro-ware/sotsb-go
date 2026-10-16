@@ -209,7 +209,7 @@ func (e *Engine) CastSpell(spell, mode, b byte, quit *bool) {
 		ok = false
 	}
 	if b != 0 && !e.usingItem {
-		e.castMessage(caster, "casts", int(spell))
+		e.spellMessage(caster, "casts", byte(spell))
 	}
 	for ok {
 		*quit = e.spellTargetHook(int(spell), int(mode)) // the asm passes the caller's var
@@ -485,7 +485,7 @@ func (e *Engine) fxCureSerious() {
 		return
 	}
 	t := e.tgt(1)
-	if e.Heal(t, e.Dice(2, 8)+1, false) {
+	if e.healPlayer(t, byte(e.Dice(2, 8)+1), false) {
 		e.healedMessage(t)
 	}
 }
@@ -516,7 +516,7 @@ func (e *Engine) fxParalyzed() { e.applySpell(int(e.curSpell), 0, 0, 0, 0, "is p
 // fxHeal2d4 = O113:414A.
 func (e *Engine) fxHeal2d4() {
 	t := e.tgt(1)
-	if e.Heal(t, e.Dice(2, 4)+2, false) {
+	if e.healPlayer(t, byte(e.Dice(2, 4)+2), false) {
 		e.hitMessage(t, true, "is Healed")
 	}
 }
@@ -597,24 +597,6 @@ func (e *Engine) scrollUsed(c *Character, it *Item, spell byte) {
 		}
 		return
 	}
-}
-
-// castMessage = O113:6628 (char, msg, spell): announces the
-// cast, in the side panel in combat, else in the message box.
-func (e *Engine) castMessage(c *Character, msg string, spell int) {
-	msg = cut(msg, 0x28)
-	if e.gameState == stateCombat {
-		e.combatName(c, "Casts a Spell", combatMsgRow, true)
-		e.ClearCells(0, 0x17, 0x27, 0x17)
-		e.DisplayString(0, 0x17, colourGreen, "Spell:"+spellNames[spell])
-		return
-	}
-	e.ClearCells(1, 0x12, 0x26, 0x16)
-	e.displayName(c, 1, 0x13, false)
-	e.DisplayString(len(c.Name())+2, 0x13, colourGreen, msg)
-	e.DisplayString(1, 0x14, colourGreen, spellNames[spell])
-	e.pauseForMessage()
-	e.clearCombatText()
 }
 
 // spellTableInit = O113:67A1: the DS:6B84 table of spell effects (indexed

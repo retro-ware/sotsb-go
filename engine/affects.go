@@ -1001,7 +1001,7 @@ func (e *Engine) fireResistRingHandler(c *Character, a *Affect, flag byte) {
 
 // healingOverTimeHandler = O0A4:19D7: a hit point now and then.
 func (e *Engine) healingOverTimeHandler(c *Character, a *Affect, flag byte) {
-	if flag == 0 && e.addAffectNow(c, affectHealingOverTime, a.Data, healingTime) && e.Heal(c, 1, true) {
+	if flag == 0 && e.addAffectNow(c, affectHealingOverTime, a.Data, healingTime) && e.healPlayer(c, 1, true) {
 		e.healedMessage(c)
 	}
 }
