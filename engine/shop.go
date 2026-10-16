@@ -163,7 +163,7 @@ func (e *Engine) shopMenu() {
 			if !extra {
 				e.poolMoney()
 			} else {
-				e.cycleSelected(key)
+				e.selectStep(key)
 			}
 		case 'S':
 			e.shareMoney()
@@ -186,7 +186,7 @@ func (e *Engine) shopMenu() {
 			}
 		case 'H':
 			if extra {
-				e.cycleSelected(key)
+				e.selectStep(key)
 			}
 		}
 		switch {

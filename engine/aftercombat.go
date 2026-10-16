@@ -456,7 +456,7 @@ func (e *Engine) takeTreasure(money, items *bool) {
 		case 'E', 0:
 			done = true
 		default:
-			e.cycleSelected(key)
+			e.selectStep(key)
 		}
 		e.playerSummary(e.selected())
 	}
@@ -495,8 +495,7 @@ func (e *Engine) lootMenu() {
 		}
 		key, extra := e.DisplayInput("", menu, colourLightMagenta, colourGreen, colourWhite, true, true)
 		if extra {
-			e.cycleSelected(key)
-			e.playerSummary(e.selected())
+			e.selectStep(key)
 			continue
 		}
 		switch key {

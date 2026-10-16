@@ -531,9 +531,8 @@ func (e *Engine) pickCharacter() bool {
 	}
 }
 
-// stepSelection = O100:39AE (key): Up selects the previous member (from
-// the first, the last), Down the next (staying on the last); any other
-// key the first.
+// stepSelection = O100:39AE (key): Up selects the previous member, Down
+// the next (both wrap); any other key the first.
 func (e *Engine) stepSelection(key byte) {
 	if len(e.party) == 0 {
 		return
@@ -546,8 +545,9 @@ func (e *Engine) stepSelection(key byte) {
 			e.partySel--
 		}
 	case scanDown:
-		if e.partySel+1 < len(e.party) {
-			e.partySel++
+		e.partySel++
+		if e.partySel >= len(e.party) {
+			e.partySel = 0
 		}
 	default:
 		e.partySel = 0

@@ -510,25 +510,3 @@ func menuHotkeys(menu string) (string, string) {
 	return string(b[1 : length+1]), string(hot)
 }
 
-// cycleSelected = O100:39AE (key): Up selects the previous member, Down
-// the next, anything else the first.
-func (e *Engine) cycleSelected(k byte) {
-	if len(e.party) == 0 {
-		return
-	}
-	switch k {
-	case scanUp:
-		if e.partySel == 0 {
-			e.partySel = len(e.party) - 1
-		} else {
-			e.partySel--
-		}
-	case scanDown:
-		e.partySel++
-		if e.partySel >= len(e.party) {
-			e.partySel = 0
-		}
-	default:
-		e.partySel = 0
-	}
-}

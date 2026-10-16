@@ -311,8 +311,7 @@ func (e *Engine) adventureInput() byte {
 						done = true
 					}
 				} else {
-					e.cycleSelected(k)
-					e.playerSummary(e.selected())
+					e.selectStep(k)
 					e.statusLine()
 				}
 				e.menuSel = sel

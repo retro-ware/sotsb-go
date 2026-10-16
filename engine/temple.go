@@ -288,7 +288,7 @@ func (e *Engine) templeMenu() {
 			if !extra {
 				e.templeHeal()
 			} else {
-				e.cycleSelected(key)
+				e.selectStep(key)
 			}
 		case 'V':
 			e.viewPlayer()
@@ -298,7 +298,7 @@ func (e *Engine) templeMenu() {
 			if !extra {
 				e.poolMoney()
 			} else {
-				e.cycleSelected(key)
+				e.selectStep(key)
 			}
 		case 'S':
 			e.shareMoney()
