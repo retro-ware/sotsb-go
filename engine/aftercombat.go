@@ -30,7 +30,7 @@ const (
 	fightFled = 129
 )
 
-// Experience and treasure values (O045:0037).
+// Experience and treasure values (O072:0000).
 const (
 	duelExpPerLevel = 100
 	expPerPlus      = 400 // a magic item's worth per plus
@@ -62,7 +62,7 @@ func (e *Engine) combatParty() []*Character {
 	return e.party
 }
 
-// computeExp = O045:0037 (var exp): the beaten monsters' worth, their
+// computeExp = O072:0000 (var exp): the beaten monsters' worth, their
 // money and items go to the treasure, and the treasure's worth counts too;
 // the sum is split over the members that earn it.
 func (e *Engine) computeExp() int32 {
@@ -76,8 +76,10 @@ func (e *Engine) computeExp() int32 {
 			continue
 		}
 		e.ac.monstersFound = true
-		for k := range e.treasureCoins {
-			e.treasureCoins[k] += int32(c.Coins[k])
+		if isMonster(c) {
+			for k := 1; k < coinKinds; k++ {
+				e.treasureCoins[k] += int32(c.Coins[k])
+			}
 		}
 		// the byte product is a 16-bit mul, sign-extended
 		total += int32(c.ExpValue) + int32(int16(uint16(c.ExpPerHP)*uint16(c.HPRoll)))
@@ -109,9 +111,12 @@ func (e *Engine) computeExp() int32 {
 	return total
 }
 
-// giveExp = O045:036A (exp): every member still standing gets it, with a
+// giveExp = O072:032B (exp): every member still standing gets it, with a
 // tenth more for high prime requisites; multi-class characters split it.
 func (e *Engine) giveExp(exp int32) {
+	if wordAt(e.area, 2*areaWordHideExperience) != 0 {
+		return
+	}
 	high := func(c *Character, stats ...int) bool {
 		for _, s := range stats {
 			if c.Stats[s].Value <= primeScore {
@@ -128,7 +133,7 @@ func (e *Engine) giveExp(exp int32) {
 		bonus := false
 		switch c.Class {
 		case clsCleric:
-			bonus = high(c, statWis)
+			bonus = c.Stats[statWis].Value > primeScore-1
 		case clsFighter:
 			bonus = high(c, statStr)
 		case clsPaladin:

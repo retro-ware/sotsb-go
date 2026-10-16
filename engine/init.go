@@ -38,6 +38,8 @@ func (e *Engine) Init() {
 	e.picturesOn, e.loadingMessage = true, true // b4FD7, b4FD8 (O060:0054)
 	if e.Cfg.Graphics == 'E' {
 		e.videoMode = 1 // b5000
+	}
+	if e.colourCard() {
 		e.loadSkyPictures()
 	}
 	e.items = e.readItems() // ITEMS file, 2-byte header then 0x810 bytes → DS:5582
@@ -69,13 +71,14 @@ func (e *Engine) InitGraphics() {
 	e.LoadSymbolSet(0, 203)
 }
 
-// newGameState = O060:06E5: the state of a fresh game (also after the
+// newGameState = O0A1:07C2: the state of a fresh game (also after the
 // party is lost).
 func (e *Engine) newGameState() {
 	s := &e.sc
 	for i := range e.area {
 		e.area[i] = 0
 	}
+	putWord(e.area, 2*areaWordDifficulty, 2)
 	putWord(e.area, 2*areaWordFreeSteps, 1)
 	putWord(e.area, 2*areaWordLastECL, 0)
 	for i := range e.game {

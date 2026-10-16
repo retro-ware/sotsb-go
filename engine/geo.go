@@ -125,15 +125,17 @@ func (e *Engine) MapCell(x, y int) byte {
 // SetSkyColours = O17E:015A (sky, horizon, band, ground).
 func (e *Engine) SetSkyColours(a, b, c, d byte) { e.gs.sky = [4]byte{a, b, c, d} }
 
-// drawSky = O116:0184: the four colour bands behind the walls (R2BC:1B87
-// fills x=2 cells, 11 cells wide, between the given pixel rows).
+// drawSky = O17E:017B: the four colour bands behind the walls (R2BC:1B87
+// fills x=2 cells, 11 cells wide, between the given pixel rows); colour
+// cards get the sky pictures.
 func (e *Engine) drawSky() {
-	if e.videoMode != 0 {
+	if e.colourCard() {
 		e.drawSkyEGA()
 		return
 	}
+	colours := [4]byte{e.gs.sky[0], e.gs.sky[1], 3, 3}
 	for i, band := range [4][2]int{{0x10, 0x2B}, {0x3B, 1}, {0x3C, 2}, {0x3E, 0x2A}} {
-		e.FillRect(viewX-1, band[0], 0xB, band[1], e.gs.sky[i])
+		e.FillRect(viewX-1, band[0], 0xB, band[1], colours[i])
 	}
 }
 
