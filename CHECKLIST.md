@@ -31,6 +31,7 @@ data segment by content.
   - [x] combat loop O089 (turn order queue, Delay moves to the end, Alt+A, old-age deaths after battle)
   - [x] combat map O18B/O186 (stone bodies)
   - [x] resting O10C (year carry ages the party, effect expiry via RemoveAffect, scribing from bags of scrolls)
+  - [x] camp O0E1 (seven-level memorize table, bags of scrolls, Level menu for the difficulty, Fix with the mending spells; no rule-book check)
 - [ ] M8 sound
 - [ ] M9 goplay: games.js, deploy.sh build rule, README tables, wasm build
 - [ ] M10 publish (public deploy: only with the user's go-ahead)

@@ -1,6 +1,6 @@
 package engine
 
-// Encamp (unit O09D) and resting (unit O10C): the camp menu, Magic (cast,
+// Encamp (unit O0E1) and resting (unit O10C): the camp menu, Magic (cast,
 // memorize, scribe, display), Rest, Alter (order, drop, speed, icon, pics)
 // and Fix, with the rest clock, healing and study.
 
@@ -25,14 +25,18 @@ const (
 func spellClass(sp byte) byte { return spellTableData[sp&127][0] }
 func spellLevel(sp byte) byte { return spellTableData[sp&127][1] }
 
-// studyMinutes = O09D:0032 (c): minutes of study for the spells waiting to
-// be memorized (+128) or scribed; the base hours (4, or 6 for spells above
-// 2nd level) go to the record's SpellsToLearn.
+// studyMinutes = O0E1:0023 (c): minutes of study for the spells waiting to
+// be memorized (+128, a level 0 spell counting as 1st) or scribed (a bag's
+// scrolls too); the base hours (4, or 6 for spells above 2nd level) go to
+// the record's SpellsToLearn.
 func (e *Engine) studyMinutes(c *Character) uint16 {
 	var maxMem, maxScr, sumMem, sumScr byte
 	for i := 0; i < len(c.Memorized); i++ {
 		if s := c.Memorized[i]; s > 127 {
 			l := spellLevel(s)
+			if l == 0 {
+				l = 1
+			}
 			if l > maxMem {
 				maxMem = l
 			}
@@ -43,13 +47,15 @@ func (e *Engine) studyMinutes(c *Character) uint16 {
 		if !e.isScroll(it) {
 			continue
 		}
-		for k := 0; k < 3; k++ {
-			if s := it.Spells[k]; s > 127 {
-				l := spellLevel(s)
-				if l > maxScr {
-					maxScr = l
+		for _, sc := range scrollsOf(it) {
+			for k := 0; k < 3; k++ {
+				if s := sc.Spells[k]; s > 127 {
+					l := spellLevel(s)
+					if l > maxScr {
+						maxScr = l
+					}
+					sumScr += l
 				}
-				sumScr += l
 			}
 		}
 	}
@@ -61,10 +67,18 @@ func (e *Engine) studyMinutes(c *Character) uint16 {
 		hours = 6
 	}
 	c.SpellsToLearn = hours
-	return uint16(hours)*60 + uint16(sumMem)*15 + uint16(sumScr)*15
+	return uint16(sumScr)*15 + uint16(hours)*60 + uint16(sumMem)*15
 }
 
-// forgetPending = O09D:018B (c): the spells still to be memorized go.
+// scrollsOf: a scroll itself, or the scrolls in a bag.
+func scrollsOf(it *Item) []*Item {
+	if it.Type == itemTypeBag {
+		return it.Contents
+	}
+	return []*Item{it}
+}
+
+// forgetPending = O0E1:05C9 (c): the spells still to be memorized go.
 func forgetPending(c *Character) {
 	for i := range c.Memorized {
 		if c.Memorized[i] > 127 {
@@ -74,18 +88,21 @@ func forgetPending(c *Character) {
 	c.SpellsToLearn = 0
 }
 
-// stopScribing = O09D:01CE (c): no scroll spell is being scribed.
+// stopScribing = O0E1:060C (c): no scroll spell is being scribed.
 func (e *Engine) stopScribing(c *Character) {
 	for _, it := range c.Items {
-		if e.isScroll(it) {
-			for k := range it.Spells {
-				it.Spells[k] &= 127
+		if !e.isScroll(it) {
+			continue
+		}
+		for _, sc := range scrollsOf(it) {
+			for k := range sc.Spells {
+				sc.Spells[k] &= 127
 			}
 		}
 	}
 }
 
-// stopStudy = O09D:0246: nobody studies any more.
+// stopStudy = O0E1:0700: nobody studies any more.
 func (e *Engine) stopStudy() {
 	for _, c := range e.party {
 		forgetPending(c)
@@ -93,8 +110,8 @@ func (e *Engine) stopStudy() {
 	}
 }
 
-// slotsLeft = O09D:028E (level, class): spells of the class and level the
-// selected member may still memorize.
+// slotsLeft = O0E1:0744 (level, class): spells of the class and level the
+// selected member may still memorize (never below none).
 func (e *Engine) slotsLeft(level, class byte) byte {
 	c := e.selected()
 	var used byte
@@ -103,7 +120,11 @@ func (e *Engine) slotsLeft(level, class byte) byte {
 			used++
 		}
 	}
-	return c.SpellSlots[int(class)*5+int(level)-1] - used
+	slots := c.SpellSlots[slotIndex(int(class), int(level))]
+	if slots < used {
+		used = slots
+	}
+	return slots - used
 }
 
 // Why a member cannot study (canStudy's mode).
@@ -113,7 +134,7 @@ const (
 	studyScribe   = 3
 )
 
-// canStudy = O09D:03A0 (mode): not where spells are blocked, and not when
+// canStudy = O0E1:089C (mode): not where spells are blocked, and not when
 // out of action; otherwise says why.
 func (e *Engine) canStudy(mode int) bool {
 	msg := ""
@@ -137,7 +158,7 @@ func (e *Engine) canStudy(mode int) bool {
 	return false
 }
 
-// castMenu = O09D:04D5 cast_spell: cast memorized spells until none is
+// castMenu = O0E1:09D1: cast memorized spells until none is
 // picked.
 func (e *Engine) castMenu() {
 	cast := false
@@ -167,20 +188,21 @@ func (e *Engine) castMenu() {
 	}
 }
 
-// The spell class headings of "can memorize:".
-var memorizeHeadings = [3]string{"    Cleric Spells:", "     Druid Spells:", "Magic-User Spells:"}
+// The spell class headings of the memorize table (none for paladins and
+// rangers).
+var memorizeHeadings = [spellClassMage + 1]string{"    Cleric Spells:", "     Druid Spells:", "", "Magic-User Spells:"}
 
-// memorizeInfo = O09D:05D4: "can memorize:" with the free slots per class
-// and level; false when there are none.
+// memorizeInfo = O0E1:0AC3: the selected member's name over the free
+// slots per class and level; false when there are none.
 func (e *Engine) memorizeInfo() bool {
 	c := e.selected()
 	any := false
-	var counts [5][3]string
-	var has [3]bool
-	for class := 0; class <= 2; class++ {
-		for level := 1; level <= 5; level++ {
+	var counts [spellLevels][spellClassMage + 1]string
+	var has [spellClassMage + 1]bool
+	for class := spellClassCleric; class <= spellClassMage; class++ {
+		for level := 1; level <= spellLevels; level++ {
 			counts[level-1][class] = itoa(int(e.slotsLeft(byte(level), byte(class))))
-			if c.SpellSlots[class*5+level-1] == 0 {
+			if c.SpellSlots[slotIndex(class, level)] == 0 {
 				counts[level-1][class] = " "
 			} else {
 				has[class] = true
@@ -189,15 +211,15 @@ func (e *Engine) memorizeInfo() bool {
 		}
 	}
 	if any {
-		e.combatName(c, "can memorize:", 10, false)
-		row := 3
-		for class := 0; class <= 2; class++ {
-			if !has[class] {
+		e.combatName(c, "", 10, false)
+		row := 1
+		for class := spellClassCleric; class <= spellClassMage; class++ {
+			if memorizeHeadings[class] == "" || !has[class] {
 				continue
 			}
 			e.displayStringBg(1, row+17, colourGreen, colourBlack, memorizeHeadings[class])
 			x := 19
-			for level := 1; level <= 5; level++ {
+			for level := 1; level <= spellLevels; level++ {
 				e.displayStringBg(x+1, row+17, colourGreen, colourBlack, counts[level-1][class])
 				x += 3
 			}
@@ -207,7 +229,7 @@ func (e *Engine) memorizeInfo() bool {
 	return any
 }
 
-// restMenu = O09D:07C2 (var interrupted): rest as long as the longest
+// restMenu = O0E1:0CE7 (var interrupted): rest as long as the longest
 // study takes, then the rest menu.
 func (e *Engine) restMenu() bool {
 	var longest uint16
@@ -226,7 +248,7 @@ func (e *Engine) restMenu() bool {
 	return interrupted
 }
 
-// sortSpells = O09D:086F: the selected member's memorized spells in spell
+// sortSpells = O0E1:0D8E: the selected member's memorized spells in spell
 // order (a waiting one counts as its spell).
 func (e *Engine) sortSpells() {
 	m := &e.selected().Memorized
@@ -239,7 +261,7 @@ func (e *Engine) sortSpells() {
 	}
 }
 
-// memorizeMenu = O09D:0955 memorize_spell.
+// memorizeMenu = O0E1:0E3D.
 func (e *Engine) memorizeMenu() {
 	if !e.canStudy(studyMemorize) {
 		return
@@ -251,7 +273,7 @@ func (e *Engine) memorizeMenu() {
 	e.spellMenu2(5, 0, &index, &shown)
 	redraw := true
 	if shown {
-		if e.YesNo(colourYellow, colourGreen, colourWhite, "Memorize These Spells? ") == 'N' {
+		if e.YesNo(colourYellow, colourGreen, colourWhite, "memorize these spells?") == 'N' {
 			forgetPending(e.selected())
 		} else {
 			done = true
@@ -283,7 +305,7 @@ func (e *Engine) memorizeMenu() {
 	if index != -1 {
 		index = -1
 		e.spellMenu2(5, 0, &index, &shown)
-		if shown && e.YesNo(colourYellow, colourGreen, colourWhite, "Memorize these spells? ") == 'N' {
+		if shown && e.YesNo(colourYellow, colourGreen, colourWhite, "memorize these spells?") == 'N' {
 			forgetPending(e.selected())
 		}
 	}
@@ -292,7 +314,7 @@ func (e *Engine) memorizeMenu() {
 	}
 }
 
-// scribeMenu = O09D:0BAB scribe_spell.
+// scribeMenu = O0E1:10A7.
 func (e *Engine) scribeMenu() {
 	if !e.canStudy(studyScribe) {
 		return
@@ -304,7 +326,7 @@ func (e *Engine) scribeMenu() {
 	e.spellMenu2(6, 0, &index, &shown)
 	redraw := true
 	if shown {
-		if e.YesNo(colourYellow, colourGreen, colourWhite, "Scribe These Spells? ") == 'N' {
+		if e.YesNo(colourYellow, colourGreen, colourWhite, "Scribe these spells?") == 'N' {
 			e.stopScribing(c)
 		} else {
 			done = true
@@ -334,10 +356,13 @@ func (e *Engine) scribeMenu() {
 			if busy {
 				break
 			}
-			if e.isScroll(it) {
+			if !e.isScroll(it) {
+				continue
+			}
+			for _, sc := range scrollsOf(it) {
 				for k := 0; k < 3; k++ {
-					if it.Spells[k] > 127 && it.Spells[k]&127 == sp {
-						e.printMessage("You are already scibing that spell")
+					if !busy && sc.Spells[k] > 127 && sc.Spells[k]&127 == sp {
+						e.printMessage("You are already scribing that spell")
 						busy = true
 					}
 				}
@@ -346,7 +371,7 @@ func (e *Engine) scribeMenu() {
 		if busy {
 			continue
 		}
-		if c.SpellSlots[int(spellClass(sp))*5+int(spellLevel(sp))-1] == 0 {
+		if c.SpellSlots[slotIndex(int(spellClass(sp)), int(spellLevel(sp)))] == 0 {
 			e.printMessage("You can not scribe that spell.")
 			continue
 		}
@@ -355,10 +380,15 @@ func (e *Engine) scribeMenu() {
 			if marked {
 				break
 			}
-			for k := 0; k < 3 && !marked; k++ {
-				if it.Spells[k] == sp {
-					it.Spells[k] |= 128
-					marked = true
+			for _, sc := range scrollsOf(it) {
+				for k := 0; k < 3 && !marked; k++ {
+					if sc.Spells[k] == sp {
+						sc.Spells[k] |= 128
+						marked = true
+					}
+				}
+				if marked {
+					break
 				}
 			}
 		}
@@ -366,7 +396,7 @@ func (e *Engine) scribeMenu() {
 	if index != -1 {
 		index = -1
 		e.spellMenu2(6, 0, &index, &shown)
-		if shown && e.YesNo(colourYellow, colourGreen, colourWhite, "Scribe these spells? ") == 'N' {
+		if shown && e.YesNo(colourYellow, colourGreen, colourWhite, "Scribe these spells?") == 'N' {
 			e.stopScribing(c)
 		}
 	}
@@ -397,7 +427,7 @@ func spellAffect(t byte) bool {
 // spellEffectSpells: Display looks through the first 56 spells.
 const spellEffectSpells = 56
 
-// displayEffects = O09D:103A display_magic_effects: everyone's spell
+// displayEffects = O0E1:158D: everyone's spell
 // effects in a list.
 func (e *Engine) displayEffects() {
 	list := []*ListNode{{Text: " "}}
@@ -439,33 +469,43 @@ func (e *Engine) displayEffects() {
 	e.loadPicture()
 }
 
-// magicMenu = O09D:14D5 (var interrupted).
+// selectStep: an extended key in the camp menus moves the selection
+// (O151:0987 around O100:39AE): the old name is drawn plain, the new one
+// white.
+func (e *Engine) selectStep(key byte) {
+	e.summaryRow(e.selected(), false)
+	e.stepSelection(key)
+	e.summaryRow(e.selected(), true)
+}
+
+// magicMenu = O0E1:1757 (var interrupted).
 func (e *Engine) magicMenu(interrupted *bool) {
 	key := byte(' ')
 	for !*interrupted && key != 0 && key != 'E' {
 		var extra bool
 		key, extra = e.DisplayInput("", "Cast Memorize Scribe Display Rest Exit", colourLightMagenta, colourGreen, colourWhite, true, true)
+		sel := e.menuSel
 		if extra {
-			e.cycleSelected(key)
-			e.playerSummary(e.selected())
-			continue
+			e.selectStep(key)
+		} else {
+			switch key {
+			case 'C':
+				e.castMenu()
+			case 'M':
+				e.memorizeMenu()
+			case 'S':
+				e.scribeMenu()
+			case 'D':
+				e.displayEffects()
+			case 'R':
+				*interrupted = e.restMenu()
+			}
 		}
-		switch key {
-		case 'C':
-			e.castMenu()
-		case 'M':
-			e.memorizeMenu()
-		case 'S':
-			e.scribeMenu()
-		case 'D':
-			e.displayEffects()
-		case 'R':
-			*interrupted = e.restMenu()
-		}
+		e.menuSel = sel
 	}
 }
 
-// movePrev = O09D:158D: the selected member swaps places with the one
+// movePrev = O0E1:182E: the selected member swaps places with the one
 // before; the first goes last.
 func (e *Engine) movePrev() {
 	i := e.partySel
@@ -483,7 +523,7 @@ func (e *Engine) movePrev() {
 	e.partySel = i - 1
 }
 
-// moveNext = O09D:16E5: swaps with the one after; the last goes first.
+// moveNext = O0E1:196F: swaps with the one after; the last goes first.
 func (e *Engine) moveNext() {
 	i := e.partySel
 	n := len(e.party)
@@ -500,8 +540,7 @@ func (e *Engine) moveNext() {
 	e.partySel = i + 1
 }
 
-// orderMenu = O09D:1864 reorder_party: Select a member, then Place it with
-// Home / End.
+// orderMenu = O0E1:1AD8: Select a member, then Place it with Up / Down.
 func (e *Engine) orderMenu() {
 	placing := false
 	key := byte(' ')
@@ -514,13 +553,12 @@ func (e *Engine) orderMenu() {
 		key, extra = e.DisplayInput("Party Order: ", menu, colourLightMagenta, colourGreen, colourWhite, true, true)
 		if extra {
 			if !placing {
-				e.cycleSelected(key)
-				e.playerSummary(e.selected())
+				e.selectStep(key)
 			} else {
 				switch key {
-				case scanHome:
+				case scanUp:
 					e.movePrev()
-				case scanEnd:
+				case scanDown:
 					e.moveNext()
 				}
 				e.playerSummary(e.selected())
@@ -538,7 +576,7 @@ func (e *Engine) orderMenu() {
 	}
 }
 
-// dropMember = O09D:19C9 drop_player: the selected member leaves the
+// dropMember = O0E1:1C53: the selected member leaves the
 // party (the last one quits the game).
 func (e *Engine) dropMember() {
 	c := e.selected()
@@ -561,13 +599,15 @@ func (e *Engine) dropMember() {
 		e.playerSummary(e.selected())
 		return
 	}
-	e.combatName(c, "Breathes A sigh of relief", 10, true)
+	if c.Okay != 0 {
+		e.combatName(c, "Breathes A sigh of relief", 10, true)
+	}
 }
 
 // Game speed limits.
 const maxGameSpeed = 9
 
-// campSpeedMenu = O09D:1B7B game_speed: Faster / Slower (the arrow keys too).
+// campSpeedMenu = O0E1:1ED8: Faster / Slower (the arrow keys too).
 func (e *Engine) campSpeedMenu() {
 	for {
 		e.displayStringBg(1, 18, colourGreen, colourBlack, "Game Speed = "+itoa(int(e.gameSpeed))+" (0=fastest 9=slowest)")
@@ -606,186 +646,440 @@ func (e *Engine) campSpeedMenu() {
 	e.clearCombatText()
 }
 
-// alterMenu = O09D:1D38.
+// alterMenu = O0E1:2054: pictures and their animation are switched on
+// for good.
 func (e *Engine) alterMenu() {
+	e.picturesOn = true
+	e.loadingMessage = true
 	key := byte(' ')
 	for key != 0 && key != 'E' {
 		var extra bool
-		key, extra = e.DisplayInput("Alter: ", "Order Drop Speed Icon Pics Exit", colourLightMagenta, colourGreen, colourWhite, true, true)
+		key, extra = e.DisplayInput("", "Order Drop Speed Icon Level Exit", colourLightMagenta, colourGreen, colourWhite, true, true)
+		sel := e.menuSel
 		if extra {
-			e.cycleSelected(key)
-			e.playerSummary(e.selected())
-			continue
-		}
-		switch key {
-		case 'O':
-			e.orderMenu()
-		case 'D':
-			e.dropMember()
-		case 'S':
-			e.campSpeedMenu()
-		case 'I':
-			e.iconBuilder()
-			e.loadPicture()
-		case 'P':
-			for {
-				menu := "Pics off  "
-				if e.picturesOn {
-					menu = "Pics on  "
-					if e.loadingMessage {
-						menu += "Animation on  "
-					} else {
-						menu += "Animation off  "
-					}
-				}
-				menu += "Exit"
-				k, _ := e.DisplayInput("", menu, colourLightMagenta, colourGreen, colourWhite, false, true)
-				switch k {
-				case 'P':
-					e.picturesOn = !e.picturesOn
-				case 'A':
-					e.loadingMessage = !e.loadingMessage
-				}
-				if k == 0 || k == 'E' {
-					break
-				}
+			e.selectStep(key)
+		} else {
+			switch key {
+			case 'L':
+				e.levelMenu()
+			case 'O':
+				e.orderMenu()
+			case 'D':
+				e.dropMember()
+			case 'S':
+				e.campSpeedMenu()
+			case 'I':
+				e.iconBuilder()
+				e.loadPicture()
 			}
 		}
+		e.menuSel = sel
 	}
 }
 
-// Cure spells Fix casts (memorized slots), and the hit dice they heal.
-const (
-	spellCureLight    = 3
-	spellCureSerious  = 58
-	spellCureCritical = 71
-)
+// areaWordDifficulty: the difficulty level, 0 Novice .. 4 Champion.
+const areaWordDifficulty = 500
 
-// woundsTotal = O09D:208F: the party's hit points short of the maximum.
-func (e *Engine) woundsTotal() uint16 {
-	var w uint16
+// levelMenu = O0E1:1DB0: pick the difficulty, the current one highlighted.
+func (e *Engine) levelMenu() {
+	level := uint16(byte(wordAt(e.area, 2*areaWordDifficulty)))
+	e.menuSel = int(level) + 1
+	key, extra := e.DisplayInput("", "Novice Squire Veteran Adept Champion", colourLightMagenta, colourGreen, colourWhite, true, true)
+	if extra {
+		e.selectStep(key)
+	} else {
+		switch key {
+		case 'N':
+			level = 0
+		case 'S':
+			level = 1
+		case 'V':
+			level = 2
+		case 'A':
+			level = 3
+		case 'C':
+			level = 4
+		}
+	}
+	putWord(e.area, 2*areaWordDifficulty, level)
+}
+
+// fixCounts: what Fix's spells can do (cures by strength, and the other
+// spells by what they mend).
+type fixCounts struct {
+	light, serious, critical, heal        int // cures rolled after the rest
+	heals, neutralize, raise, removeCurse int // spells cast on the needy
+	stoneToFlesh, cureBlind, cureDisease  int
+}
+
+// fixNeeds: how many members each spell could help (O0E1:2E41).
+type fixNeeds struct {
+	raise, removeCurse, cureBlind, cureDisease, heal, neutralize, stoneToFlesh int
+}
+
+// fixCaster = O0E1:2139: only the okay cast for Fix.
+func fixCaster(c *Character) bool { return c.Status == statusOkay }
+
+// woundsTotal = O0E1:2377: the party's hit points short of the maximum.
+func (e *Engine) woundsTotal() int {
+	w := 0
 	for _, c := range e.party {
-		w += uint16(c.MaxHP - c.HP)
+		w += int(c.MaxHP) - int(c.HP)
 	}
 	return w
 }
 
-// fixMenu = O09D:2338 (var interrupted): the party's clerics cast their
-// cure spells, rest for them to be memorized again and cast them again.
+// fixMenu = O0E1:2F86 (var interrupted): the casters use their memorized
+// spells, rest to learn the cures again and cast them; then they rest for
+// the other mending spells their slots hold and cast those.
 func (e *Engine) fixMenu() bool {
 	if e.woundsTotal() == 0 {
 		return false
 	}
-	var healing uint16
-	healing += e.castCures()
-	if e.woundsTotal() == 0 {
-		e.playerSummary(e.selected())
-		e.statusLine()
-		return false
-	}
+	var n fixCounts
+	healing := e.castCures(&n)
 	saved := e.camp.rest
-	counts := e.fixRestTime(healing)
-	interrupted := e.restFor(false)
-	if !interrupted {
-		healing += e.rollCures(counts)
-		e.applyHealing(&healing)
-		e.playerSummary(e.selected())
-		e.statusLine()
-		e.camp.rest = saved
+	e.fixRestTime(&n)
+	if e.restFor(false) {
+		return true
 	}
-	return interrupted
+	healing += e.rollCures(n)
+	e.fixCure(&n)
+	e.applyHealing(&healing)
+	e.playerSummary(e.selected())
+	e.statusLine()
+	e.camp.rest = saved
+	need := e.fixNeeds()
+	e.mendRestTime(&n, need)
+	if e.restFor(false) {
+		return true
+	}
+	e.fixCure(&n)
+	e.playerSummary(e.selected())
+	e.statusLine()
+	e.camp.rest = saved
+	return false
 }
 
-// castCures = O09D:1F22: every okay member casts its memorized cures; the
-// hit points rolled.
-func (e *Engine) castCures() uint16 {
-	var total uint16
+// castCures = O0E1:215C: every caster casts its memorized cures (the hit
+// points rolled) and counts its other mending spells.
+func (e *Engine) castCures(n *fixCounts) int {
+	total := 0
 	for _, c := range e.party {
-		if c.Status != statusOkay {
+		if !fixCaster(c) {
 			continue
 		}
-		for i := 0; i < len(c.Memorized); i++ {
-			switch c.Memorized[i] {
-			case spellCureLight:
-				total += uint16(e.Dice(1, 8))
-			case spellCureSerious:
-				total += uint16(e.Dice(2, 8) + 1)
-			case spellCureCritical:
-				total += uint16(e.Dice(3, 8) + 3)
+		for _, sp := range c.Memorized {
+			switch sp {
+			case spellCureLightWounds, spellCureLightWoundsDruid:
+				total += e.Dice(1, 8)
+			case spellCureSeriousWounds:
+				total += e.Dice(2, 8) + 1
+			case spellCureCriticalWounds:
+				total += e.Dice(3, 8) + 3
+			case spellHeal:
+				total += e.Dice(4, 8) + 5
+				n.heals++
+			case spellNeutralizePoison:
+				n.neutralize++
+			case spellRaiseDead:
+				n.raise++
+			case spellRemoveCurse, spellRemoveCurseMU:
+				n.removeCurse++
+			case spellStoneToFlesh:
+				n.stoneToFlesh++
+			case spellCureBlindness:
+				n.cureBlind++
+			case spellCureDisease:
+				n.cureDisease++
 			}
 		}
 	}
 	return total
 }
 
-// fixCounts: the cure spells the party can cast per round of Fix.
-type fixCounts struct{ light, serious, critical uint16 }
+// rollCures = O0E1:2291: the cures cast after the rest.
+func (e *Engine) rollCures(n fixCounts) int {
+	total := 0
+	for k := 1; k <= n.light; k++ {
+		total += e.Dice(1, 8)
+	}
+	for k := 1; k <= n.serious; k++ {
+		total += e.Dice(2, 8) + 1
+	}
+	for k := 1; k <= n.critical; k++ {
+		total += e.Dice(3, 8) + 3
+	}
+	for k := 1; k <= n.heal; k++ {
+		total += e.Dice(4, 8) + 3
+	}
+	return total
+}
 
-// fixRestTime = O09D:20ED (healed): how long the clerics study their cures
-// again, shortened when fewer rounds are needed.
-func (e *Engine) fixRestTime(healed uint16) fixCounts {
-	var n fixCounts
-	var longest uint16
+// Minutes of study per cure slot.
+const (
+	cureLightMinutes    = 15
+	druidCureMinutes    = 30
+	cureSeriousMinutes  = 60
+	cureCriticalMinutes = 75
+	healMinutes         = 90
+	minFixWisdom        = 3 // casters need more
+)
+
+// setRestMinutes puts minutes into the rest time.
+func (e *Engine) setRestMinutes(mins int) {
+	r := &e.camp.rest
+	r[restHours] = uint16(mins / 60)
+	r[restTens] = uint16((mins - int(r[restHours])*60) / 10)
+	r[restMinutes] = uint16(mins % 10)
+}
+
+// fixRestTime = O0E1:23D1: how long the casters study their cures again,
+// shortened when fewer rounds are needed. The slot minutes of the last
+// caster carry over to members who cannot cast.
+func (e *Engine) fixRestTime(n *fixCounts) {
+	n.light, n.serious, n.critical, n.heal = 0, 0, 0, 0
+	expected, longest := 0, 0
+	var light, druid, serious, critical, heal int
 	for _, c := range e.party {
-		var mins, light, serious, critical uint16
-		if c.Status == statusOkay {
-			n.light += uint16(c.SpellSlots[0])
-			light = uint16(c.SpellSlots[0]) * 15
-			n.serious += uint16(c.SpellSlots[3])
-			serious = uint16(c.SpellSlots[3]) * 60
-			n.critical += uint16(c.SpellSlots[4])
-			critical = uint16(c.SpellSlots[4]) * 75
+		mins := 0
+		if fixCaster(c) && c.Stats[statWis].Value > minFixWisdom {
+			k := int(c.SpellSlots[slotIndex(spellClassCleric, 1)])
+			n.light += k
+			light = k * cureLightMinutes
+			k = int(c.SpellSlots[slotIndex(spellClassDruid, 2)])
+			n.light += k
+			druid = k * druidCureMinutes
+			k = int(c.SpellSlots[slotIndex(spellClassCleric, 4)])
+			n.serious += k
+			serious = k * cureSeriousMinutes
+			k = int(c.SpellSlots[slotIndex(spellClassCleric, 5)])
+			n.critical += k
+			critical = k * cureCriticalMinutes
+			k = int(c.SpellSlots[slotIndex(spellClassCleric, 6)])
+			n.heal += k
+			heal = k * healMinutes
 		}
 		if light > 0 {
 			mins = 240
-			mins += 27
+			expected += 27
+		}
+		if druid > 0 {
+			mins = 240
+			expected += 27
 		}
 		if serious+critical > 0 {
 			mins = 360
 			if critical > 0 {
-				mins += 78
+				expected += 78
 			} else {
-				mins += 34
+				expected += 34
 			}
 		}
-		mins += light + serious + critical
+		if heal > 0 {
+			mins = 480
+			expected += 90
+		}
+		mins += light + druid + serious + critical + heal
 		if longest < mins {
 			longest = mins
 		}
 	}
-	if w := e.woundsTotal(); w < healed && w > 0 {
-		longest /= uint16(byte(healed / w))
+	if w := e.woundsTotal(); w < expected && byte(expected/w) > 0 {
+		longest /= int(byte(expected / w))
 	}
-	r := &e.camp.rest
-	r[restHours] = longest / 60
-	r[restTens] = (longest - 60*r[restHours]) / 10
-	r[restMinutes] = longest % 10
-	return n
+	e.setRestMinutes(longest)
 }
 
-// rollCures = O09D:1FDD: the cures cast after the rest.
-func (e *Engine) rollCures(n fixCounts) uint16 {
-	var total uint16
-	for k := uint16(1); k <= n.light; k++ {
-		total += uint16(e.Dice(1, 8))
+// fixNeeds = O0E1:2E41: who needs which mending spell.
+func (e *Engine) fixNeeds() fixNeeds {
+	var need fixNeeds
+	for _, c := range e.party {
+		if c.Status == statusDead && c.Race != raceHalfElf && c.Race != raceElf {
+			need.raise++
+		}
+		if c.Status == statusStoned {
+			need.stoneToFlesh++
+		}
+		if e.FindAffect(c, affectCursed) != nil {
+			need.removeCurse++
+		}
+		if e.FindAffect(c, affectPoisoned) != nil {
+			need.neutralize++
+		}
+		if e.FindAffect(c, affectFeebleminded) != nil {
+			need.heal++
+		} else {
+			if e.FindAffect(c, affectBlind) != nil {
+				need.cureBlind++
+			}
+			if e.FindAffect(c, affectDiseased) != nil {
+				need.cureDisease++
+			}
+		}
 	}
-	for k := uint16(1); k <= n.serious; k++ {
-		total += uint16(e.Dice(2, 8) + 1)
-	}
-	for k := uint16(1); k <= n.critical; k++ {
-		total += uint16(e.Dice(3, 8) + 3)
-	}
-	return total
+	return need
 }
 
-// applyHealing = O09D:2280 (var healing): the points go to the wounded in
+// Minutes of study for the mending spells.
+const (
+	healStudyMinutes      = 90
+	neutralizeMinutes     = 60
+	raiseMinutes          = 75
+	thirdLevelStudyMinute = 45
+)
+
+// mendRestTime = O0E1:25EC: the casters' slots add to the mending spells,
+// and the rest lasts as long as studying the ones needed takes.
+func (e *Engine) mendRestTime(n *fixCounts, need fixNeeds) {
+	for _, c := range e.party {
+		if !fixCaster(c) {
+			continue
+		}
+		third := int(c.SpellSlots[slotIndex(spellClassCleric, 3)])
+		n.heals += int(c.SpellSlots[slotIndex(spellClassCleric, 6)])
+		n.stoneToFlesh += int(c.SpellSlots[slotIndex(spellClassMage, 6)])
+		n.raise += int(c.SpellSlots[slotIndex(spellClassCleric, 5)])
+		n.neutralize += int(c.SpellSlots[slotIndex(spellClassCleric, 4)])
+		n.removeCurse += int(c.SpellSlots[slotIndex(spellClassMage, 4)]) + third
+		n.cureBlind += third
+		n.cureDisease += third
+	}
+	mins := min(n.heals, need.heal) * healStudyMinutes
+	mins += min(n.stoneToFlesh, need.stoneToFlesh) * healStudyMinutes
+	mins += min(n.raise, need.raise) * raiseMinutes
+	mins += min(n.neutralize, need.neutralize) * neutralizeMinutes
+	mins += min(n.cureDisease, need.cureDisease) * thirdLevelStudyMinute
+	mins += min(n.cureBlind, need.cureBlind) * thirdLevelStudyMinute
+	mins += min(n.removeCurse, need.removeCurse) * thirdLevelStudyMinute
+	e.setRestMinutes(int(uint16(mins)))
+}
+
+// Constitution above which raising costs hit points per class level.
+const (
+	raiseConBase   = 14
+	raiseConDouble = 15
+	raiseConFull   = 17
+)
+
+// fixCure = O0E1:28FE: the mending spells go to who needs them.
+func (e *Engine) fixCure(n *fixCounts) {
+	for _, c := range e.party {
+		healed := false
+		if n.heals > 0 && e.FindAffect(c, affectFeebleminded) != nil {
+			e.RemoveAffect(c, affectFeebleminded, nil)
+			if e.FindAffect(c, affectBlind) != nil {
+				e.RemoveAffect(c, affectBlind, nil)
+			}
+			for _, d := range diseaseAffects[1:] {
+				if e.FindAffect(c, d) != nil {
+					e.RemoveAffect(c, d, nil)
+				}
+			}
+			healed = true
+			e.combatName(c, "is healed", 10, true)
+			n.heals--
+		}
+		if n.stoneToFlesh > 0 && c.Status == statusStoned {
+			c.Status, c.Okay, c.HP = statusOkay, 1, 1
+			e.combatName(c, "is changed back to flesh", 10, true)
+			n.stoneToFlesh--
+		}
+		if n.neutralize > 0 && e.FindAffect(c, affectPoisoned) != nil {
+			if c.HP == 0 {
+				c.HP = 1
+			}
+			e.rv.cure = 1
+			e.RemoveAffect(c, affectPoisoned, nil)
+			e.RemoveAffect(c, affectSlowPoison, nil)
+			e.RemoveAffect(c, affectPoisonDamage, nil)
+			e.rv.cure = 0
+			c.Okay, c.Status = 1, statusOkay
+			e.combatName(c, "is detoxified", 10, true)
+			n.neutralize--
+		}
+		if n.raise > 0 && c.Status == statusDead && c.Race != raceHalfElf && c.Race != raceElf {
+			e.raiseFromDead(c)
+			n.raise--
+		}
+		if n.removeCurse > 0 && e.FindAffect(c, affectCursed) != nil {
+			e.setTgt(1, c)
+			e.spellRemoveCurse()
+			e.combatName(c, "is relieved of a curse", 10, true)
+			n.removeCurse--
+		}
+		if !healed && n.cureDisease > 0 {
+			for _, d := range diseaseAffects[1:] {
+				if e.FindAffect(c, d) != nil {
+					e.rv.cure = 1
+					e.RemoveAffect(c, d, nil)
+					e.rv.cure = 0
+					healed = true
+					e.statAffects(c, statStr)
+				}
+			}
+			if healed {
+				e.combatName(c, "is cured of disease", 10, true)
+			}
+		}
+		// The original cures the selected member's blindness, whoever is blind.
+		if !healed && n.cureBlind > 0 && e.FindAffect(c, affectBlind) != nil {
+			e.RemoveAffect(e.selected(), affectBlind, nil)
+			e.combatName(e.selected(), "regains sight", 10, true)
+		}
+	}
+}
+
+// raiseFromDead: Fix's raise dead (in O0E1:28FE): a point of
+// constitution goes, and with a constitution of 14 or more some of the
+// hit points above the rolled ones.
+func (e *Engine) raiseFromDead(c *Character) {
+	e.rv.cure = 1
+	e.RemoveAffect(c, affectPoisoned, nil)
+	e.rv.cure = 0
+	c.HP, c.Status, c.Okay = 1, statusOkay, 1
+	con := &c.Stats[statCon].Value
+	if *con > 0 {
+		*con--
+	}
+	var lost byte
+	if c.MaxHP > c.HPRoll {
+		lost = c.MaxHP - c.HPRoll
+	}
+	if *con >= raiseConBase {
+		var per byte
+		for cls := clsCleric; cls < classCount; cls++ {
+			lvl := c.Levels[cls]
+			if int8(lvl) <= 0 {
+				continue
+			}
+			switch {
+			case cls == clsFighter || cls == clsPaladin || cls == clsRanger:
+				per += (*con - raiseConBase) * lvl
+			case *con > raiseConDouble:
+				per += lvl * 2
+			default:
+				per += lvl
+			}
+		}
+		if per > 0 {
+			lost /= per
+		}
+		if *con < raiseConFull || int8(c.Levels[clsFighter]) > 0 || int8(c.Levels[clsFighter]) > int8(c.MulticlassLevel) {
+			c.MaxHP -= lost
+		}
+	}
+	e.combatName(c, "has been raised from the dead", 10, true)
+}
+
+// applyHealing = O0E1:27C2 (var healing): the points go to the wounded in
 // party order.
-func (e *Engine) applyHealing(healing *uint16) {
+func (e *Engine) applyHealing(healing *int) {
 	for _, c := range e.party {
 		if c.MaxHP <= c.HP {
 			continue
 		}
-		need := uint16(c.MaxHP - c.HP)
+		need := int(c.MaxHP - c.HP)
 		if need > *healing {
 			need = *healing
 		}
@@ -798,7 +1092,7 @@ func (e *Engine) applyHealing(healing *uint16) {
 	}
 }
 
-// campMenu = O09D:242B make_camp (var interrupted).
+// campMenu = O0E1:30DF (var interrupted).
 func (e *Engine) campMenu() bool {
 	saved := e.gameState
 	e.gameState = stateCamp
@@ -812,33 +1106,35 @@ func (e *Engine) campMenu() bool {
 	interrupted := false
 	for key := byte(' '); !interrupted && key != 0 && key != 'E'; {
 		var extra bool
-		key, extra = e.DisplayInput("Camp:", "Save View Magic Rest Alter Fix Exit", colourLightMagenta, colourGreen, colourWhite, true, true)
+		key, extra = e.DisplayInput("", "Save View Magic Rest Alter Fix Exit", colourLightMagenta, colourGreen, colourWhite, true, true)
+		sel := e.menuSel
 		if extra {
-			e.cycleSelected(key)
-			e.playerSummary(e.selected())
-			continue
-		}
-		switch key {
-		case 'S':
-			e.SaveGame()
-			if e.YesNo(colourYellow, colourGreen, colourWhite, "Quit TO DOS ") == 'Y' {
-				e.Exit()
+			e.selectStep(key)
+		} else {
+			switch key {
+			case 'S':
+				// Every 30th save the original asks for a word from the rule
+				// book (O0E1:039D); the port has no copy protection.
+				e.SaveGame()
+				if e.YesNo(colourYellow, colourGreen, colourWhite, "Quit TO DOS ") == 'Y' {
+					e.Exit()
+				}
+			case 'V':
+				e.viewPlayer()
+			case 'M':
+				e.menuSel = 1
+				e.magicMenu(&interrupted)
+			case 'R':
+				e.menuSel = 1
+				interrupted = e.restMenu()
+			case 'F':
+				interrupted = e.fixMenu()
+			case 'A':
+				e.menuSel = 1
+				e.alterMenu()
 			}
-		case 'V':
-			e.menuSel = 1
-			e.viewPlayer()
-		case 'M':
-			e.menuSel = 1
-			e.magicMenu(&interrupted)
-		case 'R':
-			e.menuSel = 1
-			interrupted = e.restMenu()
-		case 'F':
-			interrupted = e.fixMenu()
-		case 'A':
-			e.menuSel = 1
-			e.alterMenu()
 		}
+		e.menuSel = sel
 	}
 	if len(picName) >= 3 && picName[:3] == "PIC" {
 		e.loadViewPicture(picName, picBlock, 0)
