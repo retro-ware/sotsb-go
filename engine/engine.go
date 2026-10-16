@@ -170,7 +170,6 @@ type Engine struct {
 	spr            *dax.Image          // DS:6E36, 4 frame missile/hit sprite
 	sprUnder       []byte              // DS:4A24, background saved by a sprite draw
 	place          placement           // DS:4440..4658 combat start formations
-	terrain        byte                // DS:465A wilderness square of the battle
 	stinkingClouds []*cloudRecord      // DS:7575
 	poisonClouds   []*cloudRecord      // DS:7579
 	delayedBlasts  []*cloudRecord      // DS:8D8D delayed blast fireballs waiting

@@ -1,15 +1,14 @@
 package engine
 
-// Combat setup (ovr11): the battle map, the combat blocks and where every
-// combatant starts.
+// Combat setup (unit O097): the battle map, the combat blocks and where
+// every combatant starts.
 
-// combatSetup = O05D:battle_begins.
+// combatSetup = O097:1564 battle_begins.
 func (e *Engine) combatSetup() {
 	e.FreeAnimPic()
-	e.port = portrait{headID: 0xFF, bodyID: 0xFF}
+	e.port = portrait{headID: noPicture, bodyID: noPicture}
 	e.ClearRow24()
-	e.pauseForMessage()
-	e.DisplayString(0, 0x18, 0xA, "A battle begins...")
+	e.DisplayString(0, statusRow, colourGreen, "A battle begins...")
 	e.computerMagic, e.combatRound, e.rv.hitRoll = false, 0, 0
 	e.roundLimit = combatRoundsWithoutAttack
 	e.nbodies = 0
@@ -43,23 +42,23 @@ func (e *Engine) flushKey() {
 	}
 }
 
-// combatMapSetup = O05D:1030: the tile sets and the map.
+// combatMapSetup = O097:094B: the tile set and the map. Silver Blades
+// only fights in dungeons; outdoors (O097:0939, empty) the map stays bare.
 func (e *Engine) combatMapSetup() {
-	if wordAt(e.area, 2*areaWordFreeSteps) != 0 {
-		e.LoadBackpacIcons("DungCom", 1, 0, 25)
-	} else {
-		e.LoadBackpacIcons("WildCom", 1, 0, 33)
+	inside := wordAt(e.area, 2*areaWordFreeSteps) != 0
+	if inside {
+		e.LoadBackpacIcons("DungCom", 1, 0, combatIconCount)
 	}
-	e.LoadBackpacIcons("RandCom", 1, 34, 6)
 	e.cmap = &combatMap{cursorSize: 1}
-	if wordAt(e.area, 2*areaWordFreeSteps) != 0 {
+	if inside {
 		e.dungeonMap()
-	} else {
-		e.wildMap()
 	}
 }
 
-// combatBlocks = O05D:10E0: a fresh combat block for every combatant;
+// combatIconCount: the DungCom tiles.
+const combatIconCount = 32
+
+// combatBlocks = O097:09BF: a fresh combat block for every combatant;
 // those past the party count are not party members, and such a one on the
 // party's side without a sane control byte is run by the party's choice
 // (game word 1420).
@@ -84,7 +83,7 @@ func (e *Engine) combatBlocks() {
 
 // --- the dungeon map (O097:0875) -------------------------------------
 
-// cellSide = O05D:0306 (x, y, dir): 1 wall, 0 open, 3 door. Off the
+// cellSide = O097:0330 (x, y, dir): 1 wall, 0 open, 3 door. Off the
 // 16x16 map only the party's row is open east and west.
 func (e *Engine) cellSide(x, y, dir int) byte {
 	if x >= 0 && x <= 0xF && y >= 0 && y <= 0xF {
@@ -258,7 +257,7 @@ const (
 // rubbleSpread = DS:034C / DS:0350: the four squares round a rubble heap.
 var rubbleSpread = [4][2]int{{0, -1}, {1, 0}, {0, 1}, {-1, 0}}
 
-// dungeonRubble = O05D:00D3 (for the cell at column c, row r with the
+// dungeonRubble = O097:0084 (for the cell at column c, row r with the
 // edges n, e, s, w): in a cell flagged for it that is neither a corridor
 // nor has a door, heaps of rubble on the floor.
 func (e *Engine) dungeonRubble(c, r int, n, ea, s, w byte, flagged bool) {
@@ -266,7 +265,7 @@ func (e *Engine) dungeonRubble(c, r int, n, ea, s, w byte, flagged bool) {
 		(n != 1 || s != 1 || ea == 1 && w == 1) &&
 		(ea != 1 || w != 1 || n == 1 && s == 1) &&
 		n != 3 && ea != 3 && s != 3 && w != 3
-	inMap := func(x, y int) bool { return x >= 0 && x < wildMapW && y >= 0 && y < wildMapH }
+	inMap := func(x, y int) bool { return x >= 0 && x < combatMapW && y >= 0 && y < combatMapH }
 	for i := 2; i <= 3; i++ {
 		for j := 2; j <= 4; j++ {
 			x := c*6 + r*5 + 21 + i + j // sic: the row is added to the column too
@@ -285,213 +284,19 @@ func (e *Engine) dungeonRubble(c, r int, n, ea, s, w byte, flagged bool) {
 	}
 }
 
-// --- the wilderness map (O05D:0FC8) -----------------------------------
+// tileOpenGround: the groundInfo tile of open ground (things may be put there).
+const tileOpenGround = 22
 
-// Wilderness terrain flags (wildTerrain, by area byte 0x342).
-const (
-	terrainSparse   = 2   // fewer trees and rocks
-	terrainThin     = 4   // a few fewer
-	terrainForest   = 8   // more trees
-	terrainHills    = 16  // a cliff now and then
-	terrainMountain = 32  // a cliff more often
-	terrainRough    = 64  // more of everything
-	terrainBare     = 128 // no trees, much less of anything
-)
-
-// Combat ground values of the wilderness.
-const (
-	groundGrass        = 23 // the whole map to start with
-	tileOpenGround     = 22 // groundInfo tile of open ground: things may be put there
-	groundCliffLeft    = 59 // +1d2
-	groundCliffRight   = 61 // +1d2
-	groundCliffFoot    = 64
-	groundCliffFoot2   = 65
-	groundTreeTop      = 31 // +1d5, above groundTreeTrunk
-	groundTreeTrunk    = 36 // +1d5
-	groundShrub        = 41 // +1d2
-	groundBoulder      = 57 // +1d2
-	groundBush         = 47 // +1d2
-	groundRocks        = 43 // +1d4
-	groundStones       = 54 // +1d3
-	groundFlowers      = 49 // +1d4
-	areaByteTerrain    = 0x342
-	wildMapW, wildMapH = 50, 25
-)
-
-// wildTerrain = O05D:0991: the terrain flags of the area (DS:0354 by DS:4A2C).
-// Past the table the original reads the bytes after it; the port gives 0.
-func (e *Engine) wildTerrain() byte {
-	if int(e.terrain) >= len(wildTerrainFlags) {
-		return 0
-	}
-	return wildTerrainFlags[e.terrain]
-}
-
-// wildMap = O05D:0FC8: grass everywhere, then perhaps a cliff, trees and
-// the small things.
-func (e *Engine) wildMap() {
-	for y := range e.cmap.ground {
-		for x := range e.cmap.ground[y] {
-			e.cmap.ground[y][x] = groundGrass
-		}
-	}
-	e.terrain = e.area[areaByteTerrain] // DS:4A2C
-	e.wildCliff()
-	e.wildTrees()
-	e.wildScatter()
-}
+// combatMapW, combatMapH: the battle map's size in squares.
+const combatMapW, combatMapH = 50, 25
 
 func (e *Engine) openGround(x, y int) bool {
 	return e.groundInfo(e.cmap.ground[y][x])[3] == tileOpenGround
 }
 
-// wildCliff = O05D:0A00: in hills and mountains, now and then a cliff runs
-// down the map, leaning right, with a fallen block at its foot here and
-// there.
-func (e *Engine) wildCliff() {
-	chance := 0
-	if e.wildTerrain()&terrainMountain != 0 {
-		chance = 35
-	}
-	if e.wildTerrain()&terrainHills != 0 {
-		chance = 75
-	}
-	if e.Dice(1, 100) > chance {
-		return
-	}
-	x := 34 - e.Dice(5, 4)
-	for (x+2)%7 > 0 {
-		x--
-	}
-	for y := 0; y < wildMapH; y++ {
-		if x > wildMapW-1 {
-			continue
-		}
-		e.cmap.ground[y][x] = byte(e.Dice(1, 2) + groundCliffLeft)
-		if x < wildMapW-1 {
-			e.cmap.ground[y][x+1] = byte(e.Dice(1, 2) + groundCliffRight)
-		}
-		if e.Dice(1, 20) == 1 { // O05D:09AC
-			if x < wildMapW-1 {
-				e.cmap.ground[y][x+1] = groundCliffFoot
-			}
-			if y < wildMapH-1 && x < wildMapW-1 {
-				e.cmap.ground[y+1][x+1] = groundCliffFoot2
-			}
-		}
-		x++
-	}
-}
+// --- placement (O097:10DC) -------------------------------------------
 
-// wildTrees = O05D:0B0B: trees (two squares high) and shrubs on open
-// ground, more in forests.
-func (e *Engine) wildTrees() {
-	t := e.wildTerrain()
-	if t&terrainBare != 0 {
-		return
-	}
-	chance := int8(10)
-	if t&terrainSparse != 0 {
-		chance -= 5
-	}
-	if t&terrainThin != 0 {
-		chance -= 2
-	}
-	if t&terrainRough != 0 {
-		chance += 5
-	}
-	if t&terrainForest != 0 {
-		chance += 10
-	}
-	if chance < 0 {
-		chance = 1
-	}
-	for x := 0; x < wildMapW; x++ {
-		for y := 1; y < wildMapH; y++ {
-			if !e.openGround(x, y) || !e.openGround(x, y-1) {
-				continue
-			}
-			if int(chance) < e.Dice(1, 100) {
-				continue
-			}
-			if int(chance) >= e.Dice(1, 100) {
-				e.cmap.ground[y][x] = byte(e.Dice(1, 2) + groundShrub)
-			} else {
-				e.cmap.ground[y-1][x] = byte(e.Dice(1, 5) + groundTreeTop)
-				e.cmap.ground[y][x] = byte(e.Dice(1, 5) + groundTreeTrunk)
-			}
-		}
-	}
-}
-
-// scatterOdds are the percent chances of O05D:0CA2: a boulder, a bush,
-// rocks, stones, flowers; the rest stays open.
-type scatterOdds struct{ boulder, bush, rocks, stones, flowers int }
-
-// wildScatter = O05D:0E4A: the small things on open ground, by how rough
-// the terrain is.
-func (e *Engine) wildScatter() {
-	t := e.wildTerrain()
-	rough := 50
-	if t&terrainHills != 0 {
-		rough += 10
-	}
-	if t&terrainMountain != 0 {
-		rough += 30
-	}
-	if t&terrainRough != 0 {
-		rough += 20
-	}
-	if t&terrainThin != 0 {
-		rough -= 10
-	}
-	if t&terrainSparse != 0 {
-		rough -= 20
-	}
-	if t&terrainBare != 0 {
-		rough -= 50
-	}
-	var odds scatterOdds
-	switch {
-	case rough >= -30 && rough <= 9:
-		odds = scatterOdds{0, 0, 0, 30, 15}
-	case rough >= 10 && rough <= 29:
-		odds = scatterOdds{0, 1, 5, 20, 10}
-	case rough >= 30 && rough <= 69:
-		odds = scatterOdds{0, 2, 5, 10, 5}
-	case rough >= 70 && rough <= 89:
-		odds = scatterOdds{10, 2, 10, 10, 1}
-	case rough >= 90 && rough <= 110:
-		odds = scatterOdds{15, 5, 15, 10, 1}
-	default:
-		return
-	}
-	for x := 0; x < wildMapW; x++ {
-		for y := 0; y < wildMapH; y++ {
-			if !e.openGround(x, y) {
-				continue
-			}
-			r := e.Dice(1, 100)
-			g := &e.cmap.ground[y][x]
-			switch {
-			case r <= odds.boulder:
-				*g = byte(e.Dice(1, 2) + groundBoulder)
-			case r <= odds.boulder+odds.bush:
-				*g = byte(e.Dice(1, 2) + groundBush)
-			case r <= odds.boulder+odds.bush+odds.rocks:
-				*g = byte(e.Dice(1, 4) + groundRocks)
-			case r <= odds.boulder+odds.bush+odds.rocks+odds.stones:
-				*g = byte(e.Dice(1, 3) + groundStones)
-			case r <= odds.boulder+odds.bush+odds.rocks+odds.stones+odds.flowers:
-				*g = byte(e.Dice(1, 4) + groundFlowers)
-			}
-		}
-	}
-}
-
-// --- placement (O05D:17FE) -------------------------------------------
-
-// placement is the DS:4440..4658 state of O05D:17FE: per side the
+// placement is the DS:4440..4658 state of O097:10DC: per side the
 // formation templates (4 teams of 6 rows by 11), origin, size and facing.
 type placement struct {
 	slots  [2][4][6][11]byte // DS:4440
@@ -501,7 +306,7 @@ type placement struct {
 	side   byte              // DS:4658
 }
 
-// placeCombatants = O05D:17FE.
+// placeCombatants = O097:10DC.
 func (e *Engine) placeCombatants() {
 	e.countSides()
 	e.cpos = [0x49]combatPos{}
@@ -548,11 +353,15 @@ func (e *Engine) placeCombatants() {
 		if e.placeOne(idx) {
 			if c.Okay == 0 {
 				e.cpos[idx].size = 0
-				if !e.duelling && c.Combat.Extra == 0 {
+				if c.Combat.Extra == 0 {
 					x, y := e.cpos[idx].x, e.cpos[idx].y
 					e.nbodies++
 					e.bodies[e.nbodies] = body{c: c, x: x, y: y, ground: e.cmap.ground[y][x]}
-					e.cmap.ground[y][x] = 0x1F
+					if c.Status == statusStoned {
+						e.cmap.ground[y][x] = groundStoneBody
+					} else {
+						e.cmap.ground[y][x] = groundBody
+					}
 				}
 			}
 			e.combatRedrawMap()
@@ -580,7 +389,7 @@ func formationEdge(x, y int) bool {
 	return (x < 0 || x >= 0xB) && (y < 0 || y >= 6)
 }
 
-// placeAt = O05D:1233 (idx, x, y, ox, oy, team): put combatant idx on
+// placeAt = O097:0B1C (idx, x, y, ox, oy, team): put combatant idx on
 // formation slot (x,y) of the team block at (ox,oy) if the ground lets it.
 func (e *Engine) placeAt(idx, x, y, ox, oy, team int) bool {
 	p := &e.place
@@ -597,7 +406,7 @@ func (e *Engine) placeAt(idx, x, y, ox, oy, team int) bool {
 	return false
 }
 
-// placeOne = O05D:1380 (idx): walk the formation of the combatant's side,
+// placeOne = O097:0C60 (idx): walk the formation of the combatant's side,
 // row by row outwards from the middle, falling back on the other teams
 // (blocks beside the first) until a free slot takes it.
 func (e *Engine) placeOne(idx int) bool {

@@ -38,6 +38,7 @@ data segment by content.
   - [x] text R540 (font from 8X8D5 block 201 — 8X8D1 has none; line editor: no leading spaces, extended keys ignored, trailing spaces trimmed)
   - [x] script machine O07D (no free-steps reset at init, picture 255 skips the picture, ROB unreadies items, no haste/slow in party speeds, no damage message for the stoned; 1B9A has no counterpart)
   - [x] money and item creation O13C (coins 259..271, pool gold rounds down, "How Many" gems, overload pause on taking coins, SotSB item types/weights/prices, +1..+3 bonus, scroll spells from the level tables)
+  - [x] combat setup O097 (no wilderness battle map, DungCom tiles only, no pause before "A battle begins...", downed starters lie as body or statue tiles)
 - [ ] M8 sound
 - [ ] M9 goplay: games.js, deploy.sh build rule, README tables, wasm build
 - [ ] M10 publish (public deploy: only with the user's go-ahead)
