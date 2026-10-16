@@ -250,7 +250,8 @@ func (e *Engine) clearTreasure() {
 	e.treasureItems = nil
 }
 
-// adventureInput = O099:08DF: the command bar in a dungeon; returns the key.
+// adventureInput = O0D6:08C3: the command bar in a dungeon; returns the key.
+// The arrows pick the member; Move gives them to walking until Exit.
 func (e *Engine) adventureInput() byte {
 	s := &e.sc
 	if f := e.DevAction; f != nil { // cmd/snap's scenes
@@ -260,63 +261,81 @@ func (e *Engine) adventureInput() byte {
 	putWord(e.game, 2*gameWordSteps, 0)
 	var k byte
 	if e.gameState == stateDungeon {
-		done := false
-		for !done {
+		turn := func(by byte, sound bool) {
+			s.facing = (s.facing + by) % 8
+			if sound {
+				e.PlaySound(sndStep)
+			}
+			s.wallHere = e.WallAt(int(s.posX), int(s.posY), int(s.facing))
+			e.viewOrMap(int(s.posX), int(s.posY), int(s.facing))
+			e.statusLine()
+			k = 0
+		}
+		for done := false; !done; {
 			var extra bool
-			k, extra = e.DisplayInput("", commandBar, colourLightMagenta, colourGreen, colourWhite, true, false)
-			if !extra {
-				switch k {
-				case 'A':
-					if wordAt(e.area, 2*areaWordNoMap) == 0 || e.cheatArg {
-						e.gs.overhead = !e.gs.overhead
-						e.viewOrMap(int(s.posX), int(s.posY), int(s.facing))
-					} else {
-						e.flashMessage("Not Here", colourYellow, colourBlack)
-					}
-				case 'C':
-					if e.selected().Status == 0 {
+			if !s.moveMode {
+				k, extra = e.DisplayInput("", commandBar, colourLightMagenta, colourGreen, colourWhite, true, false)
+				sel := e.menuSel
+				if !extra {
+					switch k {
+					case 'M':
+						e.ClearRow24()
+						s.moveMode = true
+					case 'A':
+						if wordAt(e.area, 2*areaWordNoMap) == 0 || e.cheatArg {
+							e.gs.overhead = !e.gs.overhead
+							e.viewOrMap(int(s.posX), int(s.posY), int(s.facing))
+						} else {
+							e.flashMessage("Not Here", colourYellow, colourBlack)
+							e.statusLine()
+						}
+					case 'C':
+						if e.selected().Status == 0 {
+							e.menuSel = 1
+							e.castMenu()
+						}
+					case 'V':
 						e.menuSel = 1
-						e.castMenu()
+						e.CharacterSheet()
+					case 'E':
+						done = true
+						e.menuSel = 1
+					case 'S':
+						putWord(e.game, 2*gameWordLook, wordAt(e.game, 2*gameWordLook)^1)
+						e.statusLine()
+					case 'L':
+						putWord(e.game, 2*gameWordLook, wordAt(e.game, 2*gameWordLook)|2)
+						e.AdvanceClock(1, clockMinute)
+						e.statusLine()
+						s.pc = s.events[1]
+						done = true
 					}
-				case 'V':
-					e.menuSel = 1
-					e.CharacterSheet()
-				case 'E':
-					done = true
-					e.menuSel = 1
-				case 'S':
-					putWord(e.game, 2*gameWordLook, wordAt(e.game, 2*gameWordLook)^1)
-				case 'L':
-					putWord(e.game, 2*gameWordLook, wordAt(e.game, 2*gameWordLook)|2)
-					e.AdvanceClock(1, clockMinute)
-					s.pc = s.events[1]
-					done = true
-				}
-			} else {
-				switch k {
-				case scanUp:
-					e.stepAhead()
-					done = true
-				case scanDown:
-					s.facing = (s.facing + 4) % 8
-					s.wallHere = e.WallAt(int(s.posX), int(s.posY), int(s.facing))
-					e.viewOrMap(int(s.posX), int(s.posY), int(s.facing))
-				case scanLeft:
-					s.facing = (s.facing + 6) % 8
-					e.PlaySound(sndStep)
-					s.wallHere = e.WallAt(int(s.posX), int(s.posY), int(s.facing))
-					e.viewOrMap(int(s.posX), int(s.posY), int(s.facing))
-				case scanRight:
-					s.facing = (s.facing + 2) % 8
-					e.PlaySound(sndStep)
-					s.wallHere = e.WallAt(int(s.posX), int(s.posY), int(s.facing))
-					e.viewOrMap(int(s.posX), int(s.posY), int(s.facing))
-				default:
+				} else {
 					e.cycleSelected(k)
 					e.playerSummary(e.selected())
+					e.statusLine()
 				}
+				e.menuSel = sel
+				continue
 			}
-			e.statusLine()
+			k, extra = e.DisplayInput("", "Exit", colourLightMagenta, colourGreen, colourWhite, true, false)
+			switch {
+			case !extra:
+				if k == 'E' {
+					s.moveMode = false
+				}
+			case k == scanUp:
+				e.stepAhead()
+				done = true
+				e.statusLine()
+				k = 0
+			case k == scanDown:
+				turn(4, false)
+			case k == scanLeft:
+				turn(6, true)
+			case k == scanRight:
+				turn(2, true)
+			}
 		}
 	}
 	if !s.waitedKey {
@@ -326,13 +345,13 @@ func (e *Engine) adventureInput() byte {
 	return k
 }
 
-// The dungeon command bar (DS:03D8).
-const commandBar = "Area Cast View Encamp Search Look"
+// The dungeon command bar.
+const commandBar = "Move Area Cast View Encamp Search Look"
 
 // gameWordSteps: cleared before each command; set by a step that left the map.
 const gameWordSteps = 713
 
-// stepAhead = O099:0765: through an open side the party would leave the
+// stepAhead = O0D6:071B: through an open side the party would leave the
 // map: clamp and flag it (the step itself is taken by lockedDoor).
 func (e *Engine) stepAhead() {
 	s := &e.sc
@@ -372,7 +391,7 @@ const (
 	maxStepCode = 255
 )
 
-// lockedDoor = O099:0B80: after a forward step command, walk through an
+// lockedDoor = O0D6:0C3B: after a forward step command, walk through an
 // open side, or offer Bash / Pick / Knock at a locked door.
 func (e *Engine) lockedDoor() {
 	s := &e.sc

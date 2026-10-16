@@ -220,6 +220,7 @@ func (e *Engine) Adventure() {
 		e.drawView()
 	}
 	e.loadedGame = false
+	s.moveMode = false
 	for !e.partyDead {
 		k := e.adventureInput()
 		s.savedSelected = e.selected()

@@ -510,22 +510,20 @@ func menuHotkeys(menu string) (string, string) {
 	return string(b[1 : length+1]), string(hot)
 }
 
-// cycleSelected = O100:39AE (key): Home selects the previous member, End
-// the next, anything else the first. SotSB uses Up and Down; the keys
-// change with the shop, temple, after-combat and adventure units that call
-// it (their menus still take Home and End).
+// cycleSelected = O100:39AE (key): Up selects the previous member, Down
+// the next, anything else the first.
 func (e *Engine) cycleSelected(k byte) {
 	if len(e.party) == 0 {
 		return
 	}
 	switch k {
-	case scanHome:
+	case scanUp:
 		if e.partySel == 0 {
 			e.partySel = len(e.party) - 1
 		} else {
 			e.partySel--
 		}
-	case scanEnd:
+	case scanDown:
 		e.partySel++
 		if e.partySel >= len(e.party) {
 			e.partySel = 0

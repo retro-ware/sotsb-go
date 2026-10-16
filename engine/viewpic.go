@@ -37,9 +37,10 @@ func (e *Engine) drawViewPicture(x, y int, overlay bool, f int) {
 	e.DrawPicture(x, y, im, 0)
 }
 
-// loadViewPicture = O110:0103 load_pic_final (name, block, flags): the
-// <name><area>.DAX block into the view picture unless it is already there.
-// PIC and FINAL frames after the first are stored XORed against the first.
+// loadViewPicture = O178:00EC (name, block, flags): the <name><n>.DAX block
+// into the view picture unless it is already there. PIC and FINAL frames
+// after the first are stored XORed against the first; without the loading
+// message only the first is kept.
 func (e *Engine) loadViewPicture(name string, block byte, flags byte) {
 	a := &e.pic
 	if a.name == name && byte(e.mapMode) == block || block == noPicture {
@@ -52,18 +53,36 @@ func (e *Engine) loadViewPicture(name string, block byte, flags byte) {
 	e.restoreBackground()
 	a.name = name
 	e.mapMode = block
-	b := e.daxBlock(name+e.areaDigit(), int(block))
+	b := e.daxBlock(name+picFile(name, block, e.areaDigit()), int(block))
 	if b == nil {
 		e.displayAndWait(colourYellow, colourBlack, "PIC not found")
 		return
 	}
 	xor := name == "PIC" || name == "FINAL"
-	a.frames = dax.ParseSprite(b, flags&1 != 0 && e.videoMode != 0, 0, xor)
+	a.frames = dax.ParseSprite(b, flags&1 != 0 && e.colourCard(), 0, xor)
+	if xor && !e.loadingMessage && len(a.frames) > 1 {
+		a.frames = a.frames[:1]
+	}
 	a.cur = 1
 	e.ClearKeyboard()
 	if e.loadingMessage {
 		e.ClearRow24()
 	}
+}
+
+// picFile: the .DAX digit of a view picture; some live outside the area's
+// file (O178:00EC).
+func picFile(name string, block byte, area string) string {
+	switch {
+	case name == "SPRIT":
+		return "1"
+	case name != "PIC":
+	case block == 6 || block == 59 || block == 60 || block == 66 || block == 69 || block == 71 || block == 89:
+		return "4"
+	case block == 1 || block == 17 || block == 27 || block == 77:
+		return "5"
+	}
+	return area
 }
 
 // restoreBackground = O110:0556 (picture): free the view picture.

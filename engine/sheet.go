@@ -38,7 +38,7 @@ func (e *Engine) CharacterSheet() {
 	e.displayStringBg(1, sheetLevelRow, colourWhite, colourBlack, "Level")
 	e.displayStringBg(7, sheetLevelRow, colourWhite, colourBlack, levelsText(c))
 	e.displayStringBg(24, 6, colourWhite, colourBlack, "Experience:")
-	exp := itoa(int(int32(c.Exp)))
+	exp := commas(int(int32(c.Exp)))
 	e.displayStringBg((20-len(exp))/2+sheetRightColumn, sheetLevelRow, colourGreen, colourBlack, exp)
 	for i, l := range statLabels {
 		e.displayStringBg(1, sheetStatsRow+i, colourGreen, colourBlack, l)
@@ -297,4 +297,13 @@ func (e *Engine) ItemName(c *Character, it *Item, x, y int, readied, display boo
 	if display {
 		e.displayStringBg(x, y, colourGreen, colourBlack, name)
 	}
+}
+
+// commas = O151:0F32: the number with commas every three digits.
+func commas(n int) string {
+	s := itoa(n)
+	for i := len(s) - 3; i > 0; i -= 3 {
+		s = s[:i] + "," + s[i:]
+	}
+	return s
 }

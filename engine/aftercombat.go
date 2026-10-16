@@ -465,7 +465,7 @@ func (e *Engine) takeTreasure(money, items *bool) {
 // Detection spells the treasure menu offers (memorized ids).
 var treasureDetectSpells = [...]byte{5, 11, 77}
 
-// lootMenu = O045:10C3: the treasure screen.
+// lootMenu = O072:0FB0: the treasure screen.
 func (e *Engine) lootMenu() {
 	e.loadPicture()
 	var money, items bool
@@ -494,15 +494,18 @@ func (e *Engine) lootMenu() {
 			menu = "View Take Pool" + exit
 		}
 		key, extra := e.DisplayInput("", menu, colourLightMagenta, colourGreen, colourWhite, true, true)
+		if extra {
+			e.cycleSelected(key)
+			e.playerSummary(e.selected())
+			continue
+		}
 		switch key {
 		case 'V':
-			extra = e.viewPlayer()
+			e.viewPlayer()
 		case 'T':
 			e.takeTreasure(&money, &items)
 		case 'P':
-			if !extra {
-				e.poolMoney()
-			}
+			e.poolMoney()
 		case 'S':
 			e.shareMoney()
 		case 'D':
@@ -519,9 +522,6 @@ func (e *Engine) lootMenu() {
 			} else {
 				e.ClearBox(1, 17, 38, 22)
 			}
-		case 'G', 'O':
-			e.cycleSelected(key)
-			e.playerSummary(e.selected())
 		}
 	}
 }

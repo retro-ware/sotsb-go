@@ -131,7 +131,10 @@ func (e *Engine) DisplayInput(prompt, menu string, promptColour, normal, highlig
 		case keyEsc:
 			key, done = 0, true
 		case keyEnter:
-			key = menu[items[e.menuSel-1].first-1]
+			key = byte(len(menu)) // menu[0], the length byte, when nothing is a hotkey
+			if f := items[e.menuSel-1].first; f > 0 {
+				key = menu[f-1]
+			}
 			if key == 0 {
 				key = keyEnter
 			}

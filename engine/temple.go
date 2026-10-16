@@ -269,7 +269,7 @@ func (e *Engine) templeHeal() {
 // templeMenu = O06C:0C89 temple_shop.
 func (e *Engine) templeMenu() {
 	e.gameState = stateShop
-	e.shopFrame = wordAt(e.area, 2*areaWordFreeSteps) == 0
+	e.shopFrame = false
 	e.loadPicture()
 	e.shopFrame = true
 	e.playerSummary(e.selected())
@@ -287,6 +287,8 @@ func (e *Engine) templeMenu() {
 		case 'H':
 			if !extra {
 				e.templeHeal()
+			} else {
+				e.cycleSelected(key)
 			}
 		case 'V':
 			e.viewPlayer()
@@ -295,6 +297,8 @@ func (e *Engine) templeMenu() {
 		case 'P':
 			if !extra {
 				e.poolMoney()
+			} else {
+				e.cycleSelected(key)
 			}
 		case 'S':
 			e.shareMoney()
@@ -315,8 +319,6 @@ func (e *Engine) templeMenu() {
 			} else {
 				leave = true
 			}
-		case scanHome, scanEnd:
-			e.cycleSelected(key)
 		}
 		switch {
 		case key == 'B' || key == 'T':

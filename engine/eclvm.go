@@ -90,6 +90,7 @@ type script struct {
 	firstLoad                          bool       // b8B88
 	inSpecial                          bool       // b8B7A
 	waitedKey                          bool       // b8B80
+	moveMode                           bool       // bA4D4: the arrows walk
 	monstersLoaded                     bool       // b8B83
 	inEncounter                        bool       // b8B85
 	sprite, closeup                    byte       // b761B, b761C

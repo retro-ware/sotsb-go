@@ -13,7 +13,7 @@ const (
 	listMemorise  = 5 // spells still to memorise
 	listToScribe  = 6
 	listBundle    = 7 // the scrolls in the bag in scrollItem
-	maxListSpells = 84
+	maxListSpells = 126
 	maxScrolls    = 49
 )
 
@@ -91,7 +91,7 @@ func (e *Engine) addSpellLine(spell byte) {
 	l.ids[n] = spell & 127
 }
 
-// addSpellSorted = O0C2:05B9 (spell): insert the spell in level order; a
+// addSpellSorted = O113:05D3 (spell): insert the spell in level order; a
 // spell already listed counts up "(n)" instead.
 func (e *Engine) addSpellSorted(spell byte) {
 	l := &e.spells

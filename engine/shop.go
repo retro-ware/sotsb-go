@@ -31,9 +31,9 @@ func (e *Engine) shopPrice(it *Item) uint16 {
 }
 
 // Width of a shop list line, price right-aligned.
-const shopLineWidth = 30
+const shopLineWidth = 38
 
-// shopList = O048:004E (var key, var item, var selection, var index): the
+// shopList = O079:0033 (var key, var item, var selection, var index): the
 // goods with their prices; the item names are rebuilt afterwards.
 func (e *Engine) shopList(index *int, redraw *bool) (byte, *Item) {
 	list := make([]*ListNode, len(e.treasureItems))
@@ -132,10 +132,10 @@ func (e *Engine) shopBuy() {
 	}
 }
 
-// shopMenu = O048:06E7: the shop's menu until the party leaves.
+// shopMenu = O079:0804: the shop's menu until the party leaves.
 func (e *Engine) shopMenu() {
 	e.gameState = stateShop
-	e.shopFrame = wordAt(e.area, 2*areaWordFreeSteps) == 0
+	e.shopFrame = false
 	e.loadPicture()
 	e.shopFrame = true
 	e.playerSummary(e.selected())
@@ -162,6 +162,8 @@ func (e *Engine) shopMenu() {
 		case 'P':
 			if !extra {
 				e.poolMoney()
+			} else {
+				e.cycleSelected(key)
 			}
 		case 'S':
 			e.shareMoney()
@@ -182,8 +184,10 @@ func (e *Engine) shopMenu() {
 			} else {
 				leave = true
 			}
-		case scanHome, scanEnd:
-			e.cycleSelected(key)
+		case 'H':
+			if extra {
+				e.cycleSelected(key)
+			}
 		}
 		switch {
 		case key == 'B' || key == 'T':
