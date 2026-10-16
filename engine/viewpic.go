@@ -85,14 +85,14 @@ func picFile(name string, block byte, area string) string {
 	return area
 }
 
-// restoreBackground = O110:0556 (picture): free the view picture.
+// restoreBackground = O178:05ED (picture): free the view picture.
 func (e *Engine) restoreBackground() {
 	e.pic = animPic{block: -1}
 	e.spriteShown = false
 	e.mapMode = noPicture
 }
 
-// loadPortrait = O110:05D8 (head, body): HEAD / BODY blocks, kept while
+// loadPortrait = O178:066C (head, body): HEAD / BODY blocks, kept while
 // the ids do not change; 255 leaves that half alone.
 func (e *Engine) loadPortrait(head, body byte) {
 	p := &e.port
@@ -113,7 +113,7 @@ func (e *Engine) loadPortrait(head, body byte) {
 	e.ClearKeyboard()
 }
 
-// drawPortrait = O110:06DC (x, y, both): the head, and the body five rows
+// drawPortrait = O178:0770 (x, y, both): the head, and the body five rows
 // below it.
 func (e *Engine) drawPortrait(x, y int, both bool) {
 	if both {
@@ -123,11 +123,11 @@ func (e *Engine) drawPortrait(x, y int, both bool) {
 	e.DrawPortrait(x, y, false)
 }
 
-// showSprite = O110:074D Show3DSprite (frame): frame 1..3 of the loaded
+// showSprite = O178:07E3 Show3DSprite (frame): frame 1..3 of the loaded
 // sprite at its own offset in the view.
 func (e *Engine) showSprite(frame int) { e.DrawAnimFrame(frame) }
 
-// bigPicture = O110:080C bigpic (block): load the wilderness picture.
+// bigPicture = O178:08A2 bigpic (block): load the wilderness picture.
 func (e *Engine) bigPicture(block byte) {
 	e.restoreBackground()
 	if e.areaKind == block {
@@ -144,7 +144,7 @@ func (e *Engine) drawWildernessFrame() {
 	e.drawRule(viewRuleRow)
 }
 
-// drawBigPic draws the big picture at (1,1) (O110:087A's draw_picture).
+// drawBigPic draws the big picture at (1,1) (O178:0910's draw_picture).
 func (e *Engine) drawBigPic() {
 	if e.bigPic != nil {
 		e.DrawPicture(1, 1, e.bigPic, 0)

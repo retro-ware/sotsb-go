@@ -43,7 +43,7 @@ func (e *Engine) cmdCheckParty() {
 	var total uint16
 	var count byte
 	lowest, highest, average := byte(255), byte(0), byte(0)
-	store := func() { // O03C:13F6
+	store := func() { // O050:14C1
 		e.setVar(dst[0], uint16(lowest))
 		e.setVar(dst[1], uint16(highest))
 		e.setVar(dst[2], uint16(average))
@@ -720,5 +720,5 @@ func (e *Engine) cmdCombat() {
 	}
 }
 
-func (e *Engine) treasureMenu() { e.AfterCombat() } // O045:17A2
+func (e *Engine) treasureMenu() { e.AfterCombat() } // O072:17B8
 func (e *Engine) fight()        { e.Combat() }      // O089:011D

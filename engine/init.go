@@ -32,7 +32,7 @@ func (e *Engine) Init() {
 	e.LoadSymbolSet(4, 202) // O0A1:0489
 	e.LoadSymbolSet(0, 203)
 	for i := 0; i <= 0xB; i++ {
-		e.LoadIconPic("COMSPR", i, i+0xD) // O12A:01D0
+		e.LoadIconPic("COMSPR", i, i+0xD) // O195:01CF
 	}
 	e.LoadIconPic("COMSPR", 0x19, 0x19)
 	e.picturesOn, e.loadingMessage = true, true // b4FD7, b4FD8 (O060:0054)

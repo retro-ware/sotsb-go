@@ -1,7 +1,7 @@
 package engine
 
 // Rules: affects, to-hit rolls, saving throws, damage and healing, ported
-// from ovr25 and the START helpers it leans on (O0ED:1788 ... 2637).
+// from ovr25 and the START helpers it leans on (O151:173F ... 2637).
 
 // CombatInfo is the 0x16-byte block at char+0x108 (allocated by ovr11).
 type CombatInfo struct {

@@ -16,7 +16,7 @@ const (
 	itemLowStrengthAndMind = 13 // strength and intelligence 3
 )
 
-// Score limits of 18D9.
+// Score limits of O145:1514.
 const (
 	strengthMaximum18   = 18
 	exceptionalMaximum  = 100
@@ -28,7 +28,7 @@ const (
 	noFixedScore        = 255
 	giantStrengthBase   = 18 // value 0 is 18/00; value n >= 1 is 18 + n
 	strengthEncodedBase = 100
-	giantStrength21     = 21 // the Strength spell of O0C2:3FB7
+	giantStrength21     = 21 // the Strength spell of O113:402F
 )
 
 // strengthCode = O145:149A (str, str00): one byte for a strength: 18/xx as
@@ -40,7 +40,7 @@ func strengthCode(str, str00 byte) byte {
 	return str + strengthEncodedBase
 }
 
-// strengthDecode = O0E3:16D9 (affect, var str, var str00): the inverse,
+// strengthDecode = O145:14C3 (affect, var str, var str00): the inverse,
 // from an affect's data.
 func strengthDecode(a *Affect) (str, str00 byte) {
 	v := a.Data & 0x7F
@@ -50,7 +50,7 @@ func strengthDecode(a *Affect) (str, str00 byte) {
 	return v - strengthEncodedBase, 0
 }
 
-// strongerThan = O0E3:1728 (c, str, str00, var code): the strength beats
+// strongerThan = O145:1514 (c, str, str00, var code): the strength beats
 // the character's own; code is its strengthCode.
 func strongerThan(c *Character, str, str00 byte) (byte, bool) {
 	if str > c.Stats[statStr].Base || str == strengthMaximum18 && str00 > c.Str00.Base {
@@ -221,7 +221,7 @@ func fighterClass(c *Character) bool {
 	return false
 }
 
-// conHitPoints is 18D9's constitution part: the maximum hit points are the
+// conHitPoints is O145:1514's constitution part: the maximum hit points are the
 // rolled ones plus the constitution bonus of each class level (fighters
 // more), shared out over the classes; the hit points follow the change.
 func (e *Engine) conHitPoints(c *Character, con byte) {
@@ -229,11 +229,11 @@ func (e *Engine) conHitPoints(c *Character, con byte) {
 	oldMax := c.MaxHP
 	c.MaxHP = c.HPRoll
 	var bonus byte
-	addLevels := func(k int, lvl byte) { // O0E3:17BE
+	addLevels := func(k int, lvl byte) { // O145:15AC
 		if classMaxHitDice[k] <= lvl {
 			lvl = classMaxHitDice[k] - 1
 		}
-		if k == clsRanger && c.MulticlassLevel != 0 && c.OldLevels[clsRanger] == c.MulticlassLevel {
+		if k == clsRanger && (c.MulticlassLevel == 0 || c.OldLevels[clsRanger] == c.MulticlassLevel) {
 			lvl++
 		}
 		if k == clsFighter || k == clsPaladin || k == clsRanger {

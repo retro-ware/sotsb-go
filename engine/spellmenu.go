@@ -75,7 +75,7 @@ func (l *spellList) spellLines() int {
 	return n
 }
 
-// addSpellLine = O0C2:03ED (spell): append the spell at the end of the
+// addSpellLine = O113:03FF (spell): append the spell at the end of the
 // list, with a level heading first when its level differs from the last.
 func (e *Engine) addSpellLine(spell byte) {
 	l := &e.spells
@@ -320,7 +320,7 @@ const thiefScrollLevel = 10
 // Readied slot of body armour (magic-users can't cast in it in combat).
 const slotBodyArmour = 2
 
-// spellMenu = O0C2:0211 (mode, var index): show the list built before and
+// spellMenu = O113:0225 (mode, var index): show the list built before and
 // return the chosen spell (0 for Exit / Escape).
 func (e *Engine) spellMenu(mode int, index *int) byte {
 	l := &e.spells

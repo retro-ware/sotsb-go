@@ -236,7 +236,7 @@ func (e *Engine) cmdLoadFiles() {
 	}
 }
 
-// loadGeo = O116:130D Load3DMap (block): GEO<area>.DAX block into the map.
+// loadGeo = O17E:130A Load3DMap (block): GEO<area>.DAX block into the map.
 func (e *Engine) loadGeo(block byte) { e.LoadGeo(int(block)) }
 
 // CALL addresses (the operand's address, not its value).

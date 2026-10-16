@@ -1373,7 +1373,7 @@ func (e *Engine) scribeOne(c *Character, learned *bool) byte {
 	return 0
 }
 
-// spellMessage = O0C2:64A1 cast_a_spell (c, text, spell): who did what
+// spellMessage = O113:6628 cast_a_spell (c, text, spell): who did what
 // with which spell.
 func (e *Engine) spellMessage(c *Character, text string, sp byte) {
 	if e.gameState == stateCombat {

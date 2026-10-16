@@ -161,7 +161,7 @@ func (e *Engine) restoreUnder(x, y int, im *dax.Image) {
 	}
 }
 
-// drawTile = O12A:00F7 (x, y, tile, page): a ground tile from the tile
+// drawTile = O195:00ED (x, y, tile, page): a ground tile from the tile
 // sets (DS:5E52, tiles from 0x80 in DS:5E56).
 func (e *Engine) drawTile(x, y int, t byte) {
 	im, f := e.sqrpaci[0], int(t)
@@ -176,7 +176,7 @@ func (e *Engine) drawTile(x, y int, t byte) {
 	e.blitPage(x, y, im, f, false, false)
 }
 
-// drawIcon = O12A:0504 (x, y, dir, pose, slot): a combat icon on screen
+// drawIcon = O195:04D5 (x, y, dir, pose, slot): a combat icon on screen
 // square (x,y), mirrored when facing directions 4..7.
 func (e *Engine) drawIcon(x, y int, dir, pose, slot byte) {
 	im := e.icons[slot][pose&1]
@@ -193,7 +193,7 @@ func (e *Engine) drawIcon(x, y int, dir, pose, slot byte) {
 // tileSetLoadLast: Load24x24Set's highest first tile.
 const tileSetLoadLast = 48
 
-// LoadBackpacIcons = O12A:002C Load24x24Set (name, block, first, n): a
+// LoadBackpacIcons = O195:0022 Load24x24Set (name, block, first, n): a
 // DAX block copied into the tile set from tile first on.
 func (e *Engine) LoadBackpacIcons(name string, block, first, n int) {
 	if first > tileSetLoadLast {
@@ -261,7 +261,7 @@ func (e *Engine) LoadIconPic(name string, block, slot int) {
 // colourCard: EGA or Tandy (DS:6816 != 0).
 func (e *Engine) colourCard() bool { return e.Cfg.Graphics == 'E' || e.Cfg.Graphics == 'T' }
 
-// freeIcon = O12A:0156 (slot).
+// freeIcon = O195:014E (slot).
 func (e *Engine) freeIcon(n byte) { e.icons[n] = [2]*dax.Image{} }
 
 // iconToSprite = Pool 00BA:1892 (slot, pose, frame, flip): copy an icon into a

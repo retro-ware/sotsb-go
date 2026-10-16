@@ -49,7 +49,7 @@ var (
 // onMap = O17E:0537.
 func onMap(x, y int) bool { return x >= 0 && x <= 15 && y >= 0 && y <= 15 }
 
-// wrap brings an off-map coordinate back in like O116 does (>15 → 0, <0 → 15).
+// wrap brings an off-map coordinate back in like O17E does (>15 → 0, <0 → 15).
 func wrap(v int) int {
 	if v > 15 {
 		return 0
@@ -63,14 +63,14 @@ func wrap(v int) int {
 // solidEdgeBlock: the script block whose map edges are solid.
 const solidEdgeBlock = 80
 
-// offMapSolid is the guard shared by the O116 accessors: off the map the
+// offMapSolid is the guard shared by the O17E accessors: off the map the
 // answer is 0 while the script block (bA4C2) is 0 or solidEdgeBlock, otherwise
 // the coordinates wrap (O17E:079A).
 func (e *Engine) offMapSolid(x, y int) bool {
 	return !onMap(x, y) && (e.sc.block == 0 || e.sc.block == solidEdgeBlock)
 }
 
-// WallAt = O116:06A2 (x, y, dir): wall value 0..15 on that side of the cell.
+// WallAt = O17E:0697 (x, y, dir): wall value 0..15 on that side of the cell.
 func (e *Engine) WallAt(x, y, dir int) byte {
 	if e.offMapSolid(x, y) {
 		return 0
@@ -89,7 +89,7 @@ func (e *Engine) WallAt(x, y, dir int) byte {
 	return 0
 }
 
-// DoorAt = O116:0573 (x, y, dir): the 2-bit door state on that side.
+// DoorAt = O17E:0568 (x, y, dir): the 2-bit door state on that side.
 // Off the map with solid edges it is 0; on the map it defaults to 1 for an
 // open side (no wall).
 func (e *Engine) DoorAt(x, y, dir int) byte {
@@ -114,7 +114,7 @@ func (e *Engine) DoorAt(x, y, dir int) byte {
 	return 1
 }
 
-// MapCell = O116:07A5 (x, y): the cell byte (plane 2).
+// MapCell = O17E:079A (x, y): the cell byte (plane 2).
 func (e *Engine) MapCell(x, y int) byte {
 	if e.offMapSolid(x, y) {
 		return 0
@@ -156,7 +156,7 @@ func (e *Engine) FillRect(x, y, w, h int, colour byte) {
 	}
 }
 
-// drawWallPart = O116:0434 (x, y, wall, part): blit one part of a wall
+// drawWallPart = O17E:0429 (x, y, wall, part): blit one part of a wall
 // definition at view cell (x,y), clipped to the 11x11 view, masked.
 func (e *Engine) drawWallPart(x, y int, wall byte, part int) {
 	s := partBase[part]
@@ -172,7 +172,7 @@ func (e *Engine) drawWallPart(x, y int, wall byte, part int) {
 	}
 }
 
-// Draw3DView = O116:0820 (x, y, dir): the first-person view from cell
+// Draw3DView = O17E:0815 (x, y, dir): the first-person view from cell
 // (x,y). Walls are drawn far to near: the row two cells ahead, the row one
 // ahead, then the party's own cell, each scanned outwards from the centre
 // to the left and to the right.
@@ -316,7 +316,7 @@ func clamp(v, lo, hi int) int {
 // validWallSlot: LoadWalldef's set [1..3].
 func validWallSlot(s int) bool { return s >= 1 && s <= 3 }
 
-// LoadWalldef = O116:1025 (block, slot): WALLDEF<n>.DAX block into wall
+// LoadWalldef = O17E:101B (block, slot): WALLDEF<n>.DAX block into wall
 // slot 1..3. A block may hold several 5-wall chunks; they fill consecutive
 // slots, and each slot gets its own symbol set (8X8D block block*10+k for
 // multi-chunk blocks, else block itself). Symbol ids >= 0x2D are moved up
@@ -358,7 +358,7 @@ func (e *Engine) LoadWalldef(block, slot int) {
 	e.mapPairA[slot-1], e.mapPairB[slot-1] = block, slot
 }
 
-// LoadGeo = O116:130D Load3DMap (n): GEO<n>.DAX block n into the map planes.
+// LoadGeo = O17E:130A Load3DMap (n): GEO<n>.DAX block n into the map planes.
 func (e *Engine) LoadGeo(n int) {
 	b := e.daxBlock("GEO"+e.areaDigit(), n)
 	if len(b) != geoSize { // the original stops the game here

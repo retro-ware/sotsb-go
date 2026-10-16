@@ -311,7 +311,7 @@ func dexAC(c *Character) int8 {
 	return 0
 }
 
-// dexMissile = O0ED:11FD stat_bonus02: to-hit with missiles from dexterity.
+// dexMissile = O151:117C stat_bonus02: to-hit with missiles from dexterity.
 func dexMissile(c *Character) int8 {
 	d := c.Stats[statDex].Value
 	switch {
@@ -359,7 +359,7 @@ func strIndex(c *Character) byte {
 	return 0
 }
 
-// strHit = O0ED:1317: to-hit from strength (only for StrBonus characters).
+// strHit = O151:1296: to-hit from strength (only for StrBonus characters).
 func strHit(c *Character) int8 {
 	if c.StrBonus == 0 {
 		return 0
@@ -385,7 +385,7 @@ func strHit(c *Character) int8 {
 	return 0
 }
 
-// strDamage = O0ED:13BA: damage from strength (only for StrBonus characters).
+// strDamage = O151:1339: damage from strength (only for StrBonus characters).
 func strDamage(c *Character) int8 {
 	if c.StrBonus == 0 {
 		return 0
@@ -434,7 +434,7 @@ func strCarry(c *Character) int16 {
 	return 0
 }
 
-// isHelpless = O0ED:0BDB: the character has one of the four helpless affects.
+// isHelpless = O151:0E75: the character has one of the four helpless affects.
 func (e *Engine) isHelpless(c *Character) bool {
 	found := false
 	for _, a := range helplessAffectData[1:] {

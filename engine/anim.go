@@ -21,12 +21,12 @@ type portrait struct {
 	head, body     *dax.Image
 }
 
-// FreeAnimPic = O110:0556.
+// FreeAnimPic = O178:05ED.
 func (e *Engine) FreeAnimPic() {
 	e.pic = animPic{block: -1}
 }
 
-// drawPicAt = O110:000A (x, y, overlay, pic): an overlay picture goes
+// drawPicAt = O178:0000 (x, y, overlay, pic): an overlay picture goes
 // through R2BC:0BB4 at page cell (x-1,y-1), which is screen cell (x,y)
 // (the page starts one cell in); otherwise R2BC:0EFE.
 func (e *Engine) drawPicAt(x, y int, overlay bool, im *dax.Image) {
@@ -41,7 +41,7 @@ func (e *Engine) drawPicAt(x, y int, overlay bool, im *dax.Image) {
 	}
 }
 
-// DrawAnimFrame = O110:074D (pic, frame): frame 1..3 of a sprite at its
+// DrawAnimFrame = O178:07E3 (pic, frame): frame 1..3 of a sprite at its
 // own cell offset inside the view window.
 func (e *Engine) DrawAnimFrame(frame int) {
 	if frame < 1 || frame > 3 {
@@ -57,8 +57,8 @@ func (e *Engine) DrawAnimFrame(frame int) {
 	e.Flip()
 }
 
-// DrawPortrait = O110:06DC (x, y, both): the head at (x,y) and, when both
-// is set, the body five rows below (nested drawers O110:008D / O110:00AD).
+// DrawPortrait = O178:0770 (x, y, both): the head at (x,y) and, when both
+// is set, the body five rows below.
 func (e *Engine) DrawPortrait(x, y int, both bool) {
 	e.drawPicAt(x, y, false, e.port.head)
 	if both {

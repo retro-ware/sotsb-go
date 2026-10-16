@@ -37,7 +37,7 @@ func (r *cloudRecord) square(squares []byte, k int) (int, int) {
 	return int(int8(r.x)) + int(stepX[d]), int(int8(r.y)) + int(stepY[d])
 }
 
-// cloudOwner = O0E3:0D03 (x, y, list, squares): the caster of the first
+// cloudOwner = O145:0B15 (x, y, list, squares): the caster of the first
 // cloud covering the square. Default: DS:6524, the acting combatant, which
 // in combat is the selected one.
 func (e *Engine) cloudOwner(x, y int, list []*cloudRecord, squares []byte) *Character {

@@ -1,7 +1,7 @@
 package engine
 
 // The DAMAGE command (O050:2D82) and its helpers: the trap's hit roll
-// (O0E3:11DD), damage with its message (O07D:210D) and damage_player
+// (O145:0FCD), damage with its message (O07D:210D) and damage_player
 // (O151:2953).
 
 // DAMAGE's first operand: the count of random targets, or flags.
@@ -16,7 +16,7 @@ const (
 	deathMargin     = 10
 )
 
-// trapHits = O0E3:11DD (target, bonus): a d20 (1 misses, 20 counts as 100)
+// trapHits = O145:0FCD (target, bonus): a d20 (1 misses, 20 counts as 100)
 // with the defender's affects, plus the bonus, against the AC.
 func (e *Engine) trapHits(c *Character, bonus byte) bool {
 	e.rv.hitRoll = int8(e.Dice(1, 20))

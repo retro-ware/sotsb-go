@@ -331,7 +331,7 @@ var cloudSquares4 = [4]byte{8, 2, 3, 4}
 
 // The squares Dispel Magic tries for a cloud: DS:27D9 read from entry 1,
 // the small cloud's table running on into the next, also for the large
-// cloud (O0C2:31E4).
+// cloud (O113:3337).
 var dispelCloudSquares = [9]byte{8, 2, 3, 4, 8, 0, 1, 2, 3}
 
 // The facings from a large cloud's centre to its 9 squares (cloudkill); 8 is the centre.

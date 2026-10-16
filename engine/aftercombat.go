@@ -405,7 +405,7 @@ func (e *Engine) lootList(index *int) (byte, *Item) {
 	return key, nil
 }
 
-// lootTake = O045:0DFC: take items until another key or nothing is left.
+// lootTake = O072:0CC7: take items until another key or nothing is left.
 func (e *Engine) lootTake() {
 	index := 0
 	for {

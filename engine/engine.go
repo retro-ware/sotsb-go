@@ -182,7 +182,7 @@ type Engine struct {
 	spellCaster            *Character              // DS:6DB5
 	curSpell               byte                    // DS:681B spell being cast
 	tgtX, tgtY             int                     // DS:6DB9/6DBA target square
-	combatTargets          bool                    // DS:72BA points at O0C9:1FA1 (set by Combat), else O0C2:114D
+	combatTargets          bool                    // DS:72BA points at O0C9:1FA1 (set by Combat), else O113:1253
 	spellFx                [len(spellNames)]func() // DS:6B84 spell effect table (slot 0 unused)
 	v4844, v4845           byte                    // DS:4844/4845 spell scratch
 	v681D                  byte                    // DS:681D the speed affects are working out the moves

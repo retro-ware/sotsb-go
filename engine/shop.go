@@ -89,7 +89,7 @@ func (e *Engine) overloadedBy(c *Character, it *Item) bool {
 	return over
 }
 
-// takeItemCopy = O048:034C overloaded (item): a copy of the item joins the
+// takeItemCopy = O079:0338 overloaded (item): a copy of the item joins the
 // selected member's items unless it overloads them.
 func (e *Engine) takeItemCopy(it *Item) bool {
 	c := e.selected()

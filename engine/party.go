@@ -191,7 +191,7 @@ func (e *Engine) initMouseJoystick() {
 	}
 }
 
-// freePlayers = O0A7:3A25 (keepCount, freeIcon): the selected member
+// freePlayers = O0EF:38A4 (keepCount, freeIcon): the selected member
 // leaves the party list; the one before it (or the new first) becomes
 // selected. Unless keepCount, the party count (game +0x67C) drops.
 func (e *Engine) freePlayers(keepCount, freeIcon bool) {
@@ -203,7 +203,7 @@ func (e *Engine) freePlayers(keepCount, freeIcon bool) {
 		return
 	}
 	if freeIcon {
-		e.freeIcon(e.party[i].Order) // O12A:0156
+		e.freeIcon(e.party[i].Order) // O195:014E
 	}
 	e.party = append(e.party[:i], e.party[i+1:]...)
 	if i > 0 {

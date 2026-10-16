@@ -1,8 +1,8 @@
 package engine
 
 // The adventuring screen: the view frame (R133:0137), the party summary
-// (O0ED:0798), the status line (O0ED:2B67), redrawing the view (O174:0034),
-// the command bar (O099:08DF) and stepping through doors (O099).
+// (O151:07C4), the status line (O151:316A), redrawing the view (O174:0034),
+// the command bar (O0D6:08C3) and stepping through doors (O0D6).
 
 // View frame layout.
 const (
@@ -120,7 +120,7 @@ func (e *Engine) selectMember(c *Character) {
 	}
 }
 
-// freeSelected = O0A7:3A25 free_players (0, 1).
+// freeSelected = O0EF:38A4 free_players (0, 1).
 func (e *Engine) freeSelected() { e.freePlayers(false, true) }
 
 // statusLine = O151:316A camping_search: position, facing, time and
@@ -232,7 +232,7 @@ func lookHorizon(v byte) byte {
 	return 15
 }
 
-// viewOrMap = O116:0820: the 3D view, or the overhead map when it is on.
+// viewOrMap = O17E:0815: the 3D view, or the overhead map when it is on.
 func (e *Engine) viewOrMap(x, y, dir int) {
 	e.Draw3DView(x, y, dir)
 }
@@ -379,7 +379,7 @@ func (e *Engine) stepAhead() {
 	}
 }
 
-// Door states (O116:0573).
+// Door states (O17E:0568).
 const (
 	doorNone    = 0
 	doorOpen    = 1
@@ -442,7 +442,7 @@ func (e *Engine) lockedDoor() {
 	e.port = portrait{headID: noPicture, bodyID: noPicture}
 }
 
-// partyHasClassLevel = O099:0275 (class): someone has levels in the class
+// partyHasClassLevel = O0D6:023D (class): someone has levels in the class
 // (or usable old levels).
 func (e *Engine) partyHasClassLevel(class int) bool {
 	for _, c := range e.party {
@@ -453,7 +453,7 @@ func (e *Engine) partyHasClassLevel(class int) bool {
 	return false
 }
 
-// memorizedSlot = O099:0683 (spell, c): the memorized slot holding it, or 255.
+// memorizedSlot = O0D6:063F (spell, c): the memorized slot holding it, or 255.
 func memorizedSlot(spell byte, c *Character) byte {
 	for i := byte(0); i < byte(len(c.Memorized)); i++ {
 		if c.Memorized[i] == spell {
@@ -482,7 +482,7 @@ func (e *Engine) castKnock() bool {
 	return false
 }
 
-// openDoor = O099:0148 (x, y, dir): set the door bits of that side open.
+// openDoor = O0D6:010E (x, y, dir): set the door bits of that side open.
 func (e *Engine) openDoor(x, y, dir int) {
 	if x < 0 || x > 15 || y < 0 || y > 15 {
 		return
@@ -511,7 +511,7 @@ func (e *Engine) openBothSides() {
 	e.openDoor(x+int(stepX[d]), y+int(stepY[d]), (d+4)%8)
 }
 
-// bashDoor = O099:02F3: each member tries by strength until one succeeds.
+// bashDoor = O0D6:02B7: each member tries by strength until one succeeds.
 func (e *Engine) bashDoor() bool {
 	s := &e.sc
 	ok := false
@@ -580,7 +580,7 @@ func (e *Engine) bashDoor() bool {
 	return ok
 }
 
-// pickLock = O099:05B6: a d100 under someone's open-locks skill.
+// pickLock = O0D6:0576: a d100 under someone's open-locks skill.
 func (e *Engine) pickLock() bool {
 	ok := false
 	for _, c := range e.party {
@@ -598,7 +598,7 @@ func (e *Engine) pickLock() bool {
 	return ok
 }
 
-// walkForward = O099:0813: one step ahead, wrapping at the map's edges,
+// walkForward = O0D6:07C9: one step ahead, wrapping at the map's edges,
 // then the clock (twice as long while searching).
 func (e *Engine) walkForward() {
 	s := &e.sc
@@ -685,7 +685,7 @@ func (e *Engine) loadSkyPictures() {
 	e.skyFloor = e.LoadPicMasked("sky", skyFloorBlock, skyMask)
 }
 
-// drawSkyEGA = O116:0184 in EGA: three colour bands, the sun or moon by
+// drawSkyEGA = O17E:017B in EGA: three colour bands, the sun or moon by
 // the hour (outdoors-lit squares in daylight), then the floor picture.
 func (e *Engine) drawSkyEGA() {
 	s := &e.sc

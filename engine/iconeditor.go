@@ -10,7 +10,7 @@ var iconMenus = [6]string{"", "Parts 1st-color 2nd-color Size Exit", "Head Weapo
 // iconWorkSlot: the icon slot the editor builds its working copy in.
 const iconWorkSlot = 12
 
-// iconBuilder = O0A7:3EC6 icon_builder: the combat icon editor (called
+// iconBuilder = O0EF:3DFC icon_builder: the combat icon editor (called
 // from the character creation and the camp). States (menus iconMenus):
 // 1 Parts/color-1/color-2/Size/Exit, 2 Head/Weapon, 3 the part to colour,
 // 4 Size, 5 the Next/Prev/Keep/Exit stepping for the choice made before.
@@ -185,7 +185,7 @@ func (e *Engine) iconBuilder() {
 		e.iconCopy(c.Order, iconWorkSlot, true)
 		e.iconCopy(iconWorkSlot, c.Order, false)
 		e.ClearRow24()
-		e.freeIcon(iconWorkSlot) // O12A:0156
+		e.freeIcon(iconWorkSlot) // O195:014E
 		if e.YesNo(colourLightMagenta, colourGreen, colourWhite, "Is this icon ok? ") == 'Y' {
 			break
 		}
