@@ -18,30 +18,40 @@ type viewState struct {
 	start *Character // DS:471A
 }
 
-// canLoseItem = O0AF:0EC1 (item): readied items must be unreadied first;
-// a scroll someone is about to scribe from asks before it goes.
+// canLoseItem = O100:10C1 (item): readied items must be unreadied first;
+// a scroll someone is about to scribe from asks before it goes. For a bag
+// SotSB walks its scrolls but tests the bag's own spells each time, and
+// keeps the bag whatever the answer.
 func (e *Engine) canLoseItem(it *Item) bool {
 	ok := false
+	scribing := func(it *Item) bool {
+		return it.Spells[0] > 127 || it.Spells[1] > 127 || it.Spells[2] > 127
+	}
+	ask := func(what string) bool {
+		c := e.selected()
+		e.displayName(c, 1, 21, false)
+		e.msgCol, e.msgRow = len(c.Name())+2, 21
+		e.DisplayTextBlock(1, 21, 38, 22, colourYellow, false, " was going to scribe from that "+what)
+		return e.YesNo(colourLightMagenta, colourGreen, colourWhite, "is it Okay to lose it? ") == 'Y'
+	}
 	switch {
 	case it.Readied != 0:
 		e.printMessage("Must be unreadied")
 	case !e.isScroll(it):
 		ok = true
-	case it.Spells[0] > 0x7F || it.Spells[1] > 0x7F || it.Spells[2] > 0x7F:
-		c := e.selected()
-		e.displayName(c, 1, 0x15, false)
-		e.msgCol, e.msgRow = len(c.Name())+2, 0x15
-		e.DisplayTextBlock(1, 0x15, 0x26, 0x16, 0xE, false, " was going to scribe from that scroll")
-		ok = e.YesNo(0xD, 0xA, 0xF, "is it Okay to lose it? ") == 'Y'
+	case scribing(it):
+		ok = ask("scroll")
+	case it.Type == itemTypeBag && len(it.Contents) > 0 && scribing(it):
+		ask("bundle")
 	default:
 		ok = true
 	}
-	e.ClearCells(1, 0x15, 0x26, 0x16)
+	e.ClearCells(1, 21, 38, 22)
 	return ok
 }
 
-// ItemsMenu = O0AF:1583 use_item (var done): the character's items with
-// Ready, Use, Trade, Drop, Halve, Join, Sell and Id. Returns done (an item
+// ItemsMenu = O100:136A use_item (var done): the character's items with
+// Ready, Use, Trade, Drop (Deposit in the vault), Halve, Join, Sell and Id. Returns done (an item
 // was used in combat).
 func (e *Engine) ItemsMenu() bool {
 	c := e.selected()
@@ -54,15 +64,19 @@ func (e *Engine) ItemsMenu() bool {
 		if len(c.Items) > 0 {
 			menu := "Ready"
 			if c.Okay != 0 && wordAt(e.area, 2*areaWordNoMagic) == 0 &&
-				(e.gameState == stateCamp || e.gameState == stateWilderness || e.gameState == stateDungeon ||
+				(e.gameState == stateCamp || e.gameState == stateDungeon ||
 					e.gameState == stateCombat && c.Combat != nil && c.Combat.CanUse != 0) {
 				menu += " Use"
 			}
-			hired := c.Control >= npcControl && c.Okay != 0 && c.Status != statusAnimated
+			hired := c.Control >= npcControl && c.Okay != 0
 			if !hired && e.gameState != stateCombat {
 				menu += " Trade"
 			}
-			menu += " Drop"
+			if e.gameState == stateVault {
+				menu += " Deposit"
+			} else {
+				menu += " Drop"
+			}
 			if c.ItemCount < maxItems {
 				menu += " Halve"
 			}
@@ -93,11 +107,9 @@ func (e *Engine) ItemsMenu() bool {
 					it = c.Items[i]
 				}
 			}
+			savedSel := e.menuSel
 			if it != nil {
 				switch key {
-				case 'V':
-					e.itemDebug(it)
-					redraw, full = true, true
 				case 'R':
 					e.readyItem(it)
 				case 'U':
@@ -124,10 +136,20 @@ func (e *Engine) ItemsMenu() bool {
 					if e.canLoseItem(it) {
 						e.ItemName(c, it, 0, 0, false, false)
 						e.msgCol, e.msgRow = 1, 21
-						e.DisplayTextBlock(1, 21, 38, 22, colourYellow, true, "Your "+it.Name()+"will be gone forever")
-						if e.YesNo(colourLightMagenta, colourGreen, colourWhite, "Drop It? ") == 'Y' {
-							e.loseItem(e.selected(), it)
+						if e.gameState == stateVault {
+							e.DisplayTextBlock(1, 21, 38, 22, colourYellow, true, "Your "+it.Name()+"will be left in the vault")
+							e.gameDelay()
+							kept := *it
+							e.treasureItems = append(e.treasureItems, &kept)
+							it.Contents = nil // the bag's scrolls went with the copy
+							e.loseItem(c, it)
 							redraw = true
+						} else {
+							e.DisplayTextBlock(1, 21, 38, 22, colourYellow, true, "Your "+it.Name()+"will be gone forever")
+							if e.YesNo(colourLightMagenta, colourGreen, colourWhite, "Drop It? ") == 'Y' {
+								e.loseItem(e.selected(), it)
+								redraw = true
+							}
 						}
 						e.ClearCells(1, 21, 38, 22)
 					} else {
@@ -137,6 +159,7 @@ func (e *Engine) ItemsMenu() bool {
 					e.halveItem(it)
 				case 'J':
 					e.joinItems(it)
+					redraw = true
 				case 'S':
 					if e.canLoseItem(it) {
 						e.sellItem(it)
@@ -149,6 +172,7 @@ func (e *Engine) ItemsMenu() bool {
 					}
 				}
 			}
+			e.menuSel = savedSel
 			e.ApplyItems(c)
 		}
 		if c.ItemCount != count {
@@ -157,30 +181,6 @@ func (e *Engine) ItemsMenu() bool {
 	}
 	return done
 }
-
-// itemDebug = O0AF:10A6: the item record's fields (a debugging page).
-func (e *Engine) itemDebug(it *Item) {
-	e.drawScreenFrame()
-	labels := []string{"itemptr:      ", "namenum(1):   ", "namenum(2):   ", "namenum(3):   ", "plus:         ",
-		"plussave:     ", "ready:        ", "identified:   ", "cursed:       ", "value:        ", "special(1):   ",
-		"special(2):   ", "special(3):   ", "dice large:    ", "sides large:   "}
-	for i, l := range labels {
-		e.displayStringBg(1, i+1, colourGreen, colourBlack, l)
-	}
-	values := []int{int(it.Type), int(it.Words[0]), int(it.Words[1]), int(it.Words[2]), int(it.Plus), int(it.Plus2),
-		int(it.Readied), int(it.Hidden), int(it.Cursed), int(it.Price), int(it.Spells[0]), int(it.Spells[1]), int(it.Spells[2]),
-		int(e.baseItem(it.Type, baseDiceLarge)), int(e.baseItem(it.Type, baseSidesLarge))}
-	for i, v := range values {
-		e.displayStringBg(20, i+1, colourGreen, colourBlack, itoa(v))
-	}
-	e.displayAndWait(colourGreen, colourBlack, "press a key")
-}
-
-// Base item record fields itemDebug shows.
-const (
-	baseDiceLarge  = 2
-	baseSidesLarge = 3
-)
 
 // readyItem = O0AF:1ED6 ready_Item (item): ready or unready, with the reasons it
 // cannot be readied and the item's own effect (+0x3E > 0x7F).

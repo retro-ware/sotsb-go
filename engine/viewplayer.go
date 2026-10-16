@@ -1,11 +1,11 @@
 package engine
 
-// The View screen (unit O0AF): the character sheet and its menu, coins
+// The View screen (unit O100): the character sheet and its menu, coins
 // traded and dropped, and a paladin's healing and curing.
 
-// viewPlayer = O0AF:0B64 (var done): the selected member's sheet with
-// Items, Spells, Trade, Drop, Heal and Cure; done is set when an item was
-// used in combat.
+// viewPlayer = O100:0D0F (var done): the selected member's sheet with
+// Items, Spells, Trade, Drop (Deposit in the vault), Heal and Cure; done
+// is set when an item was used in combat.
 func (e *Engine) viewPlayer() bool {
 	key := byte(' ')
 	done := false
@@ -31,11 +31,15 @@ func (e *Engine) viewPlayer() bool {
 		if spells {
 			menu += "Spells "
 		}
-		if (c.Control < npcControl || c.Okay == 0 || c.Status == statusAnimated) && money && e.gameState != stateCombat {
+		if (c.Control < npcControl || c.Okay == 0) && money && e.gameState != stateCombat {
 			menu += "Trade "
 		}
 		if money {
-			menu += "Drop "
+			if e.gameState == stateVault {
+				menu += "Deposit "
+			} else {
+				menu += "Drop "
+			}
 		}
 		if e.canLayOnHands(c) {
 			menu += "Heal "
@@ -44,8 +48,10 @@ func (e *Engine) viewPlayer() bool {
 			menu += "Cure "
 		}
 		menu += "Exit"
-		key, _ = e.DisplayInput("", menu, colourLightMagenta, colourGreen, colourWhite, false, false)
+		var extra bool
+		key, extra = e.DisplayInput("", menu, colourLightMagenta, colourGreen, colourWhite, false, false)
 		spellIndex := -1
+		sel := e.menuSel
 		switch key {
 		case 'I':
 			done = e.ItemsMenu()
@@ -54,13 +60,17 @@ func (e *Engine) viewPlayer() bool {
 		case 'T':
 			e.tradeCoins()
 		case 'D':
+			e.menuSel = 1
 			e.dropCoinsMenu()
 			e.showCoins()
 		case 'H':
-			e.layOnHands(c)
+			if !extra {
+				e.layOnHands(c)
+			}
 		case 'C':
 			e.paladinCure(c)
 		}
+		e.menuSel = sel
 		if !done && (key == 'I' || key == 'S' || key == 'T') {
 			e.CharacterSheet()
 		}
