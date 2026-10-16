@@ -11,12 +11,6 @@ var recolourCombat = [16]byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 
 // The ICON pictures recoloured to (colour 13 becomes 0).
 var recolourIcon = [16]byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 0, 14, 15}
 
-// Wilderness map cursor columns (8-pixel cells), by place.
-var wildMapCursorX = [32]byte{4, 12, 21, 11, 29, 20, 38, 21, 30, 31, 25, 37, 28, 29, 3, 12, 25, 29, 29, 33, 19, 16, 9, 16, 20, 21, 25, 25, 26, 31, 37, 34}
-
-// Wilderness map cursor rows (8-pixel cells), by place.
-var wildMapCursorY = [32]byte{15, 8, 11, 4, 10, 4, 1, 2, 13, 15, 3, 5, 2, 8, 12, 13, 10, 12, 9, 9, 8, 6, 6, 3, 2, 2, 3, 2, 3, 4, 2, 1}
-
 // Race names (raceTribble, raceElf ...).
 var raceNames = [8]string{"Tribble", "Elf", "Half-Elf", "Dwarf", "Gnome", "Halfling", "Human", "Monster"}
 

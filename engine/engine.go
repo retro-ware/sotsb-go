@@ -60,56 +60,54 @@ type Engine struct {
 	menuSel     int  // DS:6B2B, DisplayInput selection
 	menuExtra   bool // DS:6B2C
 
-	inputTimeout           int64 // l72B0: DisplayInput returns inputTimeoutKey after this many ticks (0: never)
-	inputTimeoutKey        byte  // b72B4
-	demo                   bool  // inDemo_4FD5: the game plays its demonstration
-	gameArea               byte  // game_area_5C08: 1 in the demo, 2 for the real game
-	gameAreaBackup         byte  // game_area_backup_5C09
-	lastGameState          byte  // DS:4FD4
-	sc                     script
-	partyDead              bool                            // b4FE0: everyone is down; back to the party menu
-	viewReset              bool                            // b759A: the view must be drawn from scratch
-	videoMode              byte                            // b5000: 0 EGA
-	mapCursorX, mapCursorY int                             // DS:8C8C, 8C8E
-	mapCursorUnder         [mapCursorPx * mapCursorPx]byte // DS:65E4
-	canBash                bool                            // b75A2: the locked door may still be bashed
-	canPick                bool                            // b75A3
-	canKnock               bool                            // b75A4
-	cheatArg               bool                            // ParamStr(2) gave the map cheat
-	loadingMessage         bool                            // b4FD8: show "Loading...Please Wait" (Alter Pics: animation)
-	picturesOn             bool                            // b4FD7: Alter Pics
-	spriteShown            bool                            // b7292
-	bigPic                 *dax.Image                      // p72A6
-	skySun                 *dax.Image                      // l723A
-	skyMoon                *dax.Image                      // l723E
-	skyFloor               *dax.Image                      // l7242
-	shopFrame              bool                            // b8B6E
-	shopHead               byte                            // b4FDE: the shop keeper's portrait
-	shopBody               byte                            // b4FDF
-	treasureCoins          [7]int32                        // a6F8A: the treasure's money
-	treasureItems          []*Item                         // p6FA6: the treasure's items
-	poolHasMoney           bool                            // b757E: money lies in the pool
-	viewStart              *Character                      // p4B10: who the View started with (Trade's first choice)
-	curingDisease          bool                            // b6FB6: affects being removed by a cure
-	textNewLine            bool                            // b8B7B
-	picFrame               byte                            // b729B
-	spriteFrame            byte                            // b72A5
-	textWaiting            bool                            // b5D0B
-	turnOrder              []*Character                    // DS:8E2A the order of this round's turns
-	turnIndex              int                             // b8F4A the turn being taken
-	ageCheckDue            bool                            // b7D44 someone aged: see who dies of old age
-	duelling               bool                            // bA4BA: the duel instead of a fight; SotSB never sets it
-	forcePicture           bool                            // b4FD9: the encounter picture shows even during ENCOUNTER
-	gameSpeed              byte                            // game_speed_var_4FC2
-	freeTraining           bool                            // b75A1: the 'J' cheat of the party menu
-	silentTraining         bool                            // b4FE1: training without questions (character creation)
-	cannotTrain            bool                            // b75A0: the last training found nothing to raise
-	gameWon                bool                            // b8B89: the ending was reached; training is free
-	gameState              byte                            // game_state_4FD3: what the party is doing (stateCombat, ...)
-	spells                 spellList
-	addSource              byte // b759E: where AddPlayer loads characters from (fromCurse ...)
-	areaKind               byte // b72AA: 'y' on the wilderness map (its cursor blinks)
-	mapMode                byte // b72A4: 'P' while a picture hides the map
+	inputTimeout    int64 // l72B0: DisplayInput returns inputTimeoutKey after this many ticks (0: never)
+	inputTimeoutKey byte  // b72B4
+	demo            bool  // inDemo_4FD5: the game plays its demonstration
+	gameArea        byte  // game_area_5C08: 1 in the demo, 2 for the real game
+	gameAreaBackup  byte  // game_area_backup_5C09
+	lastGameState   byte  // DS:4FD4
+	sc              script
+	partyDead       bool         // b4FE0: everyone is down; back to the party menu
+	viewReset       bool         // b759A: the view must be drawn from scratch
+	videoMode       byte         // b5000: 0 EGA
+	canBash         bool         // b75A2: the locked door may still be bashed
+	canPick         bool         // b75A3
+	canKnock        bool         // b75A4
+	cheatArg        bool         // ParamStr(2) gave the map cheat
+	loadingMessage  bool         // b4FD8: show "Loading...Please Wait" (Alter Pics: animation)
+	picturesOn      bool         // b4FD7: Alter Pics
+	spriteShown     bool         // b7292
+	bigPic          *dax.Image   // p72A6
+	skySun          *dax.Image   // l723A
+	skyMoon         *dax.Image   // l723E
+	skyFloor        *dax.Image   // l7242
+	shopFrame       bool         // b8B6E
+	shopHead        byte         // b4FDE: the shop keeper's portrait
+	shopBody        byte         // b4FDF
+	treasureCoins   [7]int32     // a6F8A: the treasure's money
+	treasureItems   []*Item      // p6FA6: the treasure's items
+	poolHasMoney    bool         // b757E: money lies in the pool
+	viewStart       *Character   // p4B10: who the View started with (Trade's first choice)
+	curingDisease   bool         // b6FB6: affects being removed by a cure
+	textNewLine     bool         // b8B7B
+	picFrame        byte         // b729B
+	spriteFrame     byte         // b72A5
+	textWaiting     bool         // b5D0B
+	turnOrder       []*Character // DS:8E2A the order of this round's turns
+	turnIndex       int          // b8F4A the turn being taken
+	ageCheckDue     bool         // b7D44 someone aged: see who dies of old age
+	duelling        bool         // bA4BA: the duel instead of a fight; SotSB never sets it
+	forcePicture    bool         // b4FD9: the encounter picture shows even during ENCOUNTER
+	gameSpeed       byte         // game_speed_var_4FC2
+	freeTraining    bool         // b75A1: the 'J' cheat of the party menu
+	silentTraining  bool         // b4FE1: training without questions (character creation)
+	cannotTrain     bool         // b75A0: the last training found nothing to raise
+	gameWon         bool         // b8B89: the ending was reached; training is free
+	gameState       byte         // game_state_4FD3: what the party is doing (stateCombat, ...)
+	spells          spellList
+	addSource       byte // b759E: where AddPlayer loads characters from (fromCurse ...)
+	areaKind        byte // b72AA: 'y' on the wilderness map (its cursor blinks)
+	mapMode         byte // b72A4: 'P' while a picture hides the map
 
 	party      []*Character // DS:5D96 list head ...
 	partySel   int          // DS:5D92 selected character
