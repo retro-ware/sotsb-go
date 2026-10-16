@@ -36,7 +36,7 @@ func (e *Engine) DevScene(name string) func() {
 				e.treasureItems = append(e.treasureItems, e.createItem(t))
 			}
 			e.shopMenu()
-			e.DrawMainScreen()
+			e.loadPicture()
 		}
 	case "temple":
 		return func() {
@@ -44,14 +44,14 @@ func (e *Engine) DevScene(name string) func() {
 			c.Coins[coinPlatinum] = 2000
 			c.HP = 1
 			e.templeMenu()
-			e.DrawMainScreen()
+			e.loadPicture()
 		}
 	case "appraise":
 		return func() {
 			c := e.selected()
 			c.Coins[coinGems], c.Coins[coinJewelry] = 3, 2
 			e.shopMenu()
-			e.DrawMainScreen()
+			e.loadPicture()
 		}
 	case "combat":
 		return func() {
@@ -64,7 +64,7 @@ func (e *Engine) DevScene(name string) func() {
 			e.addMonsters(byte(idx), 3, 1)
 			e.Combat()
 			e.AfterCombat()
-			e.DrawMainScreen()
+			e.loadPicture()
 		}
 	case "effects":
 		return func() { // spell effects for the View page: many on member 1, one on member 2
@@ -94,7 +94,7 @@ func (e *Engine) DevScene(name string) func() {
 			}
 			e.treasureCoins[coinGold], e.treasureCoins[coinGems] = 156, 7
 			e.AfterCombat()
-			e.DrawMainScreen()
+			e.loadPicture()
 		}
 	}
 	return nil

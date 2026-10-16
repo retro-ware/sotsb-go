@@ -225,7 +225,7 @@ func (e *Engine) rosterPanel() {
 		return
 	}
 	e.ClearCells(0x11, 1, 0x26, 0xE)
-	e.drawPartyList()
+	e.playerSummary(e.selected())
 }
 
 // extraKey handles a convenience key while the command bar waits.
@@ -361,7 +361,7 @@ func (e *Engine) PartyOverview() {
 	}
 	e.MessageRow24b(0xF, "press any key to continue")
 	e.ClearRow24()
-	e.DrawMainScreen()
+	e.loadPicture()
 }
 
 // viewDrawn runs after the 3D view is drawn: remember what the party saw

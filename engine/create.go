@@ -499,7 +499,7 @@ func (e *Engine) DropCharacter() {
 			e.printMessage(c.Name() + " breathes a sigh of relief.")
 		}
 	}
-	e.DisplayPartyList()
+	e.playerSummary(e.selected())
 }
 
 // pickCharacter = O100:40C8: Up and Down move the selection through the
@@ -508,8 +508,7 @@ func (e *Engine) pickCharacter() bool {
 	for {
 		key, extra := e.DisplayInput("Pick Character ", "Select Exit", colourLightMagenta, colourGreen, colourWhite, true, false)
 		if extra {
-			e.stepSelection(key)
-			e.DisplayPartyList()
+			e.selectStep(key)
 			continue
 		}
 		switch key {

@@ -291,4 +291,3 @@ func (e *Engine) healPlayer(c *Character, points byte, onlyWounded bool) bool {
 	}
 	return true
 }
-

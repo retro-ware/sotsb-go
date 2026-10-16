@@ -21,39 +21,6 @@ type portrait struct {
 	head, body     *dax.Image
 }
 
-// LoadAnimPic = O110:0103 (name, block, masked): load <name><gfx>.DAX
-// block into the view-window picture, unless it is already there. PIC and
-// FINAL frames after the first are stored XORed against the first; the
-// first PIC block is cut to 4 frames. Sprites are masked on colour 0.
-func (e *Engine) LoadAnimPic(name string, block int, masked bool) {
-	a := &e.pic
-	if a.name == name && a.block == block {
-		return
-	}
-	e.FreeAnimPic()
-	a.name, a.block = name, block
-	b := e.daxBlock(name+e.areaDigit(), block)
-	if b == nil {
-		return
-	}
-	xor := name == "PIC" || name == "FINAL"
-	fr := dax.ParseSprite(b, masked, 0, xor)
-	if name == "PIC" && block == 1 && len(fr) > 4 {
-		fr = fr[:4]
-	}
-	if masked && (e.Cfg.Graphics == 'E' || e.Cfg.Graphics == 'T') { // DS:4A1E != 0
-		for _, f := range fr { // R2BC:1418(DS:0C6C, DS:0C7C, 0, 0): colour 13 -> opaque black
-			e.recolourFrame(maskFrom[:], maskTo[:], 0, false, f.Image)
-		}
-	}
-	a.frames = fr
-	a.cur = 1
-	e.ClearKeyboard()
-}
-
-var maskFrom = [16]byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15} // DS:0C6C
-var maskTo = [16]byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 0, 14, 15}    // DS:0C7C
-
 // FreeAnimPic = O110:0556.
 func (e *Engine) FreeAnimPic() {
 	e.pic = animPic{block: -1}
@@ -88,22 +55,6 @@ func (e *Engine) DrawAnimFrame(frame int) {
 	im := e.pic.frames[frame-1].Image
 	e.drawPage(im.X+2, im.Y+2, im, 0, true, false) // R2BC:0BB4 at (x+3-1, y+3-1)
 	e.Flip()
-}
-
-// LoadPortrait = O110:05D8 (head, body): HEAD<gfx>/BODY<gfx> blocks, kept
-// while the ids do not change; 0xFF leaves that half alone.
-func (e *Engine) LoadPortrait(head, body int) {
-	p := &e.port
-	d := e.areaDigit()
-	if head != 0xFF && (p.headID == 0xFF || p.headID != head) {
-		p.head = e.LoadPic("HEAD"+d, head)
-		p.headID = head
-	}
-	if body != 0xFF && (p.bodyID == 0xFF || p.bodyID != body) {
-		p.body = e.LoadPic("BODY"+d, body)
-		p.bodyID = body
-	}
-	e.ClearKeyboard()
 }
 
 // DrawPortrait = O110:06DC (x, y, both): the head at (x,y) and, when both

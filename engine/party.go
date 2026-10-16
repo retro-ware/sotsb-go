@@ -1,62 +1,6 @@
 package engine
 
-// Party menu (O0EF:01A1) and the list display O0ED:07A2.
-
-// DisplayPartyList = O0ED:07A2 (selected): the roster with AC and HP.
-// While adventuring with the minimap on (extras.go) the panel shows the
-// map instead.
-func (e *Engine) DisplayPartyList() {
-	if e.gameState != 0 && e.ext.minimap && e.minimapAllowed() {
-		e.DrawMinimap()
-		return
-	}
-	e.drawPartyList()
-}
-
-func (e *Engine) drawPartyList() {
-	x := 1
-	if e.gameState != 0 {
-		x = 0x11
-	}
-	y := 2
-	e.DisplayString(x, y, 0xF, "Name")
-	e.DisplayString(0x21, y, 0xF, "AC  HP")
-	y += 2
-	hi := e.partySel
-	for i, c := range e.party {
-		e.ClearCells(x, y, 0x26, y)
-		if i == hi && e.ext.choosing {
-			// extra: the member being chosen gets the menu selection background
-			for j := 0; j < len(c.Name()); j++ {
-				e.displayCharBg(x+j, y, 0xF, selBg(0xB, 0xF), c.Name()[j], true)
-			}
-		} else if i == hi {
-			e.DisplayString(x, y, 0xF, c.Name())
-		} else {
-			e.displayName(c, x, y, false)
-		}
-		ac := c.AC[0]
-		dx := 0
-		switch {
-		case ac <= 0x32, ac >= 0x3D && ac <= 0x45:
-			dx = 1
-		case ac >= 0x33 && ac <= 0x3C:
-			dx = 2
-		}
-		e.displayAC(c, 0x20+dx, y)
-		hp := c.HP
-		dx = 0
-		switch {
-		case hp <= 9:
-			dx = 2
-		case hp <= 0x63:
-			dx = 1
-		}
-		e.displayHP(c, 0x24+dx, y, false, false)
-		y++
-	}
-	e.ClearCells(x, y, 0x26, y)
-}
+// Party menu (O0EF:01A1).
 
 // The party menu's entries (DS 06C0, 42-byte records: name, enabled flag).
 // Picking one gives its first letter.

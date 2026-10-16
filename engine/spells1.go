@@ -136,7 +136,7 @@ func (e *Engine) spellTargetSetup(spell, mode int) (ok bool) {
 	switch e.spellRec(byte(spell), spellFieldTargets) {
 	case 1:
 	case 2:
-		e.DrawMainScreen()
+		e.loadPicture()
 		e.spellCaster = e.selectMemberMenu("Cast Spell on whom", true, e.spellCaster)
 		if e.spellCaster == nil {
 			e.spellTarget = nil

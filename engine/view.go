@@ -307,7 +307,7 @@ func (e *Engine) itemReadyEffect(it *Item, ready bool) {
 // tradeItem = O100:1E57 (item).
 func (e *Engine) tradeItem(it *Item) {
 	to := e.view.start
-	e.DrawMainScreen()
+	e.loadPicture()
 	to = e.selectMemberMenu("Trade with Whom?", true, to)
 	if to == nil {
 		return
