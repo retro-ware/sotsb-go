@@ -41,7 +41,7 @@ func partyFileName(letter byte, n int) string {
 func (e *Engine) SaveGame() {
 	var key byte
 	for {
-		key, _ = e.DisplayInput("Save Which Game: ", "A B C D E F G H I J", colourLightMagenta, colourGreen, colourWhite, false, e.gameState == stateCamp)
+		key, _ = e.menuChoice("Save Which Game: ", "A B C D E F G H I J", colourLightMagenta, colourGreen, colourWhite, false, e.gameState == stateCamp)
 		if key == 0 || key >= 'A' && key <= 'J' {
 			break
 		}
@@ -122,7 +122,7 @@ func (e *Engine) LoadGame() {
 	menu = menu[:len(menu)-1]
 	var key byte
 	for {
-		key, _ = e.DisplayInput("Load Which Game: ", menu, colourLightMagenta, colourGreen, colourWhite, false, false)
+		key, _ = e.menuChoice("Load Which Game: ", menu, colourLightMagenta, colourGreen, colourWhite, false, false)
 		if key >= 'A' && key <= 'J' && e.fileExists(e.gameFileName(key)) || key == 0 {
 			break
 		}

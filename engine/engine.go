@@ -322,7 +322,7 @@ const (
 // whether the demo was chosen.
 func (e *Engine) playOrDemo(prompt string, timeout int64) bool {
 	e.inputTimeout, e.inputTimeoutKey = timeout, 'D'
-	k, _ := e.DisplayInput(prompt, "Play Demo", colourLightMagenta, colourGreen, colourWhite, false, false)
+	k, _ := e.menuChoice(prompt, "Play Demo", colourLightMagenta, colourGreen, colourWhite, false, false)
 	e.inputTimeout, e.inputTimeoutKey = 0, 0
 	return k == 'D'
 }

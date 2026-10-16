@@ -39,6 +39,7 @@ data segment by content.
   - [x] script machine O07D (no free-steps reset at init, picture 255 skips the picture, ROB unreadies items, no haste/slow in party speeds, no damage message for the stoned; 1B9A has no counterpart)
   - [x] money and item creation O13C (coins 259..271, pool gold rounds down, "How Many" gems, overload pause on taking coins, SotSB item types/weights/prices, +1..+3 bonus, scroll spells from the level tables)
   - [x] combat setup O097 (no wilderness battle map, DungCom tiles only, no pause before "A battle begins...", downed starters lie as body or statue tiles)
+  - [x] menus O16B (Left/Right and keypad 4/6 move through the menu, extended keys always returned — letter-only menus pass over them; keys typed ahead dropped; no map cursor; Yes preselected where SotSB asks for it; list menu cursor on Up/Down; the mouse is not supported)
 - [ ] M8 sound
 - [ ] M9 goplay: games.js, deploy.sh build rule, README tables, wasm build
 - [ ] M10 publish (public deploy: only with the user's go-ahead)

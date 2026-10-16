@@ -12,7 +12,7 @@ type animPic struct {
 	block  int    // DS:6B1C (-1 = nothing loaded)
 	frames []dax.SpriteFrame
 	cur    int   // DS:6ABF frame shown while waiting for input (1-based)
-	last   int64 // O104:03D8 [bp-57]: tick of the last frame change in the current DisplayInput
+	last   int64 // O16B:03C9 [bp-87]: tick of the last frame change in the current DisplayInput
 }
 
 // portrait = DS:6B00..6B09: the cached HEAD and BODY pictures.

@@ -682,7 +682,7 @@ func (e *Engine) otherMenu(c *Character) (done bool) {
 	}
 	m += "Speed Exit"
 	for key := byte(0x20); key != 0 && key != 'E' && !done; {
-		key, _ = e.DisplayInput("", m, 0xD, 0xA, 0xF, false, false)
+		key, _ = e.menuChoice("", m, 0xD, 0xA, 0xF, false, false)
 		switch key {
 		case 'G':
 			done = e.guard(c)
@@ -741,7 +741,7 @@ func (e *Engine) speedMenu() {
 			m += "Faster "
 		}
 		m += "Exit"
-		key, _ = e.DisplayInput("GameSpeed ("+itoa(int(e.gameSpeed))+") :", m, 0xD, 0xA, 0xF, false, false)
+		key, _ = e.menuChoice("GameSpeed ("+itoa(int(e.gameSpeed))+") :", m, 0xD, 0xA, 0xF, false, false)
 		switch key {
 		case 'S':
 			e.gameSpeed++

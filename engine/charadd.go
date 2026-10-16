@@ -63,7 +63,7 @@ func (e *Engine) AddCharacter() {
 	var paladinName string
 	rangers := 0
 	e.ClearCells(1, 1, 38, 22)
-	k, _ := e.DisplayInput("Add from where? ", "Secret Curse Exit", colourLightMagenta, colourGreen, colourWhite, false, false)
+	k, _ := e.menuChoice("Add from where? ", "Secret Curse Exit", colourLightMagenta, colourGreen, colourWhite, false, false)
 	switch k {
 	case 'S':
 		e.addSource = fromSilverBlades

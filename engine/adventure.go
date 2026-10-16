@@ -418,7 +418,7 @@ func (e *Engine) lockedDoor() {
 				}
 				menu += " Exit"
 				if menu != " Exit" {
-					k, _ := e.DisplayInput("Locked. ", menu, colourLightMagenta, colourGreen, colourWhite, false, false)
+					k, _ := e.menuChoice("Locked. ", menu, colourLightMagenta, colourGreen, colourWhite, false, false)
 					switch k {
 					case 'B':
 						move = e.bashDoor()

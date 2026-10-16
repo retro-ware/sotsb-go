@@ -615,7 +615,7 @@ func (e *Engine) sellItem(it *Item) {
 		e.DisplayTextBlock(1, 21, 38, 22, colourYellow, true, "Your "+it.Name()+" are worthless.")
 		prompt = "Would you like to discard them? "
 	}
-	if e.YesNo(colourLightMagenta, colourGreen, colourWhite, prompt) == 'Y' {
+	if e.yesNoFrom(answerYes, colourLightMagenta, colourGreen, colourWhite, prompt) == 'Y' {
 		switch {
 		case v > 0:
 			e.printMessage("Sold!")
@@ -656,7 +656,7 @@ func (e *Engine) identifyItem(it *Item) (redraw bool) {
 	paid := false
 	e.ItemName(e.viewChar(), it, 0, 0, false, false)
 	e.DisplayTextBlock(1, 21, 38, 22, colourYellow, true, "For "+itoa(identifyCost)+" gold pieces I'll identify your "+it.Name())
-	if e.YesNo(colourLightMagenta, colourGreen, colourWhite, "Is It a Deal? ") == 'Y' {
+	if e.yesNoFrom(answerYes, colourLightMagenta, colourGreen, colourWhite, "Is It a Deal? ") == 'Y' {
 		if g := goldWorth(e.selected()); g >= identifyCost {
 			paid = true
 			e.setGold(uint16(g - identifyCost))

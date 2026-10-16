@@ -1,7 +1,7 @@
 package engine
 
-// The list menu (O104:0E9F and its nested procedures; the node count of
-// O104:0076 is len(list)).
+// The list menu (O16B:13EE and its nested procedures; the node count of
+// O16B:0062 is len(list)).
 
 // ListNode is the ovr26 list node: 0x2E bytes, text string[40] at +0, flag at
 // +0x29 (non-zero = header row, drawn in promptColour and skipped by the
@@ -18,7 +18,7 @@ const dimColour = 8
 // skipped: the cursor passes over the node.
 func (p *ListNode) skipped() bool { return p.Flag != 0 || p.Dim }
 
-// newList = O104:1253: n empty nodes (n<2 gives 1 node). freeList is a no-op.
+// newList = O16B:18F5: n empty nodes (n<2 gives 1 node). freeList is a no-op.
 func newList(n int) []*ListNode {
 	if n < 1 {
 		n = 1
@@ -39,7 +39,7 @@ type listMenuCtx struct {
 	width, rows, total, leadingHdr int
 }
 
-// nth = O104:000F (nil when i >= count or negative).
+// nth = O16B:0000 (nil when i >= count or negative).
 func (c *listMenuCtx) nth(i int) *ListNode {
 	if i < 0 || i >= len(c.list) {
 		return nil
@@ -47,7 +47,7 @@ func (c *listMenuCtx) nth(i int) *ListNode {
 	return c.list[i]
 }
 
-// drawRows = O104:0897: full redraw of the list area from node first.
+// drawRows = O16B:0DAC: full redraw of the list area from node first.
 // (lastHeaderBefore, O16B:0D20, is computed there but never used.)
 func (e *Engine) lmDrawRows(c *listMenuCtx, first int) {
 	e.ClearCells(c.x1, c.y1, c.x2, c.y2)
@@ -82,8 +82,8 @@ func lastNonSpace(s string) int {
 	return i
 }
 
-// lmDrawRow = O104:0A65 (highlighted: black on the highlight colour) /
-// O104:0B07 (normal): redraw only the trimmed text of row i.
+// lmDrawRow = O16B:0FB4 (highlighted: black on the highlight colour) /
+// O16B:1056 (normal): redraw only the trimmed text of row i.
 func (e *Engine) lmDrawRow(c *listMenuCtx, i int, highlighted bool) {
 	p := c.nth(i)
 	if p == nil {
@@ -104,7 +104,7 @@ func (e *Engine) lmDrawRow(c *listMenuCtx, i int, highlighted bool) {
 	}
 }
 
-// lmStep moves the cursor one row with the wrap rules of O104:0DCA (without
+// lmStep moves the cursor one row with the wrap rules of O16B:1319 (without
 // the header skip).
 func (e *Engine) lmStep(c *listMenuCtx, forward bool) {
 	top := e.listTop
@@ -127,7 +127,7 @@ func (e *Engine) lmStep(c *listMenuCtx, forward bool) {
 	}
 }
 
-// lmSkipHeaders = O104:0C08: up to rows times, step past header rows.
+// lmSkipHeaders = O16B:1157: up to rows times, step past header rows.
 func (e *Engine) lmSkipHeaders(c *listMenuCtx, forward bool) {
 	for k := 0; k < c.rows; k++ {
 		if p := c.nth(*c.index); p != nil && !p.skipped() {
@@ -137,13 +137,13 @@ func (e *Engine) lmSkipHeaders(c *listMenuCtx, forward bool) {
 	}
 }
 
-// lmMoveCursor = O104:0DCA.
+// lmMoveCursor = O16B:1319.
 func (e *Engine) lmMoveCursor(c *listMenuCtx, forward bool) {
 	e.lmStep(c, forward)
 	e.lmSkipHeaders(c, forward)
 }
 
-// lmPageScroll = O104:0D38.
+// lmPageScroll = O16B:1287.
 func (e *Engine) lmPageScroll(c *listMenuCtx, forward bool) {
 	rel := *c.index - e.listTop
 	if forward {
@@ -162,7 +162,7 @@ func (e *Engine) lmPageScroll(c *listMenuCtx, forward bool) {
 	e.lmDrawRows(c, e.listTop)
 }
 
-// ListMenu = O104:0E9F. index is 0-based in/out (persists across calls),
+// ListMenu = O16B:13EE. index is 0-based in/out (persists across calls),
 // redraw is set to force a full redraw and is cleared here. Returns the
 // DisplayInput key (0 on exit) and sets *selected to the node under the
 // cursor (nil on exit).
@@ -179,12 +179,14 @@ func (e *Engine) ListMenu(title, menu string, promptColour, normal, hi, x1, y1, 
 		*selected = nil
 		return 0
 	}
-	e.menuSel = 1 // DS:6B2B
 	c := &listMenuCtx{list: list, index: index, x1: x1, y1: y1, x2: x2, y2: y2,
 		promptColour: promptColour, normal: normal, hi: hi,
 		width: x2 - x1 + 1, rows: y2 - y1 + 1, total: len(list)}
 	for c.leadingHdr < len(list) && list[c.leadingHdr].Flag != 0 {
 		c.leadingHdr++
+	}
+	if c.total <= c.rows {
+		e.listTop = 0
 	}
 	if e.listTop > *index {
 		e.listTop = *index
@@ -219,9 +221,9 @@ func (e *Engine) ListMenu(title, menu string, promptColour, normal, hi, x1, y1, 
 		e.lmDrawRow(c, *index, false)
 		if extra {
 			switch key {
-			case scanHome: // keypad 7: one line up
+			case scanUp:
 				e.lmMoveCursor(c, false)
-			case scanEnd: // keypad 1: one line down
+			case scanDown:
 				e.lmMoveCursor(c, true)
 			case scanPageUp:
 				if hasPrev {

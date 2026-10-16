@@ -843,7 +843,7 @@ func (e *Engine) fxFireShield() {
 				key = 'C'
 			}
 		} else {
-			key, _ = e.DisplayInput("flame type: ", "Hot Cold", colourLightMagenta, colourGreen, colourWhite, false, false)
+			key, _ = e.menuChoice("flame type: ", "Hot Cold", colourLightMagenta, colourGreen, colourWhite, false, false)
 		}
 		switch key {
 		case 'H':
@@ -855,7 +855,7 @@ func (e *Engine) fxFireShield() {
 			e.isUnaffected(sel, affectZapsAttackers, rounds(), 0, 0, 0, false, "")
 			done = true
 		default:
-			key, _ = e.DisplayInput("Abort spell? ", "Yes No", colourLightMagenta, colourGreen, colourWhite, false, false)
+			key, _ = e.menuChoice("Abort spell? ", "Yes No", colourLightMagenta, colourGreen, colourWhite, false, false)
 			done = key == 'Y'
 		}
 	}

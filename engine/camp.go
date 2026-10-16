@@ -273,7 +273,7 @@ func (e *Engine) memorizeMenu() {
 	e.spellMenu2(5, 0, &index, &shown)
 	redraw := true
 	if shown {
-		if e.YesNo(colourYellow, colourGreen, colourWhite, "memorize these spells?") == 'N' {
+		if e.yesNoFrom(answerYes, colourYellow, colourGreen, colourWhite, "memorize these spells?") == 'N' {
 			forgetPending(e.selected())
 		} else {
 			done = true
@@ -305,7 +305,7 @@ func (e *Engine) memorizeMenu() {
 	if index != -1 {
 		index = -1
 		e.spellMenu2(5, 0, &index, &shown)
-		if shown && e.YesNo(colourYellow, colourGreen, colourWhite, "memorize these spells?") == 'N' {
+		if shown && e.yesNoFrom(answerYes, colourYellow, colourGreen, colourWhite, "memorize these spells?") == 'N' {
 			forgetPending(e.selected())
 		}
 	}
@@ -326,7 +326,7 @@ func (e *Engine) scribeMenu() {
 	e.spellMenu2(6, 0, &index, &shown)
 	redraw := true
 	if shown {
-		if e.YesNo(colourYellow, colourGreen, colourWhite, "Scribe these spells?") == 'N' {
+		if e.yesNoFrom(answerYes, colourYellow, colourGreen, colourWhite, "Scribe these spells?") == 'N' {
 			e.stopScribing(c)
 		} else {
 			done = true
@@ -396,7 +396,7 @@ func (e *Engine) scribeMenu() {
 	if index != -1 {
 		index = -1
 		e.spellMenu2(6, 0, &index, &shown)
-		if shown && e.YesNo(colourYellow, colourGreen, colourWhite, "Scribe these spells?") == 'N' {
+		if shown && e.yesNoFrom(answerYes, colourYellow, colourGreen, colourWhite, "Scribe these spells?") == 'N' {
 			e.stopScribing(c)
 		}
 	}
@@ -1456,7 +1456,7 @@ func (e *Engine) restFor(showing bool) bool {
 	for !stop && (r[restDays] > 0 || r[restHours] > 0 || r[restTens] > 0 || r[restMinutes] > 0) {
 		if showing && e.KeyPressed() {
 			e.showRest(0)
-			if e.YesNo(colourLightMagenta, colourGreen, colourWhite, "Stop Resting? ") == 'Y' {
+			if e.yesNoFrom(answerYes, colourLightMagenta, colourGreen, colourWhite, "Stop Resting? ") == 'Y' {
 				stop = true
 			} else {
 				e.ClearRow24()

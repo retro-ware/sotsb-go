@@ -548,7 +548,7 @@ func (e *Engine) aimPrompt(c, cand *Character, rng, showRange int, valid bool, x
 	return e.combatInput("Aim:", menu, true)
 }
 
-// combatInput = O104:03D8 with the picture not animated (prompt, menu,
+// combatInput = O16B:03C9 with the picture not animated (prompt, menu,
 // allowExtra): the key, and the DS:6E31 flag is dropped.
 func (e *Engine) combatInput(prompt, menu string, allowExtra bool) (byte, bool) {
 	return e.DisplayInput(prompt, menu, 0xD, 0xA, 0xF, allowExtra, false)

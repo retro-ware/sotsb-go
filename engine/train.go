@@ -726,7 +726,7 @@ func (e *Engine) TrainCharacter() {
 				e.displayStringBg(6, row, colourGreen, colourBlack, lead+itoa(int(c.Levels[k])+1)+" "+classNames[k])
 			}
 		}
-		if e.YesNo(colourLightMagenta, colourGreen, colourWhite, "Do you wish to train? ") != 'Y' {
+		if e.yesNoFrom(answerYes, colourLightMagenta, colourGreen, colourWhite, "Do you wish to train? ") != 'Y' {
 			return
 		}
 		e.printMessage("Congratulations...")
