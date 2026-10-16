@@ -228,8 +228,9 @@ func (e *Engine) recolour(im *dax.Image, tt [16]byte) {
 	}
 }
 
-// LoadIconPic = O12A:01D0 (name, block, slot): the two poses of a combat
-// icon, block and block+0x80, loaded masked on colour 0.
+// LoadIconPic = O195:01CF (name, block, slot): the two poses of a combat
+// icon, block and block+0x80, loaded masked on colour 0; an area's own
+// icons (CPIC from area 1) are recoloured on EGA and Tandy.
 func (e *Engine) LoadIconPic(name string, block, slot int) {
 	up := strings.ToUpper(name)
 	load := func(n string, b int) *dax.Image { return e.LoadPicMasked(n, b, 0) }
@@ -244,17 +245,21 @@ func (e *Engine) LoadIconPic(name string, block, slot int) {
 		ic[0], ic[1] = load(n, block), load(n, block+0x80)
 	case up == "COMSPR" || up == "ICON":
 		ic[0], ic[1] = load(name, block), load(name, block+0x80)
-		if up == "ICON" {
-			e.recolour(ic[0], recolourIcon)
-			e.recolour(ic[1], recolourIcon)
-		}
 	default:
-		n := name + e.areaDigit() // DS:5C08 game area digit
-		ic[0], ic[1] = load(n, block), load(n, block+0x80)
-		e.recolour(ic[0], recolourCombat)
-		e.recolour(ic[1], recolourCombat)
+		digit := e.areaDigit()
+		if up == "CPIC" {
+			digit = "1" // CPIC1.DAX is the only one
+		}
+		ic[0], ic[1] = load(name+digit, block), load(name+digit, block+0x80)
+		if e.colourCard() {
+			e.recolour(ic[0], recolourIcons)
+			e.recolour(ic[1], recolourIcons)
+		}
 	}
 }
+
+// colourCard: EGA or Tandy (DS:6816 != 0).
+func (e *Engine) colourCard() bool { return e.Cfg.Graphics == 'E' || e.Cfg.Graphics == 'T' }
 
 // freeIcon = O12A:0156 (slot).
 func (e *Engine) freeIcon(n byte) { e.icons[n] = [2]*dax.Image{} }
@@ -787,7 +792,7 @@ func (e *Engine) nearCombatants(c *Character, x, y, r int) {
 	e.buildNear(x, y, r, 0xFF, e.combatSize(c))
 }
 
-// BuildCharIcon = O0A1:0A90 (recolour): the character's combat icon: the
+// BuildCharIcon = O0F8:09CA (recolour): the character's combat icon: the
 // CBODY poses with the CHEAD poses laid over them (Pool ovr18:032F), in icon
 // slot +0xBF; with recolour the six icon colour pairs (+0xC1..) replace
 // the DS:3CF5 colours. The original works on the selected character.
@@ -813,6 +818,10 @@ func (e *Engine) BuildCharIcon(c *Character, recolour bool) {
 				body.Data[i] |= v
 			}
 		}
+	}
+	if e.colourCard() {
+		e.recolour(e.icons[slot][0], recolourIcons)
+		e.recolour(e.icons[slot][1], recolourIcons)
 	}
 	if recolour {
 		var to [16]byte

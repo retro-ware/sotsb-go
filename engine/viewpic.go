@@ -21,27 +21,21 @@ const (
 // areaDigit is the game-area digit in the .DAX names (ECL2, PIC2 ...).
 func (e *Engine) areaDigit() string { return strconv.Itoa(int(e.gameArea)) }
 
-// drawViewPicture = O110:000A (x, y, overlay, picture): an overlay (or any
-// picture while the area word asks for recolouring) is drawn through the
-// page one cell up and left; otherwise straight to the screen.
+// drawViewPicture = O178:0000 (x, y, overlay, picture): an overlay is
+// drawn through the page one cell up and left; otherwise straight to the
+// screen.
 func (e *Engine) drawViewPicture(x, y int, overlay bool, f int) {
 	if f < 0 || f >= len(e.pic.frames) {
 		return
 	}
 	im := e.pic.frames[f].Image
-	if wordAt(e.area, 2*areaWordRecolour) > 0 || overlay {
-		if wordAt(e.area, 2*areaWordRecolour) > 0 {
-			e.recolourFrame(recolourFrom[:], recolourCombat[:], 0, true, im)
-		}
+	if overlay {
 		e.drawPage(x-1, y-1, im, 0, true, false)
 		e.Flip()
 		return
 	}
 	e.DrawPicture(x, y, im, 0)
 }
-
-// areaWordRecolour: non-zero recolours the pictures (night).
-const areaWordRecolour = 511
 
 // loadViewPicture = O110:0103 load_pic_final (name, block, flags): the
 // <name><area>.DAX block into the view picture unless it is already there.

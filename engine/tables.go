@@ -5,11 +5,8 @@ package engine
 // The colours recolouring maps from (identity).
 var recolourFrom = [16]byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}
 
-// Combat pictures (COMSPR and the area's own icons) recoloured to.
-var recolourCombat = [16]byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}
-
-// The ICON pictures recoloured to (colour 13 becomes 0).
-var recolourIcon = [16]byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 0, 14, 15}
+// Combat icons recoloured to (colour 8 becomes 0).
+var recolourIcons = [16]byte{0, 1, 2, 3, 4, 5, 6, 7, 0, 9, 10, 11, 12, 13, 14, 15}
 
 // Race names (raceTribble, raceElf ...).
 var raceNames = [8]string{"Tribble", "Elf", "Half-Elf", "Dwarf", "Gnome", "Halfling", "Human", "Monster"}

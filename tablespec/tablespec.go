@@ -52,10 +52,9 @@ type Table struct {
 var Tables = []Table{
 	// Screen frames drawn from 8x8 symbols (R133 draw8x8_01..): symbol = entry + 286.
 
-	// Picture recolouring (R226:15F3 from/to tables).
-	{"recolourFrom", 2744, 16, Bytes, "The colours recolouring maps from (identity).", 0, false, 0},
-	{"recolourCombat", 2744, 16, Bytes, "Combat pictures (COMSPR and the area's own icons) recoloured to.", 0, false, 0},
-	{"recolourIcon", 2760, 16, Bytes, "The ICON pictures recoloured to (colour 13 becomes 0).", 0, false, 0},
+	// Icon recolouring on EGA and Tandy (R2BC:1418's DS:19A4 from / DS:19B4 to tables).
+	{"recolourFrom", 6564, 16, Bytes, "The colours recolouring maps from (identity).", 0, false, 0},
+	{"recolourIcons", 6580, 16, Bytes, "Combat icons recoloured to (colour 8 becomes 0).", 0, false, 0},
 
 	// The wilderness map (O109): where each place's cursor goes, by area word 417.
 	{"wildMapCursorX", 2634, 32, Bytes, "Wilderness map cursor columns (8-pixel cells), by place.", 0, true, 0},

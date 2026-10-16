@@ -123,6 +123,11 @@ func (e *Engine) addNPC(block byte) {
 	}
 	c := e.loadMonsterRecord(block)
 	c.RandomID = block
+	if e.demo { // the demo's own icons (O0F8:25C3)
+		if b, ok := map[byte]byte{50: 77, 51: 76, 52: 66}[block]; ok {
+			block = b
+		}
+	}
 	e.AddToParty(c)
 	e.LoadIconPic("CPIC", int(block), int(c.Order))
 }
