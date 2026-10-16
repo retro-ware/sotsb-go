@@ -122,7 +122,7 @@ func (e *Engine) MapCell(x, y int) byte {
 // SetSkyColours = O17E:015A (sky, horizon, band, ground).
 func (e *Engine) SetSkyColours(a, b, c, d byte) { e.gs.sky = [4]byte{a, b, c, d} }
 
-// drawSky = O116:0184: the four colour bands behind the walls (R226:1D67
+// drawSky = O116:0184: the four colour bands behind the walls (R2BC:1B87
 // fills x=2 cells, 11 cells wide, between the given pixel rows).
 func (e *Engine) drawSky() {
 	if e.videoMode != 0 {
@@ -134,10 +134,10 @@ func (e *Engine) drawSky() {
 	}
 }
 
-// FillRect = R226:1D67 (x cells, y rows, w cells, h rows, colour), in page coordinates.
+// FillRect = R2BC:1B87 (x cells, y rows, w cells, h rows, colour), in page coordinates.
 func (e *Engine) FillRect(x, y, w, h int, colour byte) {
 	if e.Trace != nil {
-		e.Trace("R226:1D67", "FillRect", x, y, w, h, int(colour), "", "")
+		e.Trace("R2BC:1B87", "FillRect", x, y, w, h, int(colour), "", "")
 	}
 	// The original fills the drawing page DS:4A20, one cell up and left
 	// of the screen.
@@ -180,7 +180,7 @@ func (e *Engine) Draw3DView(x, y, dir int) {
 	e.pageDraw = true
 	defer e.traceFlip()
 	defer func() { e.pageDraw = false }()
-	defer e.S.Release() // R226:12E9 via the near thunk Pool ovr30:05F3: show the finished frame
+	defer e.S.Release() // R2BC:1104 via the near thunk Pool ovr30:05F3: show the finished frame
 	e.drawSky()
 	left, right, back := (dir+6)%8, (dir+2)%8, (dir+4)%8
 	cx, cy := x+2*dirDX[dir], y+2*dirDY[dir]

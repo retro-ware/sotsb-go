@@ -444,7 +444,7 @@ func (e *Engine) iconPane(x, y int) {
 	}
 	e.drawIcon(x, y, 0, 0, 0xC)
 	e.drawIcon(x+3, y, 0, 1, 0xC)
-	e.Flip() // R226:12E9
+	e.Flip() // R2BC:1104
 }
 
 // iconCopy = O0A7:3C5B (src, dst, recolour) nested in the icon editor:
@@ -477,7 +477,7 @@ func (e *Engine) iconCopy(src, dst byte, recolour bool) {
 	}
 }
 
-// recolourIcon = R226:15F3 (identity, to, 0, 0, icon): colour i becomes
+// recolourIcon = R2BC:1418 (identity, to, 0, 0, icon): colour i becomes
 // to[i] for i = 0..15 in turn, so a pixel already moved to a later colour
 // moves again (3 -> 15 -> to[15]). Mask pixels are left alone. Amiga
 // pixels (extra) take the same end result through amigaIconColour.

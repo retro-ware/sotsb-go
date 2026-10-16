@@ -42,7 +42,7 @@ func (e *Engine) LoadAnimPic(name string, block int, masked bool) {
 		fr = fr[:4]
 	}
 	if masked && (e.Cfg.Graphics == 'E' || e.Cfg.Graphics == 'T') { // DS:4A1E != 0
-		for _, f := range fr { // R226:15F3(DS:0C6C, DS:0C7C, 0, 0): colour 13 -> opaque black
+		for _, f := range fr { // R2BC:1418(DS:0C6C, DS:0C7C, 0, 0): colour 13 -> opaque black
 			e.recolourFrame(maskFrom[:], maskTo[:], 0, false, f.Image)
 		}
 	}
@@ -60,8 +60,8 @@ func (e *Engine) FreeAnimPic() {
 }
 
 // drawPicAt = O110:000A (x, y, overlay, pic): an overlay picture goes
-// through R226:0B94 at page cell (x-1,y-1), which is screen cell (x,y)
-// (the page starts one cell in); otherwise R226:10E7.
+// through R2BC:0BB4 at page cell (x-1,y-1), which is screen cell (x,y)
+// (the page starts one cell in); otherwise R2BC:0EFE.
 func (e *Engine) drawPicAt(x, y int, overlay bool, im *dax.Image) {
 	if im == nil {
 		return
@@ -86,7 +86,7 @@ func (e *Engine) DrawAnimFrame(frame int) {
 		return
 	}
 	im := e.pic.frames[frame-1].Image
-	e.drawPage(im.X+2, im.Y+2, im, 0, true, false) // R226:0B94 at (x+3-1, y+3-1)
+	e.drawPage(im.X+2, im.Y+2, im, 0, true, false) // R2BC:0BB4 at (x+3-1, y+3-1)
 	e.Flip()
 }
 

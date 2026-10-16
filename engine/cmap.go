@@ -11,7 +11,7 @@ import (
 
 // The combat map (O11C, O121, O12A). Squares are 3x3 cells; the view
 // shows 7x7 squares of the 50x25 map on the drawing page, which appears at
-// screen cell (1,1) (R226:12E9 copies it 8 pixels down and right).
+// screen cell (1,1) (R2BC:1104 copies it 8 pixels down and right).
 
 // combatMap is the 0x4E9-byte record at [DS:6716].
 type combatMap struct {
@@ -75,7 +75,7 @@ func (e *Engine) tileOf(x, y int) byte {
 }
 
 // drawPage draws a frame at page cell (x,y), clipped to the page. masked
-// skips the image's mask colour; under (R226:0B94 mode 4) keeps what was
+// skips the image's mask colour; under (R2BC:0BB4 mode 4) keeps what was
 // there in DS:4A24.
 func (e *Engine) drawPage(x, y int, im *dax.Image, frame int, masked, under bool) {
 	if e.Trace != nil {
@@ -83,7 +83,7 @@ func (e *Engine) drawPage(x, y int, im *dax.Image, frame int, masked, under bool
 		if under {
 			mode |= 4
 		}
-		e.Trace("R226:0B94", "DrawPage", x, y, frame, mode, picID(im, 0), "")
+		e.Trace("R2BC:0BB4", "DrawPage", x, y, frame, mode, picID(im, 0), "")
 	}
 	e.blitPage(x, y, im, frame, masked, under)
 }
@@ -132,7 +132,7 @@ func (e *Engine) markSquare(sx, sy int, c uint8) {
 	}
 }
 
-// restoreUnder = R226:0B94 (DS:4A24, mode 0): put back what the last
+// restoreUnder = R2BC:0BB4 (DS:4A24, mode 0): put back what the last
 // sprite hid.
 func (e *Engine) restoreUnder(x, y int, im *dax.Image) {
 	if im == nil {
@@ -144,7 +144,7 @@ func (e *Engine) restoreUnder(x, y int, im *dax.Image) {
 	}
 	if e.Trace != nil {
 		s := md5.Sum(e.sprUnder)
-		e.Trace("R226:0B94", "DrawPage", x, y, 0, 0, fmt.Sprintf("%dx%d:%s", im.Height, w, hex.EncodeToString(s[:])[:10]), "")
+		e.Trace("R2BC:0BB4", "DrawPage", x, y, 0, 0, fmt.Sprintf("%dx%d:%s", im.Height, w, hex.EncodeToString(s[:])[:10]), "")
 	}
 	x0, pw := e.pageGeom()
 	e.S.Lock()
@@ -168,10 +168,10 @@ func (e *Engine) drawTile(x, y int, t byte) {
 	if t > 0x7F {
 		im, f = e.sqrpaci[1], int(t&0x7F)
 	}
-	// R226:08D7 (page DS:4A20, tiles, mode 0, frame, x, y): the same blit
+	// R2BC:08F7 (page DS:4A20, tiles, mode 0, frame, x, y): the same blit
 	// into the page as 0D71 unmasked.
 	if e.Trace != nil {
-		e.Trace("R226:08D7", "DrawPictureMasked", x, y, f, 0, picID(im, 0), "")
+		e.Trace("R2BC:08F7", "DrawPictureMasked", x, y, f, 0, picID(im, 0), "")
 	}
 	e.blitPage(x, y, im, f, false, false)
 }
@@ -210,7 +210,7 @@ func (e *Engine) LoadBackpacIcons(name string, block, first, n int) {
 	}
 }
 
-// recolour = R226:15F3 with DS:0CD2 → to: map the colours of frame 0 (the
+// recolour = R2BC:1418 with DS:0CD2 → to: map the colours of frame 0 (the
 // original takes a frame number, always passed 0, so only that frame changes).
 func (e *Engine) recolour(im *dax.Image, tt [16]byte) {
 	if im == nil || im.Count == 0 {
@@ -285,7 +285,7 @@ func (e *Engine) hitColours(slot int) {
 	e.iconToSprite(slot, 1, 3, false)
 }
 
-// drawHitFrame / restoreHitFrame = R226:0B94 with DS:6E36 (mode 5) and
+// drawHitFrame / restoreHitFrame = R2BC:0BB4 with DS:6E36 (mode 5) and
 // DS:4A24 (mode 0).
 func (e *Engine) drawHitFrame(f, x, y int) { e.drawPage(x, y, e.spr, f, true, true) }
 func (e *Engine) restoreHitFrame(x, y int) { e.restoreUnder(x, y, e.spr) }

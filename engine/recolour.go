@@ -6,7 +6,7 @@ import (
 
 // Picture recolouring.
 
-// recolourFrame = R226:15F3 (from, to, frame, random, image), the EGA
+// recolourFrame = R2BC:1418 (from, to, frame, random, image), the EGA
 // path (DS:4A1E = 1) on chunky pixels: for each of the 16 colours whose
 // from and to differ, pixels that had that colour in the picture as passed
 // in become `to` in a copy, which replaces the picture at the end (so one

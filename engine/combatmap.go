@@ -9,7 +9,7 @@ type nearEntry struct{ index, dist, dir byte }
 
 type nearState struct{ list []nearEntry } // DS:6716..671A
 
-// Flip = R226:12E9: show the drawing page. The port draws straight to the
+// Flip = R2BC:1104: show the drawing page. The port draws straight to the
 // shown screen (Hold/Release frame the 3D view), so there is nothing to do.
 func (e *Engine) Flip() { e.traceFlip() }
 
