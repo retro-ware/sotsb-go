@@ -182,14 +182,14 @@ func (e *Engine) ItemsMenu() bool {
 	return done
 }
 
-// readyItem = O0AF:1ED6 ready_Item (item): ready or unready, with the reasons it
-// cannot be readied and the item's own effect (+0x3E > 0x7F).
+// readyItem = O100:1C0F ready_Item (item): ready or unready, with the
+// reasons it cannot be readied and the item's own effect (Spells[2] > 127).
 func (e *Engine) readyItem(it *Item) {
-	effect := it.Spells[2] > 0x7F
+	effect := it.Spells[2] > 127
 	c := e.selected()
 	if it.Readied != 0 {
 		if it.Cursed != 0 {
-			e.printMessage("It's Cursed")
+			e.printMessage("It's Cursed!")
 			return
 		}
 		it.Readied = 0
@@ -200,10 +200,10 @@ func (e *Engine) readyItem(it *Item) {
 	}
 	why := 0
 	typ := it.Type
-	if int(e.baseItem(typ, 1))+int(c.Hands) > 2 {
+	if int(e.baseItem(typ, itemHands))+int(c.Hands) > 2 {
 		why = 3
 	}
-	slot := int(e.baseItem(typ, 0))
+	slot := int(e.baseItem(typ, itemSlot))
 	switch {
 	case slot <= 8:
 		if c.Slots[slot] != nil {
@@ -214,13 +214,13 @@ func (e *Engine) readyItem(it *Item) {
 			why = 2
 		}
 	}
-	if typ == 0x49 && c.Slots[slotArrows] != nil {
+	if typ == itemTypeArrows && c.Slots[slotArrows] != nil {
 		why, slot = 2, slotArrows
 	}
-	if typ == 0x1C && c.Slots[slotBolts] != nil {
+	if typ == itemTypeBolts && c.Slots[slotBolts] != nil {
 		why, slot = 2, slotBolts
 	}
-	if e.baseItem(typ, 0xD)&c.ClassMask == 0 {
+	if e.baseItem(typ, itemClasses)&c.ClassMask == 0 {
 		why = 1
 	}
 	switch why {
@@ -241,7 +241,7 @@ func (e *Engine) readyItem(it *Item) {
 		}
 		e.printMessage("already using " + name)
 	case 3:
-		if !(e.gameState == 5 && c.Auto != 0) {
+		if !(e.gameState == stateCombat && c.Auto != 0) {
 			e.printMessage("Your hands are full!")
 		}
 	}
@@ -322,18 +322,46 @@ func (e *Engine) tradeItem(it *Item) {
 	e.ApplyItems(to)
 }
 
-// halveItem = O0AF:21D5 (item): half the stack becomes a new unreadied
-// item right after it.
+// halveItem = O100:1F28 (item): half the stack becomes a new unreadied
+// item right after it. A bag of scrolls gives its first half to the new
+// bag; a half of one scroll is that scroll itself.
 func (e *Engine) halveItem(it *Item) {
-	half := it.Count >> 1
+	half := it.Count / 2
 	if half == 0 {
 		e.printMessage("Can't halve that")
 		return
 	}
-	n := *it
-	n.Count = half
+	rest := it.Count - half
+	var n Item
+	if it.Type == itemTypeBag {
+		taken := it.Contents[:half:half]
+		if half == 1 {
+			n = *taken[0]
+		} else {
+			n = *it
+			setBagCount(&n, half)
+			n.Price = 0
+			for _, x := range taken {
+				n.Price += x.Price
+			}
+			n.Contents = taken
+		}
+		left := it.Contents[half:]
+		if rest == 1 {
+			*it = *left[0]
+		} else {
+			setBagCount(it, rest)
+			for _, x := range taken {
+				it.Price -= x.Price
+			}
+			it.Contents = left
+		}
+	} else {
+		n = *it
+		n.Count = half
+		it.Count = rest
+	}
 	n.Readied = 0
-	it.Count -= half
 	c := e.selected()
 	for i, x := range c.Items {
 		if x == it {
@@ -343,30 +371,119 @@ func (e *Engine) halveItem(it *Item) {
 	}
 }
 
-// joinItems = O0AF:2285 (item): every matching stack joins it, up to 255
-// a stack. (The original compares +0x3C..+0x3E of each item with itself.)
+// setBagCount: a bag keeps the number of its scrolls in its count, its
+// weight and its second name word.
+func setBagCount(bag *Item, n byte) {
+	bag.Count = n
+	bag.Weight = uint16(n)
+	bag.Words[1] = n
+}
+
+// A bundle of scrolls: at most this many, and the name words a scroll
+// gets when it becomes the bundle (the middle word is the count).
+const (
+	bundleLimit     = 10
+	bundleFirstWord = 39
+	bundleLastWord  = 77
+	stackLimit      = 255 // an ordinary stack
+)
+
+// isLooseScroll: a mage or cleric scroll outside a bag.
+func isLooseScroll(it *Item) bool {
+	return it.Type == itemTypeMageScroll || it.Type == itemTypeClericScroll
+}
+
+// joinItems = O100:2230 (item): every matching stack joins it, up to 255
+// a stack; scrolls and bags of scrolls are bundled instead. (The original
+// compares Spells of each item with itself.)
 func (e *Engine) joinItems(it *Item) {
+	if isLooseScroll(it) || it.Type == itemTypeBag {
+		e.bundleScrolls(it)
+		return
+	}
+	if it.Count == 0 {
+		e.printMessage("That cannot be joined with other items.")
+		return
+	}
 	total := int(it.Count)
 	c := e.selected()
 	for _, p := range append([]*Item(nil), c.Items...) {
-		if p == it || p.Count == 0 {
+		if p == it {
 			continue
 		}
 		same := p.Words == it.Words && p.Type == it.Type && p.Plus == it.Plus && p.Plus2 == it.Plus2 && p.Cursed == it.Cursed
-		if !same || p.Weight != it.Weight || p.Spells[0] >= 2 {
+		if !same || p.Spells[0] >= 2 {
 			continue
 		}
-		if int(p.Count)+total <= 0xFF {
+		if int(p.Count)+total <= stackLimit {
 			total += int(p.Count)
 			e.loseItem(c, p)
 		} else {
-			it.Count = 0xFF
-			p.Count -= byte(0xFF - total)
+			it.Count = stackLimit
+			p.Count -= byte(stackLimit - total)
 			total = int(p.Count)
 			it = p
+			e.ItemName(c, it, 0, 0, false, false)
 		}
 	}
 	it.Count = byte(total)
+}
+
+// bundleScrolls = the scroll half of O100:2230: the scroll becomes a bag
+// holding itself, then the other loose scrolls and the bags that fit are
+// emptied into it, up to bundleLimit.
+func (e *Engine) bundleScrolls(bag *Item) {
+	c := e.selected()
+	if bag.Count >= bundleLimit {
+		e.printMessage("Bundles are limited to " + itoa(bundleLimit) + " scrolls.")
+		return
+	}
+	candidates := 0
+	for _, p := range c.Items {
+		if p.Type == itemTypeBag && p.Count < bundleLimit || isLooseScroll(p) {
+			candidates++
+		}
+	}
+	if candidates < 2 {
+		e.printMessage("There are no similar items to join with.")
+		return
+	}
+	if bag.Type != itemTypeBag {
+		inner := *bag
+		bag.Contents = []*Item{&inner}
+		bag.Readied = 0
+		bag.Words = [3]byte{bundleFirstWord, 1, bundleLastWord}
+		bag.Spells = [3]byte{}
+		bag.Count = 1
+		bag.Type = itemTypeBag
+		bag.Hidden = 0
+	}
+	for _, p := range append([]*Item(nil), c.Items...) {
+		if bag.Count >= bundleLimit {
+			break
+		}
+		if p == bag {
+			continue
+		}
+		fits := p.Type == itemTypeBag && p.Count < bundleLimit && p.Count+bag.Count <= bundleLimit
+		if !fits && !isLooseScroll(p) {
+			continue
+		}
+		if p.Type == itemTypeBag {
+			bag.Contents = append(bag.Contents, p.Contents...)
+			bag.Price += p.Price
+			bag.Count += p.Count
+		} else {
+			inner := *p
+			inner.Contents = nil
+			bag.Contents = append(bag.Contents, &inner)
+			bag.Count++
+			bag.Price += p.Price
+		}
+		setBagCount(bag, bag.Count)
+		p.Contents = nil
+		e.loseItem(c, p)
+	}
 }
 
 // Who can read a scroll (O0AF:2478): magic-users and clerics always, a

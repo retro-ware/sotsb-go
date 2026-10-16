@@ -16,6 +16,7 @@ const (
 	itemSidesNormal = 10
 	itemBonusNormal = 11
 	itemRange       = 12
+	itemClasses     = 13 // the classes that may ready it
 	itemFlags       = 14 // 1 uses arrows, 2 dexterity to hit, 4 strength to hit and damage, 128 uses bolts
 )
 
