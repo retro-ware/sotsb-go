@@ -98,7 +98,7 @@ type Engine struct {
 	turnOrder              []*Character                    // DS:8E2A the order of this round's turns
 	turnIndex              int                             // b8F4A the turn being taken
 	ageCheckDue            bool                            // b7D44 someone aged: see who dies of old age
-	duelling               bool                            // b8B70: the duel instead of a fight
+	duelling               bool                            // bA4BA: the duel instead of a fight; SotSB never sets it
 	forcePicture           bool                            // b4FD9: the encounter picture shows even during ENCOUNTER
 	gameSpeed              byte                            // game_speed_var_4FC2
 	freeTraining           bool                            // b75A1: the 'J' cheat of the party menu

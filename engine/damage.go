@@ -151,6 +151,7 @@ func (e *Engine) cmdDamage() {
 			}
 		default:
 			for _, c := range append([]*Character(nil), e.party...) {
+				dmg = roll() // each member rolls their own damage
 				if targets&damageAnyway == 0 {
 					if !e.SavingThrow(c, int(saveType), int(saveBonus)) || saveHurts {
 						e.damageWithMessage(dmg, c)

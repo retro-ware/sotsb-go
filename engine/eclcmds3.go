@@ -238,10 +238,8 @@ func (e *Engine) loadGeo(block byte) { e.LoadGeo(int(block)) }
 
 // CALL addresses (the operand's address, not its value).
 const (
-	callRedrawView  = 11792
-	callDuelWin     = 32768
-	callDuelLose    = 32769
-	callSound       = 45568
+	callRedrawView  = 11723
+	callSound       = 45571
 	callStepForward = 49182
 	callWallAhead   = 49176
 	callAnimate     = 26627
@@ -256,7 +254,7 @@ func (e *Engine) cmdCall() {
 	switch varAddr(s.argLo[1], s.argHi[1]) {
 	case callRedrawView:
 		s.cellHere = e.MapCell(int(s.posX), int(s.posY))
-		if s.keepScript && (s.pictureOn || s.spriteOn || s.redraw || s.moved || s.viewChanged) {
+		if s.pictureOn || s.spriteOn || s.redraw || s.moved || s.viewChanged {
 			e.viewReset = true
 			e.drawView()
 			e.statusLine()
@@ -264,10 +262,6 @@ func (e *Engine) cmdCall() {
 			s.pictureOn, s.spriteOn = false, false
 			s.wallHere = e.WallAt(int(s.posX), int(s.posY), int(s.facing))
 		}
-	case callDuelWin:
-		e.scriptDuel(true)
-	case callDuelLose:
-		e.scriptDuel(false)
 	case callSound:
 		switch s.encounterA {
 		case soundDuelA:

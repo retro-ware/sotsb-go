@@ -121,6 +121,7 @@ func (e *Engine) addNPC(block byte) {
 
 // cmdWho = O050:31E1 (prompt): the player picks the member.
 func (e *Engine) cmdWho() {
+	e.sc.noMember = false
 	e.readArgs(1)
 	e.ClearCells(textLeft, textTop, textRight, textBottom)
 	e.selectMember(e.selectMemberMenu(e.sc.text[1], false, e.selected()))
