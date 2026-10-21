@@ -10,9 +10,9 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/retro-ware/gameimport"
 	"sotsb/dax"
 	"sotsb/ega"
-	"sotsb/internal/gameimport"
 )
 
 // markerFiles: a folder holding all of these is a Secret of the Silver Blades install.
@@ -115,8 +115,8 @@ func importGame(src, dst string) error {
 const (
 	coverPainting  = 2 // TITLE.DAX's full-screen painting
 	coverLogo      = 4 // the "Secret of the Silver Blades" logo
-	coverLogoCol   = 6 // where the logo goes, in 8-pixel cells
-	coverLogoRow   = 11
+	coverLogoCol   = 5 // where the logo goes, in 8-pixel cells
+	coverLogoRow   = 5
 	coverCellPixel = 8
 )
 
